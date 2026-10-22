@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Aakar</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+  html,body{margin:0;height:100%;background:#171c27;color:#e6ecf7;font:13px "Segoe UI",system-ui,sans-serif}
+  .w{display:flex;flex-direction:column;gap:12px;padding:18px;height:100%;box-sizing:border-box}
+  #m{white-space:pre-wrap;line-height:1.4;flex:1;overflow:auto}
+  input{padding:9px 10px;background:#0f131b;border:1px solid #39445a;border-radius:7px;color:#fff;font-size:14px;outline:none}
+  input:focus{border-color:#ff8a3d}
+  .b{display:flex;gap:8px;justify-content:flex-end}
+  button{padding:7px 18px;border-radius:7px;border:1px solid #39445a;background:#20293a;color:#e6ecf7;cursor:pointer;font-size:13px}
+  button.p{background:#ff8a3d;border-color:#ff8a3d;color:#1a1208;font-weight:600}
+</style></head>
+<body><div class="w"><div id="m"></div><input id="i" type="text" spellcheck="false"><div class="b"><button id="c">Cancel</button><button id="o" class="p">OK</button></div></div>
+<script>
+  const i=document.getElementById('i'), m=document.getElementById('m');
+  window.promptApi.onInit(d=>{ m.textContent=d.message; i.value=d.value; i.focus(); i.select(); });
+  const ok=()=>window.promptApi.done(i.value), no=()=>window.promptApi.done(null);
+  document.getElementById('o').onclick=ok; document.getElementById('c').onclick=no;
+  window.addEventListener('keydown',e=>{ if(e.key==='Enter'){e.preventDefault();ok();} else if(e.key==='Escape'){e.preventDefault();no();} });
+</script></body></html>

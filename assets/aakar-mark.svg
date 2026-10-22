@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Aakar">
+  <defs>
+    <linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient>
+  </defs>
+  <polygon points="112,28 146,28 88,228 30,228" fill="url(#l)"/>
+  <polygon points="112,28 146,28 226,228 168,228" fill="url(#r)"/>
+  <polygon points="112,28 146,28 128.8,88" fill="#b8500f"/>
+  <polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/>
+</svg>

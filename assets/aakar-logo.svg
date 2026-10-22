@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 240" role="img" aria-label="Aakar">
+  <defs>
+    <linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient>
+  </defs>
+  <g transform="translate(8 6) scale(.9)">
+    <polygon points="112,28 146,28 88,228 30,228" fill="url(#l)"/>
+    <polygon points="112,28 146,28 226,228 168,228" fill="url(#r)"/>
+    <polygon points="112,28 146,28 128.8,88" fill="#b8500f"/>
+    <polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/>
+  </g>
+  <text x="250" y="146" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="118" font-weight="700" letter-spacing="2" fill="#e8eefb">Aakar</text>
+  <text x="254" y="196" font-family="Segoe UI, Inter, Arial, sans-serif" font-size="27" letter-spacing="9" fill="#ff8a3d">FORM · SHAPE · CAD</text>
+</svg>
