@@ -18,7 +18,7 @@ function createMainWindow() {
   return win;
 }
 
-// ---- window.prompt() is not implemented in Electron: provide a synchronous replacement (the CAD code calls prompt() in many places)
+// window.prompt() is not implemented in Electron: provide a synchronous replacement (the CAD code calls prompt() in many places)
 ipcMain.on('aakar:prompt', (event, message, defaultValue) => {
   const parent = BrowserWindow.fromWebContents(event.sender);
   let answered = false;
