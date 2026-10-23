@@ -18,37 +18,44 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
+      # installs electron, electron-builder and occt-wasm (pinned in package.json / package-lock.json)
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
-      - name: Package tests (asset protocol, kernel build tool, self-test gate)
+      - name: Package tests (asset protocol, kernel binding, self-test gate)
         run: npm test
 
-      # Optional exact kernel (OpenCascade WebAssembly). It is packaged only if it builds AND passes the conformance self-test;
-      # otherwise the EXE is built without it (the built-in kernel always works) and a warning is shown on the run.
-      - name: Exact kernel - build and self-test
+      # OpenCascade (occt-wasm) is copied into app/occt as plain files and loaded at run time by app/occt/aakar-occt.mjs.
+      # It is NOT bundled (no esbuild): bundling is what broke it before. The committed binding files are never deleted.
+      - name: OpenCascade - copy runtime and self-test
         id: occt
         continue-on-error: true
         shell: bash
         run: |
-          npm install --no-save --no-audit --no-fund occt-wasm esbuild
-          node tools/build-occt.mjs
-          node tools/occt-selftest.mjs
+          # occt-wasm is pinned in package.json; install it here too in case an older package.json is checked out
+          test -d node_modules/occt-wasm || npm install --no-save --no-audit --no-fund occt-wasm@5.7.1
+          # app/occt holds ES modules: tell Node 20 so the self-test can load them
+          test -f app/occt/package.json || echo '{ "type": "module" }' > app/occt/package.json
+          node scripts/fetch-occt-wasm.js
+          node tools/occt-selftest.mjs app/occt/aakar-occt.mjs
 
-      - name: Exact kernel - leave it out if it did not pass
+      - name: OpenCascade - leave it out if it did not pass
         if: steps.occt.outcome != 'success'
         shell: bash
         run: |
-          echo "::warning title=Exact kernel not packaged::The exact (OpenCascade) kernel did not build or did not pass its self-test - see the step above. The EXE uses the built-in kernel only."
-          rm -rf app/occt && mkdir -p app/occt
+          echo "::warning title=OpenCascade not packaged::occt-wasm did not pass its self-test - see the step above. The EXE uses AakarKernel only."
+          find app/occt -type f ! -name 'aakar-occt.mjs' ! -name 'aakar-occt.js' ! -name 'README.md' ! -name 'package.json' -delete
 
-      - name: Exact kernel - report
-        if: steps.occt.outcome == 'success'
+      - name: OpenCascade - check what is packaged
         shell: bash
         run: |
-          echo "::notice title=Exact kernel packaged::app/occt contains the exact kernel ($(ls app/occt | wc -l) files)."
           ls -la app/occt
+          if [ "${{ steps.occt.outcome }}" = "success" ]; then
+            test -f app/occt/index.js && test -f app/occt/occt-wasm.js && test -f app/occt/occt-wasm.wasm
+            echo "::notice title=OpenCascade packaged::occt-wasm $(node -p "require('./app/occt/occt-wasm-manifest.json').version") ($(node -p "require('./app/occt/occt-wasm-manifest.json').wasmMB") MB) is in the EXE."
+          fi
 
       - name: Build installer and portable EXE
         run: npm run dist
