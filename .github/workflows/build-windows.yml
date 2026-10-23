@@ -22,6 +22,34 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Package tests (asset protocol, kernel build tool, self-test gate)
+        run: npm test
+
+      # Optional exact kernel (OpenCascade WebAssembly). It is packaged only if it builds AND passes the conformance self-test;
+      # otherwise the EXE is built without it (the built-in kernel always works) and a warning is shown on the run.
+      - name: Exact kernel - build and self-test
+        id: occt
+        continue-on-error: true
+        shell: bash
+        run: |
+          npm install --no-save --no-audit --no-fund occt-wasm esbuild
+          node tools/build-occt.mjs
+          node tools/occt-selftest.mjs
+
+      - name: Exact kernel - leave it out if it did not pass
+        if: steps.occt.outcome != 'success'
+        shell: bash
+        run: |
+          echo "::warning title=Exact kernel not packaged::The exact (OpenCascade) kernel did not build or did not pass its self-test - see the step above. The EXE uses the built-in kernel only."
+          rm -rf app/occt && mkdir -p app/occt
+
+      - name: Exact kernel - report
+        if: steps.occt.outcome == 'success'
+        shell: bash
+        run: |
+          echo "::notice title=Exact kernel packaged::app/occt contains the exact kernel ($(ls app/occt | wc -l) files)."
+          ls -la app/occt
+
       - name: Build installer and portable EXE
         run: npm run dist
         env:
