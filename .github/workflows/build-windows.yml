@@ -38,6 +38,9 @@ jobs:
           test -d node_modules/occt-wasm || npm install --no-save --no-audit --no-fund occt-wasm@5.7.1
           # app/occt holds ES modules: tell Node 20 so the self-test can load them
           test -f app/occt/package.json || echo '{ "type": "module" }' > app/occt/package.json
+          # safety net for an older app/occt/aakar-occt.mjs that loads the raw Emscripten factory (occt-wasm.js) before the
+          # facade (index.js) - that gives "this occt-wasm build lacks: box, cyl, ...". Commit the fixed file to make this a no-op.
+          node -e "const f='app/occt/aakar-occt.mjs',fs=require('fs');let s=fs.readFileSync(f,'utf8');const o=\"const FILES = ['occt-wasm.js', 'occt-wasm.mjs', 'index.js'];\";if(s.includes(o)){fs.writeFileSync(f,s.replace(o,\"const FILES = ['index.js', 'occt-wasm.mjs', 'occt-wasm.js'];\"));console.log('::warning title=Old OpenCascade binding::app/occt/aakar-occt.mjs loads occt-wasm.js first - fixed for this build. Commit the updated file.')}"
           node scripts/fetch-occt-wasm.js
           node tools/occt-selftest.mjs app/occt/aakar-occt.mjs
 
