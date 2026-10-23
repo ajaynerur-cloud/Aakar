@@ -63,3 +63,10 @@ k.stepImport(text);                                          // exact body (meas
 `node kernel/test/run-all.js [aakar.html]` runs: closed-form mass properties of every primitive, 40 boolean cases against closed-form volumes, STEP round
 trips, 116 sphere/sphere cases against the lens formula, the **shipped 8.10 exact-kernel code** driven with AakarKernel, and the wired HTML end to end.
 `node kernel/test/fuzz.js <seed> <n>` runs random primitives and booleans against a Monte-Carlo check.
+
+## Second engine: OpenCascade (optional)
+
+`app/occt/aakar-occt.mjs` wraps the `occt-wasm` npm package as a second kernel for the same framework; the Exact-kernel panel has an engine switch
+(AakarKernel | OpenCascade) and remembers the choice. It reports volume, area and centroid but, unlike AakarKernel, no inertia tensor.
+`node kernel/test/07_occt_adapter.js` tests the binding against mock occt-wasm kernels with different API conventions.
+The mocks prove the adapter logic, not that the real occt-wasm API matches: the first run on a real build is the real test (see the log in the panel).

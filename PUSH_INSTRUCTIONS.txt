@@ -1,0 +1,16 @@
+Aakar 8.11.1 - OpenCascade (occt-wasm) as a switchable second kernel
+
+REPLACE
+  app/index.html                           (8.11.1: AakarKernel + engine switch + remembered choice)
+  .github/workflows/build-windows.yml      (no esbuild; occt-wasm is copied as plain files; the step is optional)
+ADD
+  app/occt/aakar-occt.mjs
+  app/occt/aakar-occt.js
+  app/occt/README.md
+  scripts/fetch-occt-wasm.js
+  .gitignore                               (merge: ignores the downloaded occt-wasm files)
+  kernel/                                  (updated: kernel/src/wire.js, kernel/embed.js, kernel/test/07_occt_adapter.js, run-all.js)
+REMOVE from your repo
+  any esbuild / webpack step that bundles occt-wasm, and scripts/fetch-occt.js (the old opencascade.js copier)
+Your main.js must serve app/occt/ under aakar-asset://occt/ for the desktop import (8.10 framework: X.moduleUrl);
+if that fails, Aakar falls back to loading occt/aakar-occt.js relative to index.html.

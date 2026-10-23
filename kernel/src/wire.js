@@ -13,20 +13,23 @@
   function chip() {
     const el = G.document && G.document.getElementById('stKernel'); if (!el) return;
     const ok = X.state === 'ready', mine = ok && X.name === 'AakarKernel';
-    el.textContent = '◈ ' + (ok ? X.name : 'faceted kernel') + (ok && X.useExactBooleans ? ' · exact' : '');
+    el.textContent = '◈ ' + (ok ? X.name : (X.state === 'loading' ? 'loading exact kernel…' : 'faceted kernel')) + (ok && X.useExactBooleans ? ' · exact' : '');
     el.className = ok ? 'on' : ''; el.title = ok ? (mine ? 'AakarKernel ' + K.version + ' — exact B-rep kernel (built in, offline). Click for exact properties, STEP export and the self-test.' : X.name + ' ' + X.version + ' — click for the exact-kernel panel') : 'No exact kernel active — click to open the panel';
   }
-  X.useAakarKernel = function () {
+  const pref = (v) => { try { if (v === undefined) return G.localStorage.getItem('aakar.exact.engine'); G.localStorage.setItem('aakar.exact.engine', v); } catch (e) { /* ignore */ } return null; };
+  X.useAakarKernel = function (remember) {
     X.useKernel(K, { name: 'AakarKernel', version: K.version });
     X.useExactBooleans = stored() !== '0';                         // on by default; the checkbox in the panel stores the user's choice
+    if (remember) pref('aakar');
     chip(); return X;
   };
   X.useOpenCascade = async function () {
     X.state = 'absent'; X.kernel = null; X.loading = null;
     let timer = null;
-    const ok = await Promise.race([X.load().then(() => X.state === 'ready'), new Promise((res) => { timer = setTimeout(() => res(false), 8000); })]);
+    const ok = await Promise.race([X.load().then(() => X.state === 'ready'), new Promise((res) => { timer = setTimeout(() => res(false), 90000); })]);   // compiling the WebAssembly can take a while on first start
     if (timer) clearTimeout(timer);
-    if (!ok || X.state !== 'ready') { X.loading = null; X.useAakarKernel(); X.log.push('OpenCascade not available — AakarKernel stays active'); return false; }
+    if (!ok || X.state !== 'ready') { const why = X.error; X.loading = null; X.useAakarKernel(); X.log.push('OpenCascade not available — AakarKernel stays active' + (why ? ' (' + why + ')' : '')); return false; }
+    X.useExactBooleans = stored() !== '0'; pref('occt');
     chip(); refresh(); return true;
   };
   /** exact properties of every exact body: volume, area, centroid, inertia tensor (unit density), B-rep structure and validity */
@@ -39,6 +42,7 @@
   };
   X.showProps = function () { try { X.lastProps = X.properties(); } catch (e) { try { (IK && IK.toast ? IK.toast : P.toast)(e.message, true); } catch (e2) { /* ignore */ } } X.openPanel(); };
   X.useAakarKernel();
+  if (pref() === 'occt') { try { G.setTimeout(() => { X.useOpenCascade().then(chip); }, 400); } catch (e) { /* ignore */ } }   // the user last chose OpenCascade: bring it back (falls back to AakarKernel if it is not there)
   // status-bar chip
   try {
     const d = G.document, foot = d && d.getElementById('status');
