@@ -20,7 +20,9 @@
 export const name = 'OpenCascade (occt-wasm)';
 export let version = 'occt-wasm';
 
-const FILES = ['occt-wasm.js', 'occt-wasm.mjs', 'index.js'];
+// index.js is the package's facade (exports OcctKernel with init / makeBox / fuse ...); occt-wasm.js is only the raw Emscripten
+// module factory underneath it, so it must come LAST - loading it first gave a module with none of the kernel methods.
+const FILES = ['index.js', 'occt-wasm.mjs', 'occt-wasm.js'];
 const here = (f) => new URL(f, import.meta.url).href;
 
 function readBytes(url) {
