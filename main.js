@@ -1,33 +1,43 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, shell, Menu, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, dialog, protocol } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 const APP_HTML = path.join(__dirname, 'app', 'index.html');
 const BG = '#141922';
 const WEB_PREFS = { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false };
 
+// Optional exact kernel (OpenCascade WebAssembly). Its files live in app/occt and are served as aakar-asset://occt/<file>:
+// a file:// page cannot fetch WebAssembly or import ES modules from disk, a privileged custom scheme can.
+protocol.registerSchemesAsPrivileged([{ scheme: 'aakar-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
+const OCCT_DIR = path.join(__dirname, 'app', 'occt').replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
+const MIME = { '.wasm': 'application/wasm', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.txt': 'text/plain' };
+
+/** request handler for aakar-asset:// (exported for the tests) */
+async function serveAsset(request, dir = OCCT_DIR) {
+  try {
+    const u = new URL(request.url), rel = decodeURIComponent(u.pathname).replace(/^\/+/, '');
+    if (u.hostname !== 'occt' || !rel || rel.split(/[\\/]/).includes('..')) return new Response('forbidden', { status: 403 });
+    const file = path.join(dir, rel);
+    if (!file.startsWith(path.resolve(dir) + path.sep)) return new Response('forbidden', { status: 403 });
+    const data = await fs.promises.readFile(file);
+    return new Response(data, { status: 200, headers: { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'access-control-allow-origin': '*', 'cache-control': 'no-cache' } });
+  } catch (e) { return new Response('not found', { status: 404 }); }
+}
+
 function createMainWindow() {
-  const win = new BrowserWindow({
-    width: 1600, height: 960, minWidth: 900, minHeight: 600,
-    backgroundColor: BG, show: false, autoHideMenuBar: true, title: 'Aakar',
-    icon: path.join(__dirname, 'build', 'icon.ico'),
-    webPreferences: WEB_PREFS
-  });
+  const win = new BrowserWindow({ width: 1600, height: 960, minWidth: 900, minHeight: 600, backgroundColor: BG, show: false, autoHideMenuBar: true, title: 'Aakar', icon: path.join(__dirname, 'build', 'icon.ico'), webPreferences: WEB_PREFS });
   win.once('ready-to-show', () => { win.maximize(); win.show(); });
   win.loadFile(APP_HTML);
   return win;
 }
 
-// window.prompt() is not implemented in Electron: provide a synchronous replacement (the CAD code calls prompt() in many places)
+// window.prompt() does not exist in Electron: a synchronous replacement (the CAD code calls prompt() in places)
 ipcMain.on('aakar:prompt', (event, message, defaultValue) => {
   const parent = BrowserWindow.fromWebContents(event.sender);
-  let answered = false;
-  const finish = (value) => { if (answered) return; answered = true; event.returnValue = value; };
-  const dlg = new BrowserWindow({
-    width: 460, height: 210, parent: parent || undefined, modal: !!parent, resizable: false, minimizable: false, maximizable: false,
-    show: false, autoHideMenuBar: true, backgroundColor: BG, title: 'Aakar',
-    webPreferences: { preload: path.join(__dirname, 'prompt-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
-  });
+  let answered = false; const finish = (value) => { if (answered) return; answered = true; event.returnValue = value; };
+  const dlg = new BrowserWindow({ width: 460, height: 210, parent: parent || undefined, modal: !!parent, resizable: false, minimizable: false, maximizable: false, show: false, autoHideMenuBar: true, backgroundColor: BG, title: 'Aakar',
+    webPreferences: { preload: path.join(__dirname, 'prompt-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   dlg.setMenu(null);
   const onResult = (e, value) => { if (e.sender === dlg.webContents) { finish(value === undefined ? null : value); if (!dlg.isDestroyed()) dlg.close(); } };
   ipcMain.on('aakar:prompt-result', onResult);
@@ -37,22 +47,17 @@ ipcMain.on('aakar:prompt', (event, message, defaultValue) => {
 });
 
 app.on('web-contents-created', (_e, contents) => {
-  // pop-out projects use window.open(<same file>#x8open=...): allow those, send web links to the default browser
   contents.setWindowOpenHandler(({ url }) => {
-    if (/^file:/i.test(url)) {
-      return { action: 'allow', overrideBrowserWindowOptions: { width: 1500, height: 920, backgroundColor: BG, autoHideMenuBar: true, title: 'Aakar', icon: path.join(__dirname, 'build', 'icon.ico'), webPreferences: WEB_PREFS } };
-    }
+    if (/^file:/i.test(url)) return { action: 'allow', overrideBrowserWindowOptions: { width: 1500, height: 920, backgroundColor: BG, autoHideMenuBar: true, title: 'Aakar', icon: path.join(__dirname, 'build', 'icon.ico'), webPreferences: WEB_PREFS } };
     if (/^https?:/i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
   contents.on('will-navigate', (e, url) => { if (!/^file:/i.test(url)) { e.preventDefault(); if (/^https?:/i.test(url)) shell.openExternal(url); } });
-  // the app asks "unsaved changes?" with beforeunload; Electron needs an explicit dialog for that
   contents.on('will-prevent-unload', (e) => {
     const w = BrowserWindow.fromWebContents(contents);
     const choice = dialog.showMessageBoxSync(w, { type: 'question', buttons: ['Stay', 'Close without saving'], defaultId: 0, cancelId: 0, title: 'Aakar', message: 'You have unsaved changes.', detail: 'Close anyway and lose them?' });
     if (choice === 1) e.preventDefault();
   });
-  // F12 = developer tools, F11 = full screen, Ctrl+Shift+R = reload (the menu bar is removed so the CAD shortcuts stay free)
   contents.on('before-input-event', (e, input) => {
     if (input.type !== 'keyDown') return;
     if (input.key === 'F12') { contents.toggleDevTools(); e.preventDefault(); }
@@ -65,6 +70,11 @@ const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 else {
   app.on('second-instance', () => { const w = BrowserWindow.getAllWindows()[0]; if (w) { if (w.isMinimized()) w.restore(); w.focus(); } });
-  app.whenReady().then(() => { Menu.setApplicationMenu(null); createMainWindow(); app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createMainWindow(); }); });
+  app.whenReady().then(() => {
+    protocol.handle('aakar-asset', (request) => serveAsset(request));
+    Menu.setApplicationMenu(null); createMainWindow();
+    app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createMainWindow(); });
+  });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }
+module.exports = { serveAsset };
