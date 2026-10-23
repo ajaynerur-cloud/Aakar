@@ -14857,7 +14857,94 @@ precision mediump float; void main(){}`;
   Object.assign(nb, { cmdProject, cmdTrim, cmdUntrim, projectPolyline, groupRegions, closeOpen, lastSketchSrc });
 })(typeof window !== 'undefined' ? window : globalThis);
 
-/* Aakar 8.8 · NURBS+ : BLEND (G0 / G1 / G2) · MATCH SURFACE · CONTINUITY READOUT */
+/* AAKAR-G3-MATH-START */
+/* Aakar 8.12 · NURBS G3 math (pure, no DOM): exact edge derivatives up to 3rd order, arc-length jets, G3 Hermite end conditions,
+ * G3 match row.  Used by NURBS+ Blend / Match / Continuity.  test/nurbs-g3.mjs extracts this block and tests it in Node. */
+(function (G) {
+  'use strict';
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], sc = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], len = (a) => Math.sqrt(dot(a, a));
+  const ones = (S) => S.P.map((r) => r.map(() => 1));
+  const transpose = (S) => ({ p: S.q, q: S.p, U: S.V.slice(), V: S.U.slice(), P: S.P[0].map((_, j) => S.P.map((r) => r[j].slice())), W: (S.W || ones(S))[0].map((_, j) => (S.W || ones(S)).map((r) => r[j])) });
+  const reverseU = (S) => { const lo = S.U[0], hi = S.U[S.U.length - 1]; return { p: S.p, q: S.q, U: S.U.map((x) => lo + hi - x).reverse(), V: S.V.slice(), P: S.P.slice().reverse(), W: (S.W || ones(S)).slice().reverse() }; };
+  /** the surface re-expressed so that `edge` ('u0','u1','v0','v1') is u = 0; the along-edge parameter stays the edge parameter */
+  const canonCache = new WeakMap();
+  function canonical(S, edge) {
+    let m = canonCache.get(S); if (!m) { m = {}; canonCache.set(S, m); } if (m[edge]) return m[edge];
+    let T = { p: S.p, q: S.q, U: S.U, V: S.V, P: S.P, W: S.W || ones(S) };
+    if (edge[0] === 'v') T = transpose(T);
+    if (edge[1] === '1') T = reverseU(T);
+    return (m[edge] = T);
+  }
+  /** B-spline basis functions of degree q at raw parameter t (NURBS Book A2.1 / A2.2) */
+  function basis(V, q, t) {
+    const n = V.length - q - 2; let span;
+    if (t >= V[n + 1]) span = n; else { span = q; while (span < n && t >= V[span + 1]) span++; }
+    const N = [1], left = [], right = [];
+    for (let j = 1; j <= q; j++) {
+      left[j] = t - V[span + 1 - j]; right[j] = V[span + j] - t; let saved = 0;
+      for (let r = 0; r < j; r++) { const d = right[r + 1] + left[j - r], tmp = d ? N[r] / d : 0; N[r] = saved + right[r + 1] * tmp; saved = left[j - r] * tmp; }
+      N[j] = saved;
+    }
+    return { span, N };
+  }
+  /** derivatives C^(k)(U[0]), k = 0..K, of a clamped curve from its first control points (any dimension) — NURBS Book (3.8) */
+  function startDerivs(Pts, U, p, K) {
+    let cur = Pts.slice(0, K + 1).map((x) => x.slice()); const out = [cur[0].slice()];
+    for (let k = 1; k <= K; k++) {
+      const nxt = [];
+      for (let i = 0; i + 1 < cur.length; i++) { const den = U[i + p + 1] - U[i + k], f = den > 0 && p - k + 1 > 0 ? (p - k + 1) / den : 0; nxt.push(cur[i + 1].map((x, c) => (x - cur[i][c]) * f)); }
+      cur = nxt; out.push(cur.length ? cur[0].slice() : Pts[0].map(() => 0));
+    }
+    return out;
+  }
+  const BIN = [[1], [1, 1], [1, 2, 1], [1, 3, 3, 1]];
+  /** exact jet at an edge point, in the surface's NORMALISED parameters, along the OUTWARD cross direction σ:
+   *  p, D1 = dS/dσ, D2 = d²S/dσ², D3 = d³S/dσ³  (rational surfaces included) */
+  function edgeDerivs(S, edge, a) {
+    const T = canonical(S, edge), p = T.p, q = T.q, U = T.U, V = T.V, W = T.W;
+    const v = V[0] + Math.max(0, Math.min(1, a)) * (V[V.length - 1] - V[0]), { span, N } = basis(V, q, v), K = Math.min(3, T.P.length - 1);
+    const rows = [];
+    for (let i = 0; i <= K; i++) { const h = [0, 0, 0, 0]; for (let r = 0; r <= q; r++) { const j = span - q + r, w = W[i][j], P = T.P[i][j], b = N[r] * w; h[0] += b * P[0]; h[1] += b * P[1]; h[2] += b * P[2]; h[3] += b; } rows.push(h); }
+    const Dh = startDerivs(rows, U, p, K); while (Dh.length < 4) Dh.push([0, 0, 0, 0]);
+    const C = [];
+    for (let k = 0; k < 4; k++) { let x = Dh[k].slice(0, 3); for (let i = 1; i <= k; i++) x = sub(x, sc(C[k - i], BIN[k][i] * Dh[i][3])); C.push(sc(x, 1 / Dh[0][3])); }
+    const L = U[U.length - 1] - U[0];
+    return { p: C[0], D1: sc(C[1], -L), D2: sc(C[2], L * L), D3: sc(C[3], -L * L * L) };
+  }
+  /** arc-length jet of a curve from parametric derivatives: unit tangent T, curvature vector kv = r'', and r''' */
+  function arcJet(D1, D2, D3) {
+    const a = len(D1) || 1e-300, a2 = a * a, a4 = a2 * a2, d12 = dot(D1, D2), ap = d12 / a;
+    const T = sc(D1, 1 / a), kv = sub(sc(D2, 1 / a2), sc(D1, d12 / a4));
+    let dr = add(sc(D3, 1 / a2), sc(D2, -2 * ap / (a2 * a)));
+    dr = add(dr, sc(D2, -d12 / a4)); dr = add(dr, sc(D1, -(dot(D2, D2) + dot(D1, D3)) / a4)); dr = add(dr, sc(D1, 4 * d12 * ap / (a4 * a)));
+    return { T, kv, r3: sc(dr, 1 / a), speed: a };
+  }
+  /** full G3 jet of the outward cross curve at an edge point */
+  function edgeJet3(S, edge, a) { const d = edgeDerivs(S, edge, a), j = arcJet(d.D1, d.D2, d.D3); return { p: d.p, D1: d.D1, D2: d.D2, D3: d.D3, T: j.T, kv: j.kv, r3: j.r3, speed: j.speed }; }
+  /** degree-7 Bézier with prescribed 1st-3rd derivatives at both ends (derivatives w.r.t. the Bézier parameter) */
+  function hermite7(P0, D0, DD0, DDD0, P7, D7, DD7, DDD7) {
+    const P1 = add(P0, sc(D0, 1 / 7)), P2 = add(sub(sc(P1, 2), P0), sc(DD0, 1 / 42)), P3 = add(add(sub(sc(P2, 3), sc(P1, 3)), P0), sc(DDD0, 1 / 210));
+    const P6 = sub(P7, sc(D7, 1 / 7)), P5 = add(sub(sc(P6, 2), P7), sc(DD7, 1 / 42)), P4 = sub(add(sub(P7, sc(P6, 3)), sc(P5, 3)), sc(DDD7, 1 / 210));
+    return [P0, P1, P2, P3, P4, P5, P6, P7];
+  }
+  /** 4th control row of a matched column so that its 3rd u-derivative at u = U[0] continues the reference curve:
+   *  rows = the column's (already G2-matched) control points, non-rational; ref = edgeJet3 of the reference (outward = into this surface) */
+  function matchRow3(rows, U, p, ref) {
+    const Dk = startDerivs(rows, U, p, 3), mag = len(Dk[1]), s2 = dot(Dk[2], ref.T);
+    const s3 = dot(Dk[3], ref.T) - dot(ref.r3, ref.T) * mag * mag * mag;               // keep the surface's own tangential 3rd-order speed change
+    const target = add(add(sc(ref.r3, mag * mag * mag), sc(ref.kv, 3 * mag * s2)), sc(ref.T, s3));
+    const unit = startDerivs([[0, 0, 0], [0, 0, 0], [0, 0, 0], [1, 1, 1]], U, p, 3)[3][0];
+    if (!unit) throw new Error('G3 needs degree ≥ 3 across the edge');
+    return add(rows[3], sc(sub(target, Dk[3]), 1 / unit));
+  }
+  /** G3 mismatch of two outward jets meeting at a join (same curve walked in opposite directions ⇒ r3 cancels) */
+  function g3Mismatch(j1, j2, size) { const d = len(add(j1.r3, j2.r3)); return { d, rel: d / Math.max(len(j1.r3), len(j2.r3), 0.05 / (size * size)) }; }
+  G.AakarG3 = { basis, startDerivs, edgeDerivs, arcJet, edgeJet3, hermite7, matchRow3, g3Mismatch, canonical };
+})(typeof window !== 'undefined' ? window : globalThis);
+/* AAKAR-G3-MATH-END */
+
+/* Aakar 8.8 · NURBS+ : BLEND (G0 / G1 / G2 / G3 since 8.12) · MATCH SURFACE · CONTINUITY READOUT */
 (function (G) {
   'use strict';
   const CAD = G.CAD, P = G.PRISM, IK = CAD && CAD.ik, nb = CAD && CAD.nb; if (!nb || !nb.cmdProject) return;
@@ -14865,13 +14952,14 @@ precision mediump float; void main(){}`;
   const { esc, num, clamp, fmt, toast, status, panel, $, $$ } = IK, { sub, add, sc, dot, cross, len, nrm, dist, madd, lerp3 } = nb;
   CAD.featNames = Object.assign(CAD.featNames || {}, { nbBlend: 'Blend surface', nbMatch: 'Match surface' });
   const EDGES = [['u0', 'Edge u = 0'], ['u1', 'Edge u = 1'], ['v0', 'Edge v = 0'], ['v1', 'Edge v = 1']];
-  const CONT = [['G0', 'G0 — position only'], ['G1', 'G1 — tangent continuous'], ['G2', 'G2 — curvature continuous']];
-  const levelNum = (c) => (c === 'G2' ? 2 : c === 'G1' ? 1 : 0);
+  const CONT = [['G0', 'G0 — position only'], ['G1', 'G1 — tangent continuous'], ['G2', 'G2 — curvature continuous'], ['G3', 'G3 — curvature changes smoothly (class-A)']];
+  const levelNum = (c) => (c === 'G3' ? 3 : c === 'G2' ? 2 : c === 'G1' ? 1 : 0);
+  const G3M = G.AakarG3;
   const surfSize = (S) => { let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; S.P.forEach((r) => r.forEach((p) => { for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], p[k]); mx[k] = Math.max(mx[k], p[k]); } })); return dist(mn, mx) || 1; };
 
   // ------------------------------------------------------------------ blend surface
   function blendSurface(A, ea, B, eb, o) {
-    const N = Math.max(8, Math.min(60, o.stations | 0 || 24)), la = levelNum(o.ca), lb = levelNum(o.cb), lvl = Math.max(la, lb), deg = lvl >= 2 ? 5 : lvl === 1 || (la + lb) >= 1 ? 3 : 1;
+    const N = Math.max(8, Math.min(60, o.stations | 0 || 24)), la = levelNum(o.ca), lb = levelNum(o.cb), lvl = Math.max(la, lb), deg = lvl >= 3 ? 7 : lvl >= 2 ? 5 : lvl === 1 || (la + lb) >= 1 ? 3 : 1;
     const rows = []; for (let j = 0; j <= deg; j++) rows.push([]);
     let edgeLen = 0, prev = null;
     for (let k = 0; k <= N; k++) {
@@ -14882,7 +14970,11 @@ precision mediump float; void main(){}`;
       const D0 = la >= 1 ? sc(jA.T, tauA) : chord, D1 = lb >= 1 ? sc(jB.T, -tauB) : chord;
       const DD0 = la >= 2 ? sc(jA.kv, tauA * tauA) : nz, DD1 = lb >= 2 ? sc(jB.kv, tauB * tauB) : nz;
       let C;
-      if (deg === 1) C = [P0, P1];
+      if (deg === 7) { // G3: degree-7 Hermite cross section; r''' of each side's outward cross curve (exact derivatives)
+        const kA = la >= 3 ? G3M.edgeJet3(A, ea, a) : null, kB = lb >= 3 ? G3M.edgeJet3(B, eb, b) : null;
+        const DDD0 = kA ? sc(kA.r3, tauA * tauA * tauA) : nz, DDD1 = kB ? sc(kB.r3, -tauB * tauB * tauB) : nz;
+        C = G3M.hermite7(P0, D0, DD0, DDD0, P1, D1, DD1, DDD1);
+      } else if (deg === 1) C = [P0, P1];
       else if (deg === 3) C = [P0, madd(P0, D0, 1 / 3), madd(P1, D1, -1 / 3), P1];
       else C = [P0, madd(P0, D0, 1 / 5), add(madd(P0, D0, 2 / 5), sc(DD0, 1 / 20)), add(madd(P1, D1, -2 / 5), sc(DD1, 1 / 20)), madd(P1, D1, -1 / 5), P1];
       C.forEach((q, j) => rows[j].push(q));
@@ -14896,20 +14988,22 @@ precision mediump float; void main(){}`;
   // ------------------------------------------------------------------ continuity measurement across a join
   function bestFlip(S1, e1, S2, e2) { const a0 = nb.edgePoint(S1, e1, 0), b0 = nb.edgePoint(S2, e2, 0), b1 = nb.edgePoint(S2, e2, 1); return dist(a0, b1) < dist(a0, b0); }
   function measureJoin(S1, e1, S2, e2, flip, n) {
-    n = n || 40; const size = Math.max(surfSize(S1), surfSize(S2)), rows = []; let maxGap = 0, maxAng = 0, maxCurv = 0, sumGap = 0;
+    n = n || 40; const size = Math.max(surfSize(S1), surfSize(S2)), rows = []; let maxGap = 0, maxAng = 0, maxCurv = 0, maxG3 = 0, sumGap = 0;
     for (let k = 0; k <= n; k++) {
       const a = k / n, b = flip ? 1 - a : a, j1 = nb.edgeJet(S1, e1, a), j2 = nb.edgeJet(S2, e2, b), gap = dist(j1.p, j2.p);
       // tangent planes meet when the cross tangents are coplanar with the edge: compare the surface normals (sign-free)
       const c = clamp(dot(j1.n, j2.n), -1, 1), ang = Math.acos(Math.abs(c)) * 180 / Math.PI;
       // the two cross curves are the same curve walked in opposite directions: their curvature vectors must agree
       const dk = len(sub(j1.kv, j2.kv)), rel = dk / Math.max(len(j1.kv), len(j2.kv), 0.05 / size);
-      rows.push({ a, gap, ang, dk, rel, p: j1.p }); maxGap = Math.max(maxGap, gap); maxAng = Math.max(maxAng, ang); maxCurv = Math.max(maxCurv, rel); sumGap += gap;
+      // G3: the rate of change of curvature (r''' along the cross curves) must agree as well — exact derivatives
+      let r3 = 0; try { r3 = G3M.g3Mismatch(G3M.edgeJet3(S1, e1, a), G3M.edgeJet3(S2, e2, b), size).rel; } catch (e) { r3 = Infinity; }
+      rows.push({ a, gap, ang, dk, rel, r3, p: j1.p }); maxGap = Math.max(maxGap, gap); maxAng = Math.max(maxAng, ang); maxCurv = Math.max(maxCurv, rel); maxG3 = Math.max(maxG3, r3); sumGap += gap;
     }
-    const tolG0 = 1e-3 * size, tolG1 = 0.5, tolG2 = 0.08;
-    const level = maxGap > tolG0 ? -1 : maxAng > tolG1 ? 0 : maxCurv > tolG2 ? 1 : 2;
-    return { rows, maxGap, meanGap: sumGap / rows.length, maxAng, maxCurv, level, tol: { g0: tolG0, g1: tolG1, g2: tolG2 }, size };
+    const tolG0 = 1e-3 * size, tolG1 = 0.5, tolG2 = 0.08, tolG3 = 0.15;
+    const level = maxGap > tolG0 ? -1 : maxAng > tolG1 ? 0 : maxCurv > tolG2 ? 1 : maxG3 > tolG3 ? 2 : 3;
+    return { rows, maxGap, meanGap: sumGap / rows.length, maxAng, maxCurv, maxG3, level, tol: { g0: tolG0, g1: tolG1, g2: tolG2, g3: tolG3 }, size };
   }
-  const levelName = (l) => (l < 0 ? 'gap' : 'G' + l), levelCol = (l) => (l >= 2 ? [0.3, 0.9, 0.45] : l === 1 ? [1, 0.88, 0.25] : l === 0 ? [1, 0.55, 0.2] : [0.95, 0.25, 0.3]);
+  const levelName = (l) => (l < 0 ? 'gap' : 'G' + l), levelCol = (l) => (l >= 3 ? [0.3, 0.72, 1] : l === 2 ? [0.3, 0.9, 0.45] : l === 1 ? [1, 0.88, 0.25] : l === 0 ? [1, 0.55, 0.2] : [0.95, 0.25, 0.3]);
 
   Object.assign(CAD.featExt, {
     nbBlend(f, st2) {
@@ -14943,8 +15037,8 @@ precision mediump float; void main(){}`;
   function matchSurface(A, ea, B, eb, o) {
     if (nb.isRational(B)) throw new Error('Match works on non-rational surfaces (the target is rational — e.g. a revolved or arc-based surface). Use Blend, or Rebuild the target first');
     const { T, ops } = canon(JSON.parse(JSON.stringify(B)), eb), p = T.p, n = T.P.length - 1, m = T.P[0].length - 1, q = T.q, lvl = o.level;
-    if (n < Math.max(2, lvl + (lvl === 2 ? 1 : 0))) throw new Error('The target surface has too few control rows across the matched edge for ' + (lvl === 2 ? 'G2' : 'G1') + ' — insert a knot or Rebuild it with more rows');
-    if (lvl === 2 && p < 2) throw new Error('G2 needs the target to have degree ≥ 2 across the edge');
+    if (n < Math.max(2, lvl + (lvl >= 2 ? 1 : 0))) throw new Error('The target surface has too few control rows across the matched edge for ' + (lvl >= 1 ? 'G' + lvl : 'G1') + ' (needs ' + (Math.max(2, lvl + (lvl >= 2 ? 1 : 0)) + 1) + ') — insert a knot or Rebuild it with more rows');
+    if (lvl >= 2 && p < lvl) throw new Error('G' + lvl + ' needs the target to have degree ≥ ' + lvl + ' across the edge');
     const U = T.U, Vn = norm01(T.V);
     const out = T.P.map((r) => r.map((x) => x.slice()));
     // transform of canonical edge parameter back to B's own edge parameter: along-edge direction is v (index j); after reverseU the along direction is unchanged, after transpose it is the old u
@@ -14965,6 +15059,7 @@ precision mediump float; void main(){}`;
           const P1d0 = D;                                                    // first derivative control point P_0^(1)
           const P1d1 = add(P1d0, sc(target, (U[p + 1] - U[2]) / (p - 1)));  // P_1^(1)
           out[2][j] = madd(out[1][j], P1d1, (U[p + 2] - U[2]) / p);
+          if (lvl >= 3) out[3][j] = G3M.matchRow3([out[0][j], out[1][j], out[2][j], out[3][j]], U, p, G3M.edgeJet3(A, ea, clamp(a, 0, 1)));   // G3: 4th row from the exact r'''
         }
       }
     }
@@ -14986,7 +15081,7 @@ precision mediump float; void main(){}`;
       fields: [surfFld('a', 'Surface A', stt, p.a), { key: 'ea', label: 'Edge of A', value: p.ea || 'u1', options: EDGES }, { key: 'ca', label: 'Continuity with A', value: p.ca || 'G1', options: CONT }, { key: 'bulgeA', label: 'Tangent strength at A (0.2 – 2)', value: p.bulgeA == null ? 1 : p.bulgeA },
         surfFld('b', 'Surface B', stt, p.b), { key: 'eb', label: 'Edge of B', value: p.eb || 'u0', options: EDGES }, { key: 'cb', label: 'Continuity with B', value: p.cb || 'G1', options: CONT }, { key: 'bulgeB', label: 'Tangent strength at B (0.2 – 2)', value: p.bulgeB == null ? 1 : p.bulgeB },
         flipFld(p), { key: 'stations', label: 'Accuracy (stations along the edge)', value: p.stations || 24 }],
-      note: 'G0 meets the edges; G1 also matches the tangent plane; G2 also matches the curvature across the edge. The coloured line on each join (red = gap, orange G0, yellow G1, green G2) is a live readout — open Continuity for the numbers. A larger tangent strength makes a fuller blend.',
+      note: 'G0 meets the edges; G1 also matches the tangent plane; G2 also matches the curvature across the edge; G3 also matches how fast the curvature changes (degree-7 blend). The coloured line on each join (red = gap, orange G0, yellow G1, green G2, blue G3) is a live readout — open Continuity for the numbers. A larger tangent strength makes a fuller blend.',
       apply: (v) => Object.assign({}, p, { a: v.a, ea: v.ea, ca: v.ca, bulgeA: clamp(isFinite(v.bulgeA) ? v.bulgeA : 1, 0.05, 4), b: v.b, eb: v.eb, cb: v.cb, bulgeB: clamp(isFinite(v.bulgeB) ? v.bulgeB : 1, 0.05, 4), flip: flipVal(v.flip), stations: Math.max(8, Math.round(v.stations) || 24) })
     };
   };
@@ -14994,7 +15089,7 @@ precision mediump float; void main(){}`;
     const p = f.params;
     return {
       fields: [surfFld('a', 'Reference surface (stays)', stt, p.a), { key: 'ea', label: 'Reference edge', value: p.ea || 'u1', options: EDGES }, surfFld('target', 'Surface to match (moves)', stt, p.target), { key: 'eb', label: 'Edge to match', value: p.eb || 'u0', options: EDGES }, { key: 'cont', label: 'Continuity', value: p.cont || 'G1', options: CONT }, { key: 'scale', label: 'Cross-edge tangent scale (1 = keep the surface’s own)', value: p.scale == null ? 1 : p.scale }, flipFld(p)],
-      note: 'Moves the first control rows of the second surface so it meets the first with the chosen continuity. Works on non-rational surfaces; G2 needs at least 4 control rows across the edge.',
+      note: 'Moves the first control rows of the second surface so it meets the first with the chosen continuity. Works on non-rational surfaces; G2 needs at least 4 control rows across the edge, G3 at least 5 rows and degree ≥ 3.',
       apply: (v) => Object.assign({}, p, { a: v.a, ea: v.ea, target: v.target, eb: v.eb, cont: v.cont, scale: isFinite(v.scale) && v.scale > 0 ? v.scale : 1, flip: flipVal(v.flip) })
     };
   };
@@ -15027,11 +15122,11 @@ precision mediump float; void main(){}`;
       const m = j.m; if (!m) { h += '<p class="bad">' + esc(j.label) + ': could not be measured</p>'; return; }
       const col = levelCol(m.level), css = 'rgb(' + col.map((x) => Math.round(x * 255)).join(',') + ')';
       h += '<div style="border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin:6px 0"><div class="row tight"><b style="flex:1">' + esc(j.label) + '</b><span class="chip" style="color:' + css + ';border-color:' + css + '">' + levelName(m.level) + '</span></div>' +
-        '<div class="kv"><b>Gap (max / mean)</b><span>' + fmt(m.maxGap, 4) + ' / ' + fmt(m.meanGap, 4) + ' mm</span><b>Tangent angle (max)</b><span>' + fmt(m.maxAng, 3) + '°</span><b>Curvature difference (max)</b><span>' + fmt(100 * m.maxCurv, 1) + ' %</span></div>' +
-        '<div class="row tight" style="justify-content:space-between"><span class="note">gap</span>' + spark(m.rows, 'gap', Math.max(m.maxGap, m.tol.g0), '#ff7a7a') + '</div><div class="row tight" style="justify-content:space-between"><span class="note">angle</span>' + spark(m.rows, 'ang', Math.max(m.maxAng, m.tol.g1), '#ffd24d') + '</div><div class="row tight" style="justify-content:space-between"><span class="note">curvature</span>' + spark(m.rows, 'rel', Math.max(m.maxCurv, m.tol.g2), '#6ee7a0') + '</div>' +
+        '<div class="kv"><b>Gap (max / mean)</b><span>' + fmt(m.maxGap, 4) + ' / ' + fmt(m.meanGap, 4) + ' mm</span><b>Tangent angle (max)</b><span>' + fmt(m.maxAng, 3) + '°</span><b>Curvature difference (max)</b><span>' + fmt(100 * m.maxCurv, 1) + ' %</span><b>Curvature-rate difference (max, G3)</b><span>' + (isFinite(m.maxG3) ? fmt(100 * m.maxG3, 1) + ' %' : '—') + '</span></div>' +
+        '<div class="row tight" style="justify-content:space-between"><span class="note">gap</span>' + spark(m.rows, 'gap', Math.max(m.maxGap, m.tol.g0), '#ff7a7a') + '</div><div class="row tight" style="justify-content:space-between"><span class="note">angle</span>' + spark(m.rows, 'ang', Math.max(m.maxAng, m.tol.g1), '#ffd24d') + '</div><div class="row tight" style="justify-content:space-between"><span class="note">curvature</span>' + spark(m.rows, 'rel', Math.max(m.maxCurv, m.tol.g2), '#6ee7a0') + '</div><div class="row tight" style="justify-content:space-between"><span class="note">G3</span>' + spark(m.rows.map((r) => ({ r3: isFinite(r.r3) ? r.r3 : 1 })), 'r3', Math.max(isFinite(m.maxG3) ? m.maxG3 : 1, m.tol.g3), '#5ab8ff') + '</div>' +
         (j.want ? '<div class="note">Requested ' + esc(j.want) + ' · ' + (levelNum(j.want) <= m.level ? '<span class="ok">achieved</span>' : '<span class="bad">not reached — raise the stations or tangent strength</span>') + '</div>' : '') + '</div>';
     });
-    h += '<p class="note">G0: gap ≤ ' + fmt(J[0] && J[0].m ? J[0].m.tol.g0 : 0, 4) + ' mm · G1: tangent angle ≤ 0.5° · G2: curvature difference ≤ 8 %. The same colours are drawn on the join edges in the 3D view.</p>';
+    h += '<p class="note">G0: gap ≤ ' + fmt(J[0] && J[0].m ? J[0].m.tol.g0 : 0, 4) + ' mm · G1: tangent angle ≤ 0.5° · G2: curvature difference ≤ 8 % · G3: curvature-rate difference ≤ 15 %. The same colours are drawn on the join edges in the 3D view.</p>';
     cp.body.innerHTML = h;
     $$('[data-k]', cp.body).forEach((el) => { el.onchange = () => { manual[el.dataset.k] = el.value || null; }; });
     const g = $('[data-a=go]', cp.body); if (g) g.onclick = () => { if (!manual.a || !manual.b) return toast('Choose both surfaces', true); renderCont(); P.redraw(); };
@@ -15879,7 +15974,7 @@ precision mediump float; void main(){}`;
   'use strict';
   const CAD = G.CAD, P = G.PRISM, IK = CAD && CAD.ik, nb = CAD && CAD.nb; if (!nb || !nb.cmdFit) return;
   const st = P.st, F = CAD.feat, X = CAD.x5, NB = CAD.nurbs, K = CAD.sketch, { toast, status, copyGroup, addTab } = IK, { v3 } = CAD.math;
-  addTab('nurbsx', 'NURBS+', 'Advanced surfacing: trimmed surfaces, G0–G2 blends, analysis, network and N-sided fills, extend / offset / sew, rebuild and fit to scans', 'surface');
+  addTab('nurbsx', 'NURBS+', 'Advanced surfacing: trimmed surfaces, G0–G3 blends, analysis, network and N-sided fills, extend / offset / sew, rebuild and fit to scans', 'surface');
   const I = {
     proj: '<path d="M4 6c5 3 11 3 16 0 M4 18c5 3 11 3 16 0"/><circle cx="12" cy="12" r="4" stroke-dasharray="2 2"/><path d="M12 2v5 M12 17v5" opacity=".5"/>',
     trim: '<path d="M3 12c4-7 14-7 18 0"/><circle cx="12" cy="10" r="4" stroke-dasharray="2 2"/><path d="M3 12c4 7 14 7 18 0" opacity=".4"/>',

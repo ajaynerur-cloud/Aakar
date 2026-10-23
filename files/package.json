@@ -12,7 +12,7 @@
     "dist": "electron-builder --win nsis portable --x64 --publish never",
     "dist:dir": "electron-builder --win dir --x64 --publish never",
     "occt": "node scripts/fetch-occt-wasm.js && node tools/occt-selftest.mjs app/occt/aakar-occt.mjs",
-    "test": "node test/run-tests.mjs",
+    "test": "node test/run-tests.mjs && node test/nurbs-g3.mjs",
     "occt:fetch": "node scripts/fetch-occt-wasm.js"
   },
   "devDependencies": {

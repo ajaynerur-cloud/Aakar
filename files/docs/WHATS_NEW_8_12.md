@@ -45,3 +45,9 @@ Verified with occt-wasm 5.7.1:
 - **Packaged build:** 13/13, loaded from `app.asar.unpacked`.
 
 To build locally, run `npm install`, then `npm run occt`, then `npm start` (or `npm run dist`).
+
+## NURBS+: G3 continuity
+Blend, Match and the Continuity check now go up to **G3**, where the rate of change of curvature also matches. The join line is drawn blue at G3. See *G3 (8.12)* in `docs/NURBS_PLUS.md`.
+- **Blend G3:** a degree-7 cross section. A test pair of curved panels measures 0 % curvature-rate difference at G3, against about 100 % at G2.
+- **Match G3:** moves 4 control rows. The target needs at least 5 rows and degree 3 or more across the edge.
+- **Class-A example:** opens as a G2 blend as before. Switch it to G3 in the feature dialog.
