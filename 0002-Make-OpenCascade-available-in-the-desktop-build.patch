@@ -1,0 +1,453 @@
+From 77f45e2b0b7442fe989fb2e4fc9bb97ccc33fc33 Mon Sep 17 00:00:00 2001
+From: Ajaykumar <a.nerurmuthukrishnan@shell.com>
+Date: Fri, 23 Oct 2026 17:49:59 +0000
+Subject: [PATCH] Make OpenCascade (occt-wasm) available in the desktop build
+
+- aakar-occt.mjs: import the occt-wasm facade (index.js / OcctKernel) before the
+  raw Emscripten factory (occt-wasm.js); loading the factory first produced a
+  kernel without makeBox/fuse/... and "OpenCascade not available"
+- workflow: replace the esbuild route (tools/build-occt.mjs wiped app/occt) with
+  scripts/fetch-occt-wasm.js + the 13-check self-test gate on app/occt/aakar-occt.mjs;
+  on failure only the runtime files are removed, never the committed binding
+- package.json: pin occt-wasm 5.7.1 as a devDependency (npm ci installs it),
+  `npm run occt` = fetch + self-test; app/occt/package.json marks ES modules for Node 20
+- .gitignore: keep the downloaded runtime out of git; drop the stale root build-windows.yml
+- tests: regression test for the facade-vs-factory mix-up (13 passed)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MvLybUGZkdXhnZxC5CmdGQ
+---
+ .github/workflows/build-windows.yml | 31 ++++++++--------
+ .gitignore                          | 10 ++++++
+ app/index.html                      |  2 +-
+ app/occt/README.md                  | 11 ++++--
+ app/occt/aakar-occt.mjs             |  4 ++-
+ app/occt/package.json               |  4 +++
+ build-windows.yml                   | 46 ------------------------
+ docs/WHATS_NEW_8_12.md              | 14 ++++++++
+ occt/README.md                      |  5 +++
+ package-lock.json                   | 24 +++++++++++--
+ package.json                        | 56 +++++++++++++++++++++++------
+ scripts/fetch-occt-wasm.js          |  1 +
+ test/run-tests.mjs                  | 19 ++++++++++
+ 13 files changed, 148 insertions(+), 79 deletions(-)
+ create mode 100644 .gitignore
+ create mode 100644 app/occt/package.json
+ delete mode 100644 build-windows.yml
+
+diff --git a/.github/workflows/build-windows.yml b/.github/workflows/build-windows.yml
+index 0a1e0ae..8502116 100644
+--- a/.github/workflows/build-windows.yml
++++ b/.github/workflows/build-windows.yml
+@@ -18,37 +18,40 @@ jobs:
+       - uses: actions/setup-node@v4
+         with:
+           node-version: 20
++          cache: npm
+ 
++      # installs electron, electron-builder and occt-wasm (pinned in package.json / package-lock.json)
+       - name: Install dependencies
+-        run: npm install --no-audit --no-fund
++        run: npm ci --no-audit --no-fund
+ 
+-      - name: Package tests (asset protocol, kernel build tool, self-test gate)
++      - name: Package tests (asset protocol, kernel binding, self-test gate)
+         run: npm test
+ 
+-      # Optional exact kernel (OpenCascade WebAssembly). It is packaged only if it builds AND passes the conformance self-test;
+-      # otherwise the EXE is built without it (the built-in kernel always works) and a warning is shown on the run.
+-      - name: Exact kernel - build and self-test
++      # OpenCascade (occt-wasm) is copied into app/occt as plain files and loaded at run time by app/occt/aakar-occt.mjs.
++      # It is NOT bundled (no esbuild): bundling is what broke it before. The committed binding files are never deleted.
++      - name: OpenCascade - copy runtime and self-test
+         id: occt
+         continue-on-error: true
+         shell: bash
+         run: |
+-          npm install --no-save --no-audit --no-fund occt-wasm esbuild
+-          node tools/build-occt.mjs
+-          node tools/occt-selftest.mjs
++          node scripts/fetch-occt-wasm.js
++          node tools/occt-selftest.mjs app/occt/aakar-occt.mjs
+ 
+-      - name: Exact kernel - leave it out if it did not pass
++      - name: OpenCascade - leave it out if it did not pass
+         if: steps.occt.outcome != 'success'
+         shell: bash
+         run: |
+-          echo "::warning title=Exact kernel not packaged::The exact (OpenCascade) kernel did not build or did not pass its self-test - see the step above. The EXE uses the built-in kernel only."
+-          rm -rf app/occt && mkdir -p app/occt
++          echo "::warning title=OpenCascade not packaged::occt-wasm did not pass its self-test - see the step above. The EXE uses AakarKernel only."
++          find app/occt -type f ! -name 'aakar-occt.mjs' ! -name 'aakar-occt.js' ! -name 'README.md' -delete
+ 
+-      - name: Exact kernel - report
+-        if: steps.occt.outcome == 'success'
++      - name: OpenCascade - check what is packaged
+         shell: bash
+         run: |
+-          echo "::notice title=Exact kernel packaged::app/occt contains the exact kernel ($(ls app/occt | wc -l) files)."
+           ls -la app/occt
++          if [ "${{ steps.occt.outcome }}" = "success" ]; then
++            test -f app/occt/index.js && test -f app/occt/occt-wasm.js && test -f app/occt/occt-wasm.wasm
++            echo "::notice title=OpenCascade packaged::occt-wasm $(node -p "require('./app/occt/occt-wasm-manifest.json').version") ($(node -p "require('./app/occt/occt-wasm-manifest.json').wasmMB") MB) is in the EXE."
++          fi
+ 
+       - name: Build installer and portable EXE
+         run: npm run dist
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..8dcf76a
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,10 @@
++node_modules/
++dist/
++
++# OpenCascade runtime: copied from node_modules/occt-wasm by `npm run occt` (CI does this on every build).
++# Only the Aakar binding (aakar-occt.mjs / aakar-occt.js / README.md) is committed.
++app/occt/*
++!app/occt/aakar-occt.mjs
++!app/occt/aakar-occt.js
++!app/occt/README.md
++!app/occt/package.json
+diff --git a/app/index.html b/app/index.html
+index 5ecfdc9..8036c44 100644
+--- a/app/index.html
++++ b/app/index.html
+@@ -20380,7 +20380,7 @@ body.sk-pro #status{background:#16171a!important;border-top:1px solid #0c0d0f!im
+   function init() {
+     if (document.getElementById('skBtn')) return;
+     var pop = buildPicker(); buildButton(pop); buildCube(); try { buildWs(); } catch (e) { /* keep the classic ribbon */ }
+-    var ver = function () { try { var bs = document.querySelector('.brand span'); if (bs) bs.innerHTML = 'Aakar <b>8.12</b>'; } catch (e) { /* ignore */ } };
++    var ver = function () { try { var bs = document.querySelector('.brand span'); if (bs) bs.innerHTML = 'Aakar <b>8.12</b>'; document.title = document.title.replace(/Aakar 8\.11\.1/, 'Aakar 8.12'); } catch (e) { /* ignore */ } };
+     ver(); setTimeout(ver, 1500); setTimeout(ver, 4000);
+     var saved = get();
+     apply(saved || 'classic');
+diff --git a/app/occt/README.md b/app/occt/README.md
+index 10924fc..e1dd8fc 100644
+--- a/app/occt/README.md
++++ b/app/occt/README.md
+@@ -7,14 +7,19 @@ switch to in the *Exact kernel* panel (**Engine: AakarKernel | OpenCascade**). T
+ |---|---|
+ | `aakar-occt.mjs` | in the repo — the Aakar binding (calibrates and wraps occt-wasm) |
+ | `aakar-occt.js` | in the repo — classic-script loader that Aakar's framework looks for |
+-| `occt-wasm.js`, `occt-wasm.wasm` (+ any other files of the package) | **not committed** — copied from `node_modules/occt-wasm/dist` by `scripts/fetch-occt-wasm.js` |
++| `package.json` | in the repo — `{"type": "module"}` for Node |
++| `index.js`, `occt-wasm.js`, `occt-wasm.wasm` (+ the other files of the package) | **not committed** (see `.gitignore`) — copied from `node_modules/occt-wasm/dist` by `scripts/fetch-occt-wasm.js` |
+ 
+ ```
+-npm install occt-wasm --no-save
+-node scripts/fetch-occt-wasm.js
++npm install            # occt-wasm 5.7.1 is a pinned devDependency
++npm run occt           # copies the runtime into app/occt/ and runs the 13-check self-test
+ npm start
+ ```
+ 
++The binding imports the package **facade** `index.js` (it exports `OcctKernel`). `occt-wasm.js` is only the raw Emscripten factory
++underneath it; loading that first was the 8.11.1 bug that made the panel say "OpenCascade not available". `package.json` in this folder
++marks the files as ES modules so the Node self-test can load them (CI runs Node 20).
++
+ The package is **copied as plain files and imported at run time — it is never bundled**, so no esbuild / webpack step is involved (that is what
+ produced `Could not resolve "node:module"`: occt-wasm's `dist/occt-wasm.js` contains a Node-only import that a browser bundler cannot resolve).
+ 
+diff --git a/app/occt/aakar-occt.mjs b/app/occt/aakar-occt.mjs
+index f51b5bf..79db6fb 100644
+--- a/app/occt/aakar-occt.mjs
++++ b/app/occt/aakar-occt.mjs
+@@ -20,7 +20,9 @@
+ export const name = 'OpenCascade (occt-wasm)';
+ export let version = 'occt-wasm';
+ 
+-const FILES = ['occt-wasm.js', 'occt-wasm.mjs', 'index.js'];
++// index.js is the package's facade (exports OcctKernel with init / makeBox / fuse ...); occt-wasm.js is only the raw Emscripten
++// module factory underneath it, so it must come LAST - loading it first gave a module with none of the kernel methods.
++const FILES = ['index.js', 'occt-wasm.mjs', 'occt-wasm.js'];
+ const here = (f) => new URL(f, import.meta.url).href;
+ 
+ function readBytes(url) {
+diff --git a/app/occt/package.json b/app/occt/package.json
+new file mode 100644
+index 0000000..f9f1e78
+--- /dev/null
++++ b/app/occt/package.json
+@@ -0,0 +1,4 @@
++{
++  "//": "app/occt holds ES modules (the Aakar binding and the occt-wasm runtime); this lets Node load them in the CI self-test.",
++  "type": "module"
++}
+diff --git a/build-windows.yml b/build-windows.yml
+deleted file mode 100644
+index 60b2535..0000000
+--- a/build-windows.yml
++++ /dev/null
+@@ -1,46 +0,0 @@
+-name: Build Aakar Windows EXE
+-
+-on:
+-  push:
+-    branches: [ main ]
+-  workflow_dispatch:
+-
+-jobs:
+-  build:
+-    runs-on: windows-latest
+-    steps:
+-      - name: Checkout
+-        uses: actions/checkout@v4
+-
+-      - name: Setup Node
+-        uses: actions/setup-node@v4
+-        with:
+-          node-version: 20
+-          cache: npm
+-
+-      - name: Install dependencies
+-        run: npm ci
+-
+-      # OpenCascade is OPTIONAL (AakarKernel is built in).  occt-wasm is copied as plain files and loaded at run time:
+-      # it is never bundled, so no esbuild / webpack step is involved.
+-      - name: Add the optional OpenCascade kernel (occt-wasm)
+-        continue-on-error: true
+-        run: |
+-          npm install occt-wasm --no-save
+-          node scripts/fetch-occt-wasm.js
+-
+-      - name: Check which OCCT files are present
+-        shell: pwsh
+-        run: Get-ChildItem app/occt | Format-Table Name, Length
+-
+-      - name: Build Windows EXE
+-        run: npm run dist
+-        env:
+-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+-
+-      - name: Upload EXE
+-        uses: actions/upload-artifact@v4
+-        with:
+-          name: Aakar-Windows
+-          path: dist/*.exe
+-          if-no-files-found: error
+diff --git a/docs/WHATS_NEW_8_12.md b/docs/WHATS_NEW_8_12.md
+index 803499f..f913e99 100644
+--- a/docs/WHATS_NEW_8_12.md
++++ b/docs/WHATS_NEW_8_12.md
+@@ -31,3 +31,17 @@ Clicking TOP, FRONT or RIGHT triggers the existing view buttons, and the buttons
+ All of the change is in `app/index.html`:
+ - One hook line after `const BG = …` exposes the viewport background and body palette (`window.__aakarView`). This lets each style recolour the 3D view without touching the renderer.
+ - One self-contained block before `</body>`, between `<!--AAKAR-UI-SKINS-START-->` and `<!--AAKAR-UI-SKINS-END-->`. Deleting that block and the hook line restores 8.11.1 exactly.
++
++## OpenCascade now ships in the EXE
++The Exact kernel panel said "OpenCascade not available — AakarKernel stays active" for three reasons:
++1. **Wrong file loaded:** `app/occt/aakar-occt.mjs` loaded `occt-wasm.js` (the raw Emscripten factory) before `index.js` (the `OcctKernel` facade), so the kernel had none of `makeBox`, `fuse` and the rest. It now loads `index.js` first.
++2. **Old build route:** the active workflow still used the old esbuild route (`tools/build-occt.mjs`). That route starts by deleting `app/occt` (including the committed binding), bundles the older `occt/binding-occt-wasm.mjs`, and when anything fails the fallback step empties `app/occt`. The workflow now copies the package as plain files (`scripts/fetch-occt-wasm.js`) and gates it on the 13-check self-test. On failure it removes only the runtime files.
++3. **Package not installed by CI:** `occt-wasm` was not a dependency. It is now pinned (`5.7.1`) in `devDependencies`, so `npm ci` installs it.
++
++Verified with occt-wasm 5.7.1:
++- **Node self-test:** 13/13.
++- **Browser over HTTP:** 13/13, and box and cylinder bodies report as exact.
++- **`electron .`:** 13/13.
++- **Packaged build:** 13/13, loaded from `app.asar.unpacked`.
++
++To build locally, run `npm install`, then `npm run occt`, then `npm start` (or `npm run dist`).
+diff --git a/occt/README.md b/occt/README.md
+index 8a157b6..14721c7 100644
+--- a/occt/README.md
++++ b/occt/README.md
+@@ -7,6 +7,11 @@ exact-vs-faceted report, and optionally exact booleans meshed back into normal A
+ built-in result.
+ 
+ ## How it gets into the EXE
++> **8.12:** the workflow no longer uses `tools/build-occt.mjs` / `binding-occt-wasm.mjs`: that route starts by deleting `app/occt`
++> (including the committed binding) and its fallback empties the folder, so EXEs shipped without OpenCascade. It now runs
++> `npm run occt` = `scripts/fetch-occt-wasm.js` + `tools/occt-selftest.mjs app/occt/aakar-occt.mjs`; see `app/occt/README.md`.
++> The text below describes the older route, kept for reference.
++
+ The GitHub workflow installs the `occt-wasm` package, runs `tools/build-occt.mjs` (writes `app/occt/`), then `tools/occt-selftest.mjs`.
+ **The kernel is packaged only if every check passes**; otherwise `app/occt` is emptied and the EXE is built without it (a warning shows on
+ the run). By hand:
+diff --git a/package-lock.json b/package-lock.json
+index 87f4acc..3b1df1b 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,16 +1,17 @@
+ {
+   "name": "aakar",
+-  "version": "8.6.0",
++  "version": "8.10.0",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aakar",
+-      "version": "8.6.0",
++      "version": "8.10.0",
+       "license": "UNLICENSED",
+       "devDependencies": {
+         "electron": "33.4.11",
+-        "electron-builder": "25.1.8"
++        "electron-builder": "25.1.8",
++        "occt-wasm": "5.7.1"
+       }
+     },
+     "node_modules/@develar/schema-utils": {
+@@ -1688,6 +1689,13 @@
+         "node": ">= 0.8"
+       }
+     },
++    "node_modules/comlink": {
++      "version": "4.4.2",
++      "resolved": "https://registry.npmjs.org/comlink/-/comlink-4.4.2.tgz",
++      "integrity": "sha512-OxGdvBmJuNKSCMO4NTl1L47VRp6xn2wG4F/2hYzB6tiCb709otOxtEYCSvK80PtjODfXXZu8ds+Nw5kVCjqd2g==",
++      "dev": true,
++      "license": "Apache-2.0"
++    },
+     "node_modules/commander": {
+       "version": "5.1.0",
+       "resolved": "https://registry.npmjs.org/commander/-/commander-5.1.0.tgz",
+@@ -4036,6 +4044,16 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/occt-wasm": {
++      "version": "5.7.1",
++      "resolved": "https://registry.npmjs.org/occt-wasm/-/occt-wasm-5.7.1.tgz",
++      "integrity": "sha512-UnNYGK/BzW3hdRiCW7jP3jU7x2nbreVMJ3xJ2IqykQNf3I/Qhe6+HTktO7RpenDHUjB64f8l3HoEtb7nD/Yz5Q==",
++      "dev": true,
++      "license": "MIT OR Apache-2.0",
++      "dependencies": {
++        "comlink": "^4.4.2"
++      }
++    },
+     "node_modules/once": {
+       "version": "1.4.0",
+       "resolved": "https://registry.npmjs.org/once/-/once-1.4.0.tgz",
+diff --git a/package.json b/package.json
+index 3dc2f2f..8e609de 100644
+--- a/package.json
++++ b/package.json
+@@ -11,32 +11,66 @@
+     "start": "electron .",
+     "dist": "electron-builder --win nsis portable --x64 --publish never",
+     "dist:dir": "electron-builder --win dir --x64 --publish never",
+-    "occt": "node tools/build-occt.mjs && node tools/occt-selftest.mjs",
+-    "test": "node test/run-tests.mjs"
++    "occt": "node scripts/fetch-occt-wasm.js && node tools/occt-selftest.mjs app/occt/aakar-occt.mjs",
++    "test": "node test/run-tests.mjs",
++    "occt:fetch": "node scripts/fetch-occt-wasm.js"
+   },
+   "devDependencies": {
+     "electron": "33.4.11",
+-    "electron-builder": "25.1.8"
++    "electron-builder": "25.1.8",
++    "occt-wasm": "5.7.1"
+   },
+   "build": {
+     "appId": "com.aakar.desktop",
+     "productName": "Aakar",
+     "copyright": "Aakar",
+-    "directories": { "output": "dist", "buildResources": "build" },
+-    "files": ["main.js", "preload.js", "prompt.html", "prompt-preload.js", "app/**/*", "package.json"],
++    "directories": {
++      "output": "dist",
++      "buildResources": "build"
++    },
++    "files": [
++      "main.js",
++      "preload.js",
++      "prompt.html",
++      "prompt-preload.js",
++      "app/**/*",
++      "package.json"
++    ],
+     "asar": true,
+-    "asarUnpack": ["app/occt/**/*"],
++    "asarUnpack": [
++      "app/occt/**/*"
++    ],
+     "win": {
+       "icon": "build/icon.ico",
+       "executableName": "Aakar",
+-      "target": [ { "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] } ]
++      "target": [
++        {
++          "target": "nsis",
++          "arch": [
++            "x64"
++          ]
++        },
++        {
++          "target": "portable",
++          "arch": [
++            "x64"
++          ]
++        }
++      ]
+     },
+     "nsis": {
+-      "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true,
+-      "createDesktopShortcut": true, "createStartMenuShortcut": true, "shortcutName": "Aakar",
+-      "installerIcon": "build/icon.ico", "uninstallerIcon": "build/icon.ico",
++      "oneClick": false,
++      "perMachine": false,
++      "allowToChangeInstallationDirectory": true,
++      "createDesktopShortcut": true,
++      "createStartMenuShortcut": true,
++      "shortcutName": "Aakar",
++      "installerIcon": "build/icon.ico",
++      "uninstallerIcon": "build/icon.ico",
+       "artifactName": "Aakar-Setup-${version}.${ext}"
+     },
+-    "portable": { "artifactName": "Aakar-Portable-${version}.${ext}" }
++    "portable": {
++      "artifactName": "Aakar-Portable-${version}.${ext}"
++    }
+   }
+ }
+diff --git a/scripts/fetch-occt-wasm.js b/scripts/fetch-occt-wasm.js
+index 8400f2e..baaea69 100644
+--- a/scripts/fetch-occt-wasm.js
++++ b/scripts/fetch-occt-wasm.js
+@@ -17,4 +17,5 @@ if (!js || !wasm) { console.error('[occt] expected occt-wasm.js and a .wasm file
+ if (wasm !== 'occt-wasm.wasm') fs.copyFileSync(path.join(dst, wasm), path.join(dst, 'occt-wasm.wasm'));
+ const ver = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8')).version;
+ fs.writeFileSync(path.join(dst, 'occt-wasm-manifest.json'), JSON.stringify({ package: 'occt-wasm', version: ver, js, wasm, wasmMB: +(fs.statSync(path.join(dst, wasm)).size / 1048576).toFixed(1) }, null, 2));
++fs.writeFileSync(path.join(dst, 'NOTICE.txt'), 'OpenCascade Technology (OCCT) compiled to WebAssembly by the occt-wasm package ' + ver + '.\nOCCT is LGPL-2.1 with the OCCT exception; occt-wasm.wasm is a separate, replaceable component of Aakar.\n');
+ console.log('[occt] occt-wasm ' + ver + ': copied ' + all.length + ' file(s) to app/occt/  (' + js + ', ' + wasm + ')');
+diff --git a/test/run-tests.mjs b/test/run-tests.mjs
+index 767e102..c533d62 100644
+--- a/test/run-tests.mjs
++++ b/test/run-tests.mjs
+@@ -36,6 +36,11 @@ export class OcctKernel {
+   makeCylinder(r, h) { return put({ v: PI * r * r * h, a: 2 * PI * r * (r + h), kind: 'cyl', r, h, o: [0, 0, 0] }); }
+   makeSphere(r) { return put({ v: 4 / 3 * PI * r ** 3, a: 4 * PI * r * r, kind: 'sph', r, o: [0, 0, 0] }); }
+   translate(h, x, y, z) { const s = g(h); return put({ ...s, o: [s.o[0] + x, s.o[1] + y, s.o[2] + z] }); }
++  getBoundingBox(h) { const s = g(h), o = s.o || [0, 0, 0], P = (x, y, z) => ({ x, y, z });
++    if (s.kind === 'box') return { min: P(o[0], o[1], o[2]), max: P(o[0] + s.w, o[1] + s.d, o[2] + s.h) };
++    if (s.kind === 'cyl') return { min: P(o[0] - s.r, o[1] - s.r, o[2]), max: P(o[0] + s.r, o[1] + s.r, o[2] + s.h) };
++    if (s.kind === 'sph') return { min: P(o[0] - s.r, o[1] - s.r, o[2] - s.r), max: P(o[0] + s.r, o[1] + s.r, o[2] + s.r) };
++    return { min: P(0, 0, 0), max: P(1, 1, 1) }; }
+   fuse(a, b) { const A = g(a), B = g(b); return put({ v: A.v + B.v - overlap(A, B), a: 0 }); }
+   cut(a, b) { const A = g(a), B = g(b); return put({ v: A.v - overlap(A, B), a: 0 }); }
+   common(a, b) { return put({ v: overlap(g(a), g(b)), a: 0 }); }
+@@ -83,4 +88,18 @@ const run = (cwd, args) => spawnSync(process.execPath, args, { cwd, encoding: 'u
+   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'aakar-none-')); fs.cpSync(path.join(ROOT, 'tools'), path.join(d, 'tools'), { recursive: true }); fs.writeFileSync(path.join(d, 'package.json'), '{}');
+   const b = run(d, ['tools/build-occt.mjs']); ok(b.status === 1 && /not installed/.test(b.stderr), 'build-occt without the package stops with "not installed"');
+ }
++// ---- 6. the run-time binding app/occt/aakar-occt.mjs must use the package FACADE (index.js -> OcctKernel), not the raw
++//         Emscripten factory occt-wasm.js that sits next to it (that mix-up left desktop users with "OpenCascade not available")
++{
++  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'aakar-rt-')), o = path.join(d, 'app', 'occt'); fs.mkdirSync(o, { recursive: true });
++  fs.cpSync(path.join(ROOT, 'tools'), path.join(d, 'tools'), { recursive: true });
++  fs.copyFileSync(path.join(ROOT, 'app', 'occt', 'aakar-occt.mjs'), path.join(o, 'aakar-occt.mjs'));
++  fs.writeFileSync(path.join(d, 'package.json'), '{"name":"t","private":true,"type":"commonjs"}');
++  fs.copyFileSync(path.join(ROOT, 'app', 'occt', 'package.json'), path.join(o, 'package.json'));
++  fs.writeFileSync(path.join(o, 'index.js'), fakeKernel(true));
++  fs.writeFileSync(path.join(o, 'occt-wasm.js'), 'export default async function createModule() { return { OcctKernel: function () {}, VectorDouble: function () {} }; }');
++  fs.writeFileSync(path.join(o, 'occt-wasm.wasm'), Buffer.from([0, 97, 115, 109, 1, 0, 0, 0]));
++  const t = run(d, ['tools/occt-selftest.mjs', 'app/occt/aakar-occt.mjs']);
++  ok(t.status === 0 && /all \d+ checks passed/.test(t.stdout), 'run-time binding loads index.js (OcctKernel) even when the raw occt-wasm.js is present (exit ' + t.status + (t.status ? ': ' + (t.stderr.trim().split('\n')[0] || '') : '') + ')');
++}
+ console.log('\n' + pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);
+-- 
+2.43.0
+

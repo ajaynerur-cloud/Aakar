@@ -1,0 +1,4 @@
+{
+  "//": "app/occt holds ES modules (the Aakar binding and the occt-wasm runtime); this lets Node load them in the CI self-test.",
+  "type": "module"
+}

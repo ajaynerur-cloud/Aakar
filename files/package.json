@@ -1,0 +1,76 @@
+{
+  "name": "aakar",
+  "productName": "Aakar",
+  "version": "8.10.0",
+  "description": "Aakar - parametric, NURBS, SubD, BIM, analysis, drawings and render (desktop)",
+  "author": "Aakar",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable --x64 --publish never",
+    "dist:dir": "electron-builder --win dir --x64 --publish never",
+    "occt": "node scripts/fetch-occt-wasm.js && node tools/occt-selftest.mjs app/occt/aakar-occt.mjs",
+    "test": "node test/run-tests.mjs",
+    "occt:fetch": "node scripts/fetch-occt-wasm.js"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8",
+    "occt-wasm": "5.7.1"
+  },
+  "build": {
+    "appId": "com.aakar.desktop",
+    "productName": "Aakar",
+    "copyright": "Aakar",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "prompt.html",
+      "prompt-preload.js",
+      "app/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "app/occt/**/*"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "executableName": "Aakar",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Aakar",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "artifactName": "Aakar-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Aakar-Portable-${version}.${ext}"
+    }
+  }
+}
