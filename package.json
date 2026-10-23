@@ -1,7 +1,7 @@
 {
   "name": "aakar",
   "productName": "Aakar",
-  "version": "8.5.7",
+  "version": "8.6.0",
   "description": "Aakar - parametric, NURBS, SubD, BIM, analysis, drawings and render (desktop)",
   "author": "Aakar",
   "license": "UNLICENSED",
@@ -20,15 +20,35 @@
     "appId": "com.aakar.desktop",
     "productName": "Aakar",
     "copyright": "Aakar",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "prompt.html", "prompt-preload.js", "app/**/*", "package.json"],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "prompt.html",
+      "prompt-preload.js",
+      "app/**/*",
+      "package.json"
+    ],
     "asar": true,
     "win": {
       "icon": "build/icon.ico",
       "executableName": "Aakar",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {
@@ -42,6 +62,8 @@
       "uninstallerIcon": "build/icon.ico",
       "artifactName": "Aakar-Setup-${version}.${ext}"
     },
-    "portable": { "artifactName": "Aakar-Portable-${version}.${ext}" }
+    "portable": {
+      "artifactName": "Aakar-Portable-${version}.${ext}"
+    }
   }
 }
