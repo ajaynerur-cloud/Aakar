@@ -1,0 +1,19 @@
+name: AakarKernel tests
+
+on:
+  push:
+    paths: [ 'kernel/**', 'app/index.html' ]
+  pull_request:
+    paths: [ 'kernel/**', 'app/index.html' ]
+  workflow_dispatch:
+
+jobs:
+  kernel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Kernel + integration tests (uses the real app/index.html)
+        run: node kernel/test/run-all.js app/index.html

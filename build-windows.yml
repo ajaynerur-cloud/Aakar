@@ -1,0 +1,46 @@
+name: Build Aakar Windows EXE
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # OpenCascade is OPTIONAL (AakarKernel is built in).  occt-wasm is copied as plain files and loaded at run time:
+      # it is never bundled, so no esbuild / webpack step is involved.
+      - name: Add the optional OpenCascade kernel (occt-wasm)
+        continue-on-error: true
+        run: |
+          npm install occt-wasm --no-save
+          node scripts/fetch-occt-wasm.js
+
+      - name: Check which OCCT files are present
+        shell: pwsh
+        run: Get-ChildItem app/occt | Format-Table Name, Length
+
+      - name: Build Windows EXE
+        run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aakar-Windows
+          path: dist/*.exe
+          if-no-files-found: error
