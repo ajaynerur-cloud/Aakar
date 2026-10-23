@@ -1,0 +1,47 @@
+// End-to-end check of a wired HTML file: runs the shipped scripts (math, solid, csg, exact-kernel framework, AakarKernel, wiring) in a sandbox
+// with a small DOM stub, drives the exact-kernel panel through its own handlers and checks the results.
+const fs = require('fs'), vm = require('vm'), path = require('path');
+const file = process.argv[2] || process.env.AAKAR_HTML || [path.join(__dirname, '..', '..', 'app', 'index.html'), path.join(__dirname, '..', '..', 'Aakar_8.11.0.html')].find(f => fs.existsSync(f));
+if (!file) throw new Error('set AAKAR_HTML to the wired Aakar html file');
+const html = fs.readFileSync(file, 'utf8'), scripts = []; const re = /<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g; let m; while ((m = re.exec(html))) scripts.push(m[1]);
+const find = (n) => { const s = scripts.find(x => x.includes(n)); if (!s) throw new Error('script not found: ' + n); return s; };
+const store = {}; const chipEl = { style: {}, children: [], className: '', title: '', set textContent(v) { this._t = v; }, get textContent() { return this._t; } };
+const stubEl = () => ({ style: {}, children: [], appendChild(c) { this.children.push(c); if (c && c.src) setImmediate(() => c.onerror && c.onerror()); return c; }, remove() {}, addEventListener() {}, set textContent(v) { this._t = v; }, get textContent() { return this._t; } });
+const statusEl = stubEl(); const doc = { getElementById: (id) => id === 'status' ? statusEl : id === 'stKernel' ? (statusEl.children.includes(chipEl) ? chipEl : null) : null, createElement: (t) => t === 'span' ? chipEl : stubEl(), head: stubEl() };
+const ctx = { console, setTimeout, clearTimeout, setImmediate, TextDecoder, performance: { now: Date.now }, document: doc, localStorage: { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); } }, addEventListener() {} }; ctx.window = ctx; ctx.globalThis = ctx; vm.createContext(ctx);
+let pass = 0, fail = 0; const T = (n, ok, d) => { ok ? pass++ : fail++; console.log((ok ? 'ok  ' : 'FAIL') + ' ' + n + (d ? '  ' + d : '')); };
+['Aakar - math.js', 'Aakar - solid.js', 'Aakar - csg.js'].forEach(n => vm.runInContext(find(n), ctx));
+const CAD = ctx.CAD, SOL = CAD.solid;
+const bodies = new Map(), panels = {}, toasts = [];
+ctx.PRISM = { st: { doc: {}, state: { bodies } }, toast: (m, b) => toasts.push([m, b]), addGroup: (tab, name, items) => { ctx.__ribbon = (ctx.__ribbon || []).concat(items.map(i => i[0])); }, meta: () => ({ vis: {} }), refreshPanels() {}, regenerate() {} };
+CAD.feat = { invalidate() {} }; CAD.io = { downloads: [], download(n, t) { this.downloads.push([n, t.length]); } }; CAD.step = { exportStep: () => 'FACETED' };
+CAD.ik = { toast: (m, b) => toasts.push([m, b]), copyGroup() {}, panel: (id) => { if (panels[id]) return panels[id]; const els = {}; const p = { on: false, isOn: () => p.on, show() { p.on = true; }, body: { innerHTML: '', querySelector: (sel) => els[sel] || (els[sel] = {}), els } }; return (panels[id] = p); } };
+const big = find('OPTIONAL EXACT KERNEL'); vm.runInContext(big.slice(big.lastIndexOf('/* Aakar 8.10 · OPTIONAL EXACT KERNEL')), ctx);
+const X = CAD.exact; T('exact-kernel framework present, no kernel yet', X && X.state === 'absent', 'from ' + path.basename(file));
+vm.runInContext(find('AakarKernel 1.0'), ctx);
+T('AakarKernel script defines window.AakarKernel', !!ctx.AakarKernel && ctx.AakarKernel.kernel.name === 'AakarKernel' && !!ctx.AakarKernel.version);
+statusEl.children.length = 0; vm.runInContext(find('AakarKernel wiring'), ctx);
+T('wiring activated the kernel by itself', X.state === 'ready' && X.name === 'AakarKernel', X.name + ' ' + X.version);
+T('exact booleans are on by default', X.useExactBooleans === true);
+T('status-bar chip shows the kernel', (chipEl.textContent || '').includes('AakarKernel') && (chipEl.textContent || '').includes('exact'), chipEl.textContent);
+T('ribbon group has Exact kernel + Exact properties', (ctx.__ribbon || []).includes('exactk') && (ctx.__ribbon || []).includes('exactp'), JSON.stringify(ctx.__ribbon));
+const st = X.selfTest(); T('self-test passes on the wired kernel', st.passed === st.total && st.total >= 13, st.passed + '/' + st.total);
+const P = SOL.PRIM, pi = Math.PI;
+const a = CAD.csg.boolean('subtract', P.box(40, 40, 10), P.cylinder(5, 30, 64, [0, 0, -10]));
+const b = CAD.csg.boolean('union', a[0], P.cylinder(3, 10, 48, [10, 10, 10]));
+T('booleans routed to AakarKernel', X.exactBooleansDone >= 2 && !!X.recipeOf(b[0]), 'done=' + X.exactBooleansDone);
+bodies.set('p', { key: 'p', name: 'Plate', solid: b[0] }); bodies.set('q', { key: 'q', name: 'Cube', solid: P.box(10, 10, 10) });
+X.openPanel(); const pn = CAD.ik.panel('ik-exact'); const h = pn.body.innerHTML;
+T('panel renders (engine row, properties button, report button)', /Engine/.test(h) && /data-a="eng-ak"/.test(h) && /data-a="props"/.test(h) && /data-a="report"/.test(h), h.length + ' chars');
+pn.body.els['[data-a=props]'].onclick(); const h2 = pn.body.innerHTML, vTrue = 16000 - pi * 25 * 10 + pi * 9 * 10;
+T('Exact properties table shows the exact volume', /Exact properties<\/h5>/.test(h2) && h2.includes(vTrue.toFixed(3)), (h2.match(/<td class="n">([0-9.]+)<\/td>/) || [])[1] + ' expected ' + vTrue.toFixed(3));
+T('properties list the B-rep structure', /\d+ cylinder/.test(h2) && /\d+ circle/.test(h2) && /inertia about the centroid/.test(h2));
+const pl = X.properties().find(r => r.name === 'Plate'); T('properties(): valid exact body', pl && pl.valid && Math.abs(pl.volume - vTrue) < 1e-6, JSON.stringify(pl && { vol: +pl.volume.toFixed(4), faces: pl.info.faceCount, edges: pl.info.edgeCount }));
+pn.body.els['[data-a=report]'].onclick(); const rep = X.lastReport.find(r => r.name === 'Plate'); T('exact vs faceted report', rep && rep.exact && Math.abs(rep.diff) < 2, rep && rep.diff.toFixed(3) + ' %');
+pn.body.els['[data-a=step]'].onclick(); T('Export exact STEP delivers files with true surfaces', CAD.io.downloads.length >= 1 && /CYLINDRICAL_SURFACE/.test(X.exportStep({ name: 'x' }).files[0]), JSON.stringify(CAD.io.downloads));
+pn.body.els['[data-a=eng-oc]'].onclick();
+setTimeout(() => {
+  T('OpenCascade absent → AakarKernel stays active', X.state === 'ready' && X.name === 'AakarKernel', X.state + ' ' + X.name);
+  T('toast explains the fallback', toasts.some(t => /not installed/.test(t[0])));
+  console.log(pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);
+}, 600);
