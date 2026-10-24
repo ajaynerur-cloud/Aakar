@@ -23419,8 +23419,8 @@ struct BOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
 /* Aakar 8.15.1 · CAM tab companions
  * Puts the tools you reach for while programming a part next to the CAM button, so you do not have to leave the CAM tab:
  *   Recognize › Features  – lists holes / bosses / pockets / patterns (the Z-axis holes are what CAM › Auto program drills)
- *   Inspect   › Measure   – distance / hole spacing / depth on the model
- *   Inspect   › Section   – cut the model with a plane to check pocket and wall depths
+ *   Check     › Measure   – distance / hole spacing / depth on the model
+ *   Check     › Section   – cut the model with a plane to check pocket and wall depths
  * They call exactly the same functions as the buttons on the Part / Model / Assembly tabs; nothing is duplicated.
  * Loads after the CAM module; safe to run twice. */
 (function (G) {
@@ -23438,7 +23438,7 @@ struct BOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
     if (CAD.fr && CAD.fr.open) CAD.fr.open(); else say('Feature recognition is not available in this build', true);
   }, 'Recognize holes (through / blind / counterbore), bosses, fillets, pockets and hole patterns. The Z-axis holes are what CAM › Auto program drills.', SVG.feat]]);
   // Inspect
-  P.addGroup('cam', 'Inspect', [
+  P.addGroup('cam', 'Check', [
     ['cammeas', 'Measure', () => {
       const u = ui(); if (!u || !u.measPanel) return say('Measure is not available in this build', true);
       try { u.measPanel(); if (u.startMeasure) u.startMeasure('dist'); } catch (e) { say('Measure: ' + e.message, true); }
@@ -24411,7 +24411,7 @@ body.sk-pro #status{background:#16171a!important;border-top:1px solid #0c0d0f!im
     $('aakTP').addEventListener('change', function (e) { if (e.target.dataset.a === 'speed') PL.speed = +e.target.value; });
     $('aakTL').addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLib(); });
     var P0 = window.PRISM;
-    if (P0 && P0.addGroup) P0.addGroup('learn', 'Tutorials', [['tutImport', 'Import tutorial', function () { fi.click(); }, 'Import Aakar tutorial packs (.json or .zip)'], ['tutLibrary', 'Library', openLib, 'Open the tutorial library: pictures, ▶ Build and step-by-step']]);
+    if (P0 && P0.addGroup) P0.addGroup('learn', 'Tutorials', [['tutImport', 'Import tutorial', function () { fi.click(); }, 'Import Aakar tutorial packs (.json or .zip)', '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9.5 14.5L12 17l2.5-2.5"/>'], ['tutLibrary', 'Library', openLib, 'Open the tutorial library: pictures, ▶ Build and step-by-step', '<path d="M5 4h3.5v15H5zM10.5 4H14v15h-3.5z"/><path d="M16 5.6l3.3-.9 3.2 13.6-3.3.9z"/><path d="M3 21.5h19"/>']]);
     window.AAKAR_TUTORIALS = { loadBundled: loadBundled, open: openLib, importFiles: importFiles, packs: function () { return packs.slice(); }, runCourse: runCourse, runStep: runStep, validate: validate, capture: capture, courseById: function (id) { var x = findCourse(id); return x && x.c; }, openPlayer: openPlayer, state: function () { return { ids: X.ids, PL: PL }; }, newWindow: newWindow, describe: describe, closeWin: closeWin };
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
