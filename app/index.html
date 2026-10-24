@@ -23750,6 +23750,83 @@ body.sk-pro #x81tl .it b{color:#5fb2ff!important;font-size:16px!important}
 body.sk-pro #x81tl .it span{font-size:12px!important;max-width:110px!important;color:#d6d8dd!important}
 body.sk-pro #x81tl .it.cur{background:rgba(255,122,26,.12)!important;border-color:#ff7a1a!important}
 body.sk-pro #status{background:#16171a!important;border-top:1px solid #0c0d0f!important;color:#a2a6b0!important}
+/* ======================================================================
+   SKIN REFRESH · make GRAPHITE and PRO clearly different
+   GRAPHITE = silver ribbon, monochrome icon-only, floating glass panels, orange accent, square corners
+   PRO      = Fusion-style steel-blue, labelled BLUE icons, docked browser, blue accent, timeline
+   ====================================================================== */
+
+/* ---------- GRAPHITE : silver ribbon + neutral grey + floating glass ---------- */
+body.sk-graphite{--bg:#222326;--panel:#2b2c30;--panel2:#34353a;--line:#44464d;--r:3px}
+body.sk-graphite #top{background:#1c1d20!important;border-bottom:1px solid #000!important}
+body.sk-graphite .row1{background:#141517!important}
+body.sk-graphite .row2{background:linear-gradient(#e4e6ea,#cfd2d8)!important;border-bottom:1px solid #7f848d!important;box-shadow:inset 0 1px 0 #fff}
+body.sk-graphite #toolbar .grp{border-left:1px solid #aab0b9!important}
+body.sk-graphite .glabel{color:#4a4f58!important;font-weight:700!important}
+body.sk-graphite .tbtn{border-radius:3px!important;color:#2a2d33!important}
+body.sk-graphite .tbtn svg{stroke:#2c3037!important;fill:none!important;stroke-width:1.7!important}
+body.sk-graphite .tbtn:hover{background:#f4f5f7!important;border-color:#9aa0aa!important}
+body.sk-graphite .tbtn:disabled,body.sk-graphite .tbtn.disabled{opacity:.4}
+body.sk-graphite #tb-sketch{background:rgba(255,138,61,.28)!important}
+body.sk-graphite #tb-sketch svg{stroke:#c24e08!important}
+body.sk-graphite #wsDrop{border-right:1px solid #9aa0aa!important;color:#23262b!important}
+body.sk-graphite #wsDrop:hover{background:#f1f2f4!important}
+body.sk-graphite #wsDrop .ico{background:#2c3037;color:#ffb178;border-radius:4px}
+body.sk-graphite #wsDrop .lab{color:#23262b}
+body.sk-graphite #wsSubTop button{color:#a9adb5}
+body.sk-graphite #wsSubTop button.on{color:#fff;border-bottom:2px solid #ff8a3d}
+body.sk-graphite #x8tabs{background:#17181a!important}
+body.sk-graphite .x8t{border-radius:2px 2px 0 0!important}
+body.sk-graphite #left.panel,body.sk-graphite #right.panel{background:rgba(36,37,41,.78)!important;-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);border:1px solid rgba(255,255,255,.12)!important;border-radius:4px!important;box-shadow:0 14px 34px rgba(0,0,0,.45)!important}
+body.sk-graphite .card{background:rgba(255,255,255,.05)!important;border-color:rgba(255,255,255,.09)!important;border-radius:3px!important}
+body.sk-graphite .floatbar{background:rgba(30,31,34,.8)!important;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-radius:4px!important}
+body.sk-graphite .btn,body.sk-graphite .tab,body.sk-graphite .seg,body.sk-graphite .seg button{border-radius:3px!important}
+body.sk-graphite #status{background:#141517!important}
+body.sk-graphite #skCube svg .f{filter:grayscale(1)}
+body.sk-graphite #skCube .vb{background:rgba(30,31,34,.8);border-radius:4px}
+
+/* ---------- PRO : steel-blue, Fusion-style, blue accent ---------- */
+body.sk-pro{--bg:#151b24;--panel:#1b2330;--panel2:#232e3e;--line:#2c3a4d;--txt:#e6ecf5;--mut:#9fb0c8;--acc:#2f9bff;--acc2:#2f9bff;--r:6px}
+body.sk-pro #top{background:#131a23!important;border-bottom:1px solid #0a0e14!important}
+body.sk-pro .row1{background:#0f151c!important;border-bottom:1px solid #0a0e14!important}
+body.sk-pro .row2{background:linear-gradient(#202b3a,#1a2330)!important;border-bottom:1px solid #0a0e14}
+body.sk-pro #ribbon button.on{color:#6bb8ff!important;border-bottom:3px solid #2f9bff!important}
+body.sk-pro #wsSubTop button.on{color:#6bb8ff;border-bottom:3px solid #2f9bff}
+body.sk-pro #wsDrop{background:#2b3a50!important;border:1px solid #3d5273!important;border-radius:6px!important}
+body.sk-pro #wsDrop:hover{background:#34475f!important}
+body.sk-pro #wsDrop .ico{background:rgba(47,155,255,.22);color:#6bb8ff}
+body.sk-pro #wsMenu button:hover{background:rgba(47,155,255,.18)}
+body.sk-pro #wsMenu button.on{color:#6bb8ff}
+body.sk-pro #toolbar .grp{border-left:1px solid #34465e!important}
+body.sk-pro .tbtn:hover{background:#2b3a50!important;border-color:#3d5273!important}
+body.sk-pro .tbtn svg{stroke:#6bb8ff!important;fill:rgba(47,155,255,.20)!important}
+body.sk-pro #tb-sketch{background:rgba(47,155,255,.16)!important}
+body.sk-pro #tb-sketch svg{stroke:#6bb8ff!important;fill:rgba(47,155,255,.28)!important}
+body.sk-pro .glabel{color:#8fa4c2!important}
+body.sk-pro #x855bar button{background:#243044!important;border-color:#33455e!important}
+body.sk-pro #x8tabs{background:#0f151c!important;border-top:1px solid #0a0e14!important}
+body.sk-pro .x8t{background:#1a2330!important;border-color:#2c3a4d!important}
+body.sk-pro .x8t.on{background:#243044!important;box-shadow:inset 0 3px 0 #2f9bff!important}
+body.sk-pro .x8t .dot{color:#2f9bff}
+body.sk-pro #left.panel{background:#18202b!important;border-right:1px solid #0a0e14!important}
+body.sk-pro #left.panel::before{background:#131a23;color:#9fb0c8;border-bottom-color:#2c3a4d}
+body.sk-pro .tab{background:#131a23!important;border-color:#2c3a4d!important}
+body.sk-pro .tab.active{border-color:#2f9bff!important;background:#1f2b3c!important}
+body.sk-pro .fitem:hover{background:#243044!important}
+body.sk-pro .fitem.cur{background:rgba(47,155,255,.16)!important;box-shadow:inset 3px 0 0 #2f9bff}
+body.sk-pro #right.panel{background:rgba(24,32,43,.97)!important;border:1px solid #2c3a4d!important;border-radius:8px!important}
+body.sk-pro #right.panel::before{color:#9fb0c8;border-bottom-color:#2c3a4d}
+body.sk-pro .card{background:#1f2938!important;border-color:#2c3a4d!important}
+body.sk-pro .card input,body.sk-pro .panel input,body.sk-pro .panel select{background:#111821!important;border-color:#2c3a4d!important}
+body.sk-pro .btn.primary{background:#2f9bff!important;border-color:#2f9bff!important;color:#06121f!important}
+body.sk-pro .floatbar{background:rgba(24,32,43,.95)!important;border-color:#2c3a4d!important}
+body.sk-pro .seg{background:#111821!important}
+body.sk-pro .seg button.on{background:rgba(47,155,255,.20)!important;color:#6bb8ff!important}
+body.sk-pro #x81tl{background:#131a23!important;border-top:1px solid #0a0e14!important}
+body.sk-pro #x81tl::before{color:#9fb0c8}
+body.sk-pro #x81tl .it.cur{background:rgba(47,155,255,.14)!important;border-color:#2f9bff!important}
+body.sk-pro #status{background:#0f151c!important;border-top:1px solid #0a0e14!important}
+body.sk-pro #skCube svg .f{filter:hue-rotate(0deg) saturate(1.6) brightness(.95)}
 </style>
 
 <script id="aakar-skins-js">
@@ -23759,15 +23836,15 @@ body.sk-pro #status{background:#16171a!important;border-top:1px solid #0c0d0f!im
   var SKINS = [
     { id: 'classic', name: 'Classic', tag: 'ORIGINAL', desc: 'The original look, unchanged.', c: ['#12161f', '#1a202c', '#ff8a3d', '#9d8ab8'] },
     { id: 'studio', name: 'Studio', tag: 'OPTION 1', desc: 'Navy, rounded cards, 9 merged workspaces with sub-tabs, selection bar at the bottom.', c: ['#0f131a', '#171c26', '#ff8a3d', '#b29dcc'] },
-    { id: 'graphite', name: 'Graphite', tag: 'OPTION 2', desc: 'Neutral grey, DESIGN ▾ workspace switcher, icon-only toolbar, floating panels, ViewCube.', c: ['#2a2b2f', '#26272b', '#ff8a3d', '#a9adb5'] },
-    { id: 'pro', name: 'Pro', tag: 'OPTION 3', desc: 'Fusion-style: DESIGN ▾ switcher, big labelled blue icons, full browser, timeline row, ViewCube.', c: ['#1b1d21', '#1f2125', '#2f9bff', '#8a93a3'] }
+    { id: 'graphite', name: 'Graphite', tag: 'OPTION 2', desc: 'Minimal. Silver ribbon with mono icon-only tools, neutral-grey canvas, floating glass panels, orange accent, square corners.', c: ['#2b2c30', '#1c1d20', '#ff8a3d', '#a9adb5'] },
+    { id: 'pro', name: 'Pro', tag: 'OPTION 3', desc: 'Fusion-style. Steel-blue chrome, big labelled BLUE icons, full docked browser, timeline row, blue accent.', c: ['#141b25', '#1c2634', '#2f9bff', '#7f93b2'] }
   ];
   // viewport background + body colours per skin (null = keep the original)
   var VIEW = {
     classic: null,
     studio: { bg: [0.078, 0.098, 0.133], pal: null },
-    graphite: { bg: [0.20, 0.21, 0.235], pal: [[0.72, 0.73, 0.76], [0.66, 0.67, 0.70], [0.76, 0.74, 0.72], [0.70, 0.72, 0.76], [0.74, 0.74, 0.74], [0.68, 0.70, 0.73], [0.73, 0.71, 0.72]] },
-    pro: { bg: [0.105, 0.112, 0.125], pal: [[0.60, 0.65, 0.72], [0.66, 0.68, 0.72], [0.56, 0.62, 0.70], [0.64, 0.66, 0.74], [0.62, 0.64, 0.68], [0.58, 0.66, 0.74], [0.66, 0.64, 0.70]] }
+    graphite: { bg: [0.215, 0.22, 0.235], pal: [[0.72, 0.73, 0.76], [0.66, 0.67, 0.70], [0.76, 0.74, 0.72], [0.70, 0.72, 0.76], [0.74, 0.74, 0.74], [0.68, 0.70, 0.73], [0.73, 0.71, 0.72]] },
+    pro: { bg: [0.075, 0.105, 0.155], pal: [[0.52, 0.64, 0.80], [0.58, 0.68, 0.82], [0.50, 0.62, 0.78], [0.56, 0.66, 0.84], [0.54, 0.64, 0.76], [0.48, 0.64, 0.82], [0.60, 0.66, 0.78]] }
   };
   var get = function () { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
   var put = function (v) { try { localStorage.setItem(KEY, v); } catch (e) { /* storage blocked */ } };
@@ -23798,7 +23875,7 @@ body.sk-pro #status{background:#16171a!important;border-top:1px solid #0c0d0f!im
       var c = s.c;
       h += '<button class="opt" data-id="' + s.id + '"><div class="pv" style="--pm:' + c[3] + ';background:' + c[0] + '">' +
         '<div class="a" style="background:' + c[1] + '"><span style="width:14px;background:' + c[2] + '"></span><span style="width:22px;background:#555b66"></span><span style="width:18px;background:#555b66"></span></div>' +
-        '<div class="a" style="background:' + c[1] + ';border-top:1px solid rgba(0,0,0,.4)">' + new Array(7).join('<span style="width:9px;height:9px;background:' + (s.id === 'pro' ? c[2] : '#6b717d') + '"></span>') + '</div>' +
+        '<div class="a" style="background:' + (s.id === 'graphite' ? '#d3d6dc' : c[1]) + ';border-top:1px solid rgba(0,0,0,.4)">' + new Array(7).join('<span style="width:9px;height:' + (s.id === 'pro' ? 11 : 9) + 'px;background:' + (s.id === 'pro' ? c[2] : (s.id === 'graphite' ? '#3a3e46' : '#6b717d')) + '"></span>') + '</div>' +
         '<div class="m"><div style="background:' + c[1] + ';' + (s.id === 'graphite' ? 'margin:5px;border-radius:3px;opacity:.9' : '') + '"></div><div class="vp" style="background:' + c[0] + '"></div><div style="background:' + (s.id === 'pro' || s.id === 'graphite' ? 'transparent' : c[1]) + '"></div></div>' +
         '<div style="background:' + c[1] + '"></div></div>' +
         '<b>' + s.name + '<i>' + s.tag + '</i></b><small>' + s.desc + '</small></button>';
