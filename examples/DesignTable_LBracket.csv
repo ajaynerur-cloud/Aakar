@@ -1,0 +1,5 @@
+Config,Width,Height,Thickness,HoleDia,HoleCount,BendRadius,Material
+Bracket-S,40,40,2,5.5,2,2,Al 5052
+Bracket-M,60,60,3,6.6,2,3,Al 5052
+Bracket-L,80,80,4,9.0,3,4,Al 5052
+Bracket-XL,120,100,5,11.0,4,5,Al 5052

@@ -1,0 +1,4 @@
+Assembly,Shaft,Bearing,Bearing#,Housing,Fastener,Fastener#
+Size-20,Shaft-D20,Bearing-6004,2,Housing-20,M6x20,4
+Size-25,Shaft-D25,Bearing-6005,2,Housing-25,M8x25,4
+Size-30,Shaft-D30,Bearing-6006,2,Housing-30,M8x25,6
