@@ -1,0 +1,106 @@
+/* ===== Aakar 8.16 · reference geometry / curves panel, menus, Instant3D ===== */
+.rgp{width:372px}
+.rgp .bd{max-height:calc(100vh - 210px);overflow:auto;padding:10px 12px 12px;font-size:12px}
+.rgp h5{margin:12px 0 5px;font-size:10px;letter-spacing:.1em;color:var(--mut);text-transform:uppercase;font-weight:700}
+.rgp h5:first-child{margin-top:0}
+.rgp select,.rgp input[type=text],.rgp input[type=number]{background:var(--bg);border:1px solid var(--line);border-radius:5px;color:var(--txt);padding:4px 6px;font:inherit;min-width:0}
+.rgp .mode{width:100%}
+.rgp .help{color:var(--mut);font-size:11px;line-height:1.45;margin:6px 1px 0}
+.rgp .slot{margin:6px 0;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.02)}
+.rgp .slot.arm{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset;background:rgba(255,138,61,.07)}
+.rgp .slot .lab{display:flex;justify-content:space-between;align-items:center;color:var(--mut);font-size:11px;margin-bottom:4px}
+.rgp .slot .lab em{font-style:normal;color:var(--acc);font-size:10px}
+.rgp .slot .row{display:flex;gap:5px;align-items:center}
+.rgp .slot .val{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt);padding:4px 7px;border-radius:5px;background:var(--bg);border:1px solid var(--line)}
+.rgp .slot .val.empty{color:var(--mut);font-style:italic}
+.rgp .slot .val.set{border-color:rgba(61,184,255,.55)}
+.rgp .slot button,.rgp .btns button,.rgp .chips button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);padding:4px 8px;font:inherit;cursor:pointer}
+.rgp .slot button:hover,.rgp .btns button:hover{border-color:var(--acc);color:var(--acc)}
+.rgp .slot button.pk{padding:4px 9px;font-weight:600}
+.rgp .slot button.on{background:var(--acc);border-color:var(--acc);color:#1a1208}
+.rgp .slot select{width:100%;margin-top:5px}
+.rgp .slot .xyz{display:flex;gap:4px;margin-top:5px;align-items:center}.rgp .slot .xyz input{width:0;flex:1}
+.rgp .multi{margin-top:5px;display:flex;flex-direction:column;gap:3px}
+.rgp .multi div{display:flex;align-items:center;gap:6px;padding:2px 4px 2px 8px;border-radius:5px;background:var(--bg);border:1px solid var(--line)}
+.rgp .multi div span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rgp .multi div b{color:var(--mut);font-weight:500;font-size:10.5px}
+.rgp .multi div button{padding:0 6px}
+.rgp .vals{display:grid;grid-template-columns:1fr 112px;gap:6px 10px;align-items:center}
+.rgp .vals label{color:var(--mut)}.rgp .vals input[type=checkbox]{justify-self:start;accent-color:var(--acc)}
+.rgp .vals input,.rgp .vals select{width:100%}
+.rgp .err{margin-top:10px;padding:6px 8px;border-radius:6px;font-size:11.5px;line-height:1.4}
+.rgp .err.bad{color:#ffb4bc;background:rgba(255,93,108,.12);border:1px solid rgba(255,93,108,.4)}
+.rgp .err.hint{color:var(--mut);background:rgba(255,255,255,.03);border:1px dashed var(--line)}
+.rgp .err.ok{color:#8fe8b0;background:rgba(66,211,146,.1);border:1px solid rgba(66,211,146,.35)}
+.rgp .nm{display:flex;gap:6px;align-items:center;margin-top:10px}.rgp .nm input{flex:1}
+.rgp .btns{display:flex;gap:8px;margin-top:12px}.rgp .btns button{flex:1;padding:7px}
+.rgp .btns button.p{background:var(--acc);border-color:var(--acc);color:#1a1208;font-weight:700}
+.rgp .btns button:disabled{opacity:.45;cursor:default}
+.rgp .tag{display:inline-block;margin-left:6px;padding:0 6px;border-radius:9px;background:rgba(61,184,255,.15);color:var(--acc2);font-size:10px;font-weight:600}
+/* manage list */
+.rgl{width:340px}.rgl .bd{max-height:calc(100vh - 230px);overflow:auto;padding:8px 10px 10px;font-size:12px}
+.rgl .top{display:flex;gap:10px;align-items:center;margin-bottom:8px;color:var(--mut)}.rgl .top label{display:flex;gap:5px;align-items:center;cursor:pointer}.rgl .top input{accent-color:var(--acc)}
+.rgl .it{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;border:1px solid transparent}
+.rgl .it:hover{background:rgba(255,255,255,.04)}.rgl .it.sel{background:rgba(255,138,61,.12);border-color:rgba(255,138,61,.5)}
+.rgl .it .g{width:18px;text-align:center;color:var(--acc2);font-size:14px}.rgl .it .n{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.rgl .it .n small{color:var(--mut);margin-left:5px}
+.rgl .it button{background:none;border:1px solid var(--line);border-radius:5px;color:var(--mut);padding:1px 6px;cursor:pointer;font:inherit;font-size:11px}
+.rgl .it button:hover{color:var(--acc);border-color:var(--acc)}.rgl .it button.eye{border:0;font-size:14px;padding:0 3px}.rgl .it button.eye.off{opacity:.35}
+.rgl .empty{color:var(--mut);padding:10px 4px;line-height:1.5}
+.rgl .new{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}.rgl .new button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;color:var(--txt);padding:4px 9px;cursor:pointer;font:inherit}.rgl .new button:hover{border-color:var(--acc);color:var(--acc)}
+/* dropdown menu (re-uses the look of the other ribbon menus) */
+.rgmenu{position:fixed;z-index:9300;min-width:262px;max-width:340px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;box-shadow:0 14px 34px #000a}
+.rgmenu h4{margin:6px 8px 3px;font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.rgmenu hr{border:0;border-top:1px solid var(--line);margin:5px 2px}
+.rgmenu button{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;color:var(--txt);text-align:left;padding:6px 9px;border-radius:6px;cursor:pointer;font:inherit}
+.rgmenu button:hover{background:var(--panel2)}
+.rgmenu button i{font-style:normal;width:18px;text-align:center;color:var(--acc2);font-size:14px;flex:none}
+.rgmenu button small{display:block;color:var(--mut);font-size:10.5px;margin-top:1px}
+.rgmenu button .t{flex:1;min-width:0}
+.rgmenu button.dim{opacity:.55}
+/* toolbar toggle */
+#toolbar .tbtn.on{background:rgba(255,138,61,.18)!important;border-color:var(--acc)!important}
+#toolbar .tbtn.on svg{stroke:var(--acc)!important}
+body.rg-picking #cv{cursor:crosshair!important}
+/* light skins keep the dropdown / panel readable */
+body.sk-graphite .rgmenu,body.sk-command .rgmenu{background:#fff;border-color:#b5bbc5;color:#1e2229;--panel:#fff;--panel2:#eef1f5;--line:#c4c9d1;--txt:#1e2229;--mut:#59616e;box-shadow:0 14px 34px rgba(30,36,48,.3)}
+body.sk-graphite .rgp,body.sk-command .rgp,body.sk-graphite .rgl,body.sk-command .rgl{--bg:#fff;--panel:#f4f5f7;--panel2:#eef1f5;--line:#c4c9d1;--txt:#1e2229;--mut:#59616e;color:#1e2229;background:#f4f5f7;border-color:#b5bbc5}
+body.sk-graphite .rgp header,body.sk-command .rgp header,body.sk-graphite .rgl header,body.sk-command .rgl header{color:#1e2229;border-bottom-color:#c4c9d1}
+body.sk-graphite #rgLbl div,body.sk-command #rgLbl div{color:#1d3a6b;background:rgba(255,255,255,.9);border-color:rgba(31,111,209,.5)}
+
+/* dropdowns inside the panel: ignore the inherited 170px cap */
+.rgp .slot select,.rgp .mode,.rgp .vals select{max-width:none!important;width:100%}
+.rgp .vals input[type=text]{width:100%}
+
+/* ===== Instant3D ===== */
+#i3dLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:12}
+#i3dLayer .i3d-chip{position:absolute;left:0;top:0;pointer-events:auto;font:600 11.5px "Segoe UI",system-ui,sans-serif;color:#1a1208;background:#ffb26b;border:1px solid #ff8a3d;border-radius:12px;padding:2px 9px;white-space:nowrap;cursor:text;box-shadow:0 3px 10px rgba(0,0,0,.4);will-change:transform;display:flex;align-items:baseline;gap:5px}
+#i3dLayer .i3d-chip .l{font-weight:500;opacity:.75;font-size:10px}
+#i3dLayer .i3d-chip i{font-style:normal;opacity:.7;font-size:10px;margin-left:1px}
+#i3dLayer .i3d-chip.flat{background:rgba(24,28,38,.94);color:#ffd1a1;border-color:rgba(255,138,61,.65)}
+#i3dLayer .i3d-chip.bad{background:#ff5d6c;border-color:#ff5d6c;color:#fff}
+#i3dLayer .i3d-chip input{width:64px;font:inherit;background:#fff;color:#111;border:0;border-radius:6px;padding:0 4px;outline:2px solid #1f6fd1}
+#i3dLayer .i3d-grip{position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;pointer-events:auto;cursor:grab;background:#ff8a3d;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.5);display:grid;place-items:center;will-change:transform;touch-action:none}
+#i3dLayer .i3d-grip svg{width:14px;height:14px;stroke:#1a1208;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+#i3dLayer .i3d-grip:hover{background:#ffb26b}
+#i3dLayer .i3d-grip.drag{cursor:grabbing;background:#ffe27a}
+body.i3d-dragging,body.i3d-dragging *{cursor:grabbing!important}
+#i3dBar{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:13;display:none;align-items:center;gap:10px;padding:5px 8px 5px 12px;background:rgba(24,28,38,.94);border:1px solid rgba(255,138,61,.7);border-radius:20px;color:#dfe6f2;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.45);white-space:nowrap}
+#i3dBar.on{display:flex}
+body:not([class*="sk-"]) #i3dBar{top:92px}
+#i3dBar b{color:#ff8a3d;letter-spacing:.04em}
+#i3dBar .f{font-weight:600}
+#i3dBar .h{color:#9aa6bb;font-size:11px}
+#i3dBar button{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:50%;width:22px;height:22px;color:#dfe6f2;cursor:pointer;padding:0;line-height:1;font-size:10px}
+#i3dBar button:hover{border-color:#ff8a3d;color:#ff8a3d}
+body.sk-graphite #i3dBar,body.sk-command #i3dBar{background:rgba(255,255,255,.96);color:#1e2229;border-color:#e0600c}
+body.sk-graphite #i3dBar .h,body.sk-command #i3dBar .h{color:#59616e}
+body.sk-graphite #i3dBar button,body.sk-command #i3dBar button{background:#fff;border-color:#b5bbc5;color:#1e2229}
+
+/* ---- tool-row scroll chevrons ---- */
+.tbchev{position:absolute;z-index:6;width:24px;display:none;place-items:center;padding:0;border:0;cursor:pointer;font:700 18px/1 "Segoe UI",system-ui,sans-serif;color:var(--txt,#dfe6f2);background:linear-gradient(to right,color-mix(in srgb,var(--panel,#1a202c) 96%,transparent),color-mix(in srgb,var(--panel,#1a202c) 82%,transparent));box-shadow:0 0 10px rgba(0,0,0,.35)}
+#tbR{background:linear-gradient(to left,color-mix(in srgb,var(--panel,#1a202c) 96%,transparent),color-mix(in srgb,var(--panel,#1a202c) 82%,transparent))}
+.tbchev:hover{color:var(--acc,#ff8a3d)}
+body.sk-command .tbchev{color:#1d2530;background:linear-gradient(to right,rgba(246,248,250,.97),rgba(246,248,250,.85));box-shadow:0 0 8px rgba(30,40,60,.25)}
+body.sk-command #tbR{background:linear-gradient(to left,rgba(246,248,250,.97),rgba(246,248,250,.85))}
+body.sk-graphite .tbchev{color:#1e2229;background:linear-gradient(to right,rgba(244,245,247,.97),rgba(244,245,247,.85));box-shadow:0 0 8px rgba(30,36,48,.25)}
+body.sk-graphite #tbR{background:linear-gradient(to left,rgba(244,245,247,.97),rgba(244,245,247,.85))}
+body.sk-focus .tbchev{display:none!important}
