@@ -51,3 +51,15 @@ Blend, Match and the Continuity check now go up to **G3**, where the rate of cha
 - **Blend G3:** a degree-7 cross section. A test pair of curved panels measures 0 % curvature-rate difference at G3, against about 100 % at G2.
 - **Match G3:** moves 4 control rows. The target needs at least 5 rows and degree 3 or more across the edge.
 - **Class-A example:** opens as a G2 blend as before. Switch it to G3 in the feature dialog.
+
+## SMLib as a third exact-kernel engine
+The Exact kernel panel now offers **Engine: AakarKernel | OpenCascade | SMLib**, and Aakar remembers the choice. SMLib is a commercial C++ library, so it is **not shipped**. You plug in your own licensed build, and if none is installed AakarKernel stays active. The log says why.
+- **Native route (desktop):** `app/smlib/native/index.js` wraps an N-API addon. It runs in Electron's main process, and the page calls it over synchronous IPC (`window.aakarDesktop.smlib`, with handles `{ __sm }`). `index.example.js` is the template.
+- **WebAssembly route:** `app/smlib/aakar-smlib.mjs`, served as `aakar-asset://smlib/`. On the web it loads through `smlib/aakar-smlib.js`.
+- **Contract and self-test:** the same as OpenCascade (13 checks). See `app/smlib/README.md`.
+- **Repository:** `.gitignore` keeps the licensed SMLib files out of git, and `asarUnpack` includes `app/smlib/**`.
+- **Tested with a stand-in kernel (occt-wasm) in the SMLib slot:**
+  - native route in Electron: 13/13 self-test, the choice survives a restart, and box and cylinder are exact with exact STEP;
+  - WebAssembly route in the browser: 13/13;
+  - SMLib missing: it falls back cleanly.
+  - `npm test` has 9 new checks for the main-process loader and IPC handles.

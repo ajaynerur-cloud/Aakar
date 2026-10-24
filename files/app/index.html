@@ -18822,7 +18822,7 @@ self.__H['img.trace'] = async (p, prog) => {
     if (X.state === 'absent') h += '<p class="note">Aakar works fully without it. To add exact STEP export, exact volumes and exact booleans, place the OpenCascade kernel next to the app (folder <b>occt</b> — see occt/README.md). The desktop build made by the GitHub workflow includes it when its self-test passes.</p><div class="row"><button class="btn sm" data-a="retry">Look for it again</button></div>';
     if (X.state === 'error') h += '<p class="bad">' + esc(X.error || '') + '</p><div class="row"><button class="btn sm" data-a="retry">Try again</button></div>';
     if (X.state === 'ready') {
-      if (X.builtin) h += '<div class="row"><b>Engine</b><button class="btn sm' + (X.name === 'AakarKernel' ? ' primary' : '') + '" data-a="eng-ak" title="Built in, offline, no WebAssembly">AakarKernel</button><button class="btn sm' + (X.name !== 'AakarKernel' ? ' primary' : '') + '" data-a="eng-oc" title="Needs the OpenCascade binding in the occt folder">OpenCascade</button></div>';
+      if (X.builtin) h += '<div class="row"><b>Engine</b><button class="btn sm' + (X.name === 'AakarKernel' ? ' primary' : '') + '" data-a="eng-ak" title="Built in, offline, no WebAssembly">AakarKernel</button><button class="btn sm' + (/^OpenCascade/.test(X.name || '') ? ' primary' : '') + '" data-a="eng-oc" title="Needs the OpenCascade binding in the occt folder">OpenCascade</button><button class="btn sm' + (/^SMLib/.test(X.name || '') ? ' primary' : '') + '" data-a="eng-sm" title="Needs your licensed SMLib binding in the smlib folder (see app/smlib/README.md)">SMLib</button></div>';
       h += '<div class="row"><label><input type="checkbox" data-k="bool" ' + (X.useExactBooleans ? 'checked' : '') + '> Use the exact kernel for booleans of exact bodies</label></div><div class="row"><button class="btn sm primary" data-a="report">Exact vs faceted report</button><button class="btn sm" data-a="step">Export exact STEP</button><button class="btn sm" data-a="test">Run self-test</button>' + (X.kernel && X.kernel.massProps ? '<button class="btn sm" data-a="props" title="Volume, area, centroid, inertia and B-rep structure">Exact properties</button>' : '') + '</div>';
       if (X.lastProps) h += '<h5>Exact properties</h5><table><tr><th>Body</th><th>Volume</th><th>Area</th><th>Centroid</th><th>Faces</th><th>Edges</th><th>Valid</th></tr>' + X.lastProps.map((r) => '<tr><td>' + esc(r.name) + '</td><td class="n">' + r.volume.toFixed(3) + '</td><td class="n">' + (isFinite(r.area) ? r.area.toFixed(3) : '—') + '</td><td class="n">' + (r.centroid || []).map((x) => (isFinite(x) ? x.toFixed(2) : '—')).join(', ') + '</td><td>' + (r.info ? Object.keys(r.info.faces).map((k) => r.info.faces[k] + ' ' + k).join(', ') : '') + '</td><td>' + (r.info ? Object.keys(r.info.edges).map((k) => r.info.edges[k] + ' ' + k).join(', ') : '') + '</td><td class="' + (r.valid == null ? '' : r.valid ? 'ok' : 'bad') + '">' + (r.valid == null ? '—' : r.valid ? '✓' : '✗') + '</td></tr>' + (!r.inertia ? '' : '<tr><td colspan="7" class="note">inertia about the centroid, unit density: Ixx ' + r.inertia[0][0].toFixed(1) + ' · Iyy ' + r.inertia[1][1].toFixed(1) + ' · Izz ' + r.inertia[2][2].toFixed(1) + ' · Ixy ' + r.inertia[0][1].toFixed(1) + ' · Iyz ' + r.inertia[1][2].toFixed(1) + ' · Izx ' + r.inertia[2][0].toFixed(1) + (r.approximate ? ' · ' + r.approximate + ' face(s) integrated on facets' : '') + '</td></tr>')).join('') + '</table>';
       if (X.lastReport) h += '<table><tr><th>Body</th><th>Exact</th><th>Volume (exact)</th><th>Faceted</th><th>Δ</th></tr>' + X.lastReport.map((r) => '<tr><td>' + esc(r.name) + '</td><td>' + (r.exact ? '✓' : '—') + '</td><td class="n">' + (r.volume != null ? r.volume.toFixed(2) : '—') + '</td><td class="n">' + r.faceted.toFixed(2) + '</td><td class="n">' + (r.diff != null ? r.diff.toFixed(2) + ' %' : '') + '</td></tr>').join('') + '</table>';
@@ -18835,6 +18835,7 @@ self.__H['img.trace'] = async (p, prog) => {
     if (A('props')) A('props').onclick = () => { try { X.lastProps = X.properties(); } catch (e) { toast(e.message, true); } renderPanel(); };
     if (A('eng-ak')) A('eng-ak').onclick = () => { X.useAakarKernel(true); renderPanel(); try { F.invalidate(st.doc, 0); P.regenerate(); } catch (e) { /* ignore */ } };
     if (A('eng-oc')) A('eng-oc').onclick = () => { X.useOpenCascade().then((ok) => { toast(ok ? 'OpenCascade is active' : 'OpenCascade is not installed — AakarKernel stays active', !ok); renderPanel(); }); };
+    if (A('eng-sm')) A('eng-sm').onclick = () => { if (!X.useSMLib) return toast('SMLib support is not wired in this build', true); X.useSMLib().then((ok) => { toast(ok ? 'SMLib is active' : 'SMLib is not installed — AakarKernel stays active (see the log)', !ok); renderPanel(); }); };
     if (A('test')) A('test').onclick = () => { try { const t = X.selfTest(); toast('Self-test: ' + t.passed + ' of ' + t.total + ' passed', t.passed !== t.total); } catch (e) { toast(e.message, true); } };
     if (A('step')) A('step').onclick = () => { try { const o = X.exportStep({ name: 'Aakar_Model' }); if (o.text) CAD.io.download('model_exact.step', o.text, 'application/step'); else { o.files.forEach((t, i) => CAD.io.download('model_exact_' + (i + 1) + '.step', t, 'application/step')); if (o.facetedStep) CAD.io.download('model_faceted.step', o.facetedStep, 'application/step'); } toast('Exported ' + o.exact + ' exact bod' + (o.exact === 1 ? 'y' : 'ies') + (o.faceted ? ' + ' + o.faceted + ' faceted' : '')); } catch (e) { toast(e.message, true); } };
     if (bt) bt.onchange = () => { X.useExactBooleans = bt.checked; if (X.chip) X.chip(); try { G.localStorage.setItem('aakar.exact.booleans', bt.checked ? '1' : '0'); } catch (e) { /* ignore */ } try { F.invalidate(st.doc, 0); P.regenerate(); } catch (e) { /* ignore */ } };
@@ -19951,6 +19952,42 @@ G.AakarKernel = AK;
     X.useExactBooleans = stored() !== '0'; pref('occt');
     chip(); refresh(); return true;
   };
+  // ------------------------------------------------------------------ SMLib (8.12): a third engine, loaded from YOUR licensed binding
+  // SMLib is a commercial C++ NURBS / solid-modelling library; Aakar cannot ship it. Any of these routes provides it (first one found wins):
+  //   1. window.AakarSmlibBinding = { name, version, init(opts) -> kernel }     already on the page
+  //   2. desktop, native: app/smlib/native/index.js (wraps an N-API addon built from SMLib) runs in the main process, called over sync IPC
+  //   3. desktop, WebAssembly: app/smlib/aakar-smlib.mjs served as aakar-asset://smlib/  (exports { name, version, init })
+  //   4. web / plain HTML: classic script smlib/aakar-smlib.js next to index.html, defining window.AakarSmlibBinding
+  // The kernel must offer the same calls as the OpenCascade binding (see app/smlib/README.md); the same self-test checks it.
+  const REQ_SM = ['box', 'cylinder', 'sphere', 'translate', 'fuse', 'cut', 'common', 'volume', 'area', 'mesh', 'stepExport'];
+  const SM_OPT = ['cone', 'torus', 'rotate', 'scale', 'bbox', 'massProps', 'info', 'validate', 'stepImport', 'release'];
+  function smlibIpcKernel(br) {
+    const inf = br.info(); if (!inf || !inf.available) throw new Error((inf && inf.error) || 'no native SMLib module in app/smlib/native');
+    const call = (m) => (...a) => { const r = br.call(m, a); if (!r || !r.ok) throw new Error('SMLib ' + m + ': ' + ((r && r.error) || 'failed')); return r.value; };
+    const k = { name: inf.name || 'SMLib', version: inf.version || '' };
+    REQ_SM.concat(SM_OPT).forEach((m) => { if (!inf.methods || inf.methods.includes(m)) k[m] = call(m); });
+    return k;
+  }
+  function smScript(url) { return new Promise((res, rej) => { const el = G.document.createElement('script'); el.src = url; el.async = true; el.onload = () => res(true); el.onerror = () => { el.remove(); rej(new Error('not found: ' + url)); }; G.document.head.appendChild(el); }); }
+  async function loadSmlib(notes) {
+    const desk = G.aakarDesktop && G.aakarDesktop.isDesktop;
+    if (!G.AakarSmlibBinding && desk && G.aakarDesktop.smlib) { try { const k = smlibIpcKernel(G.aakarDesktop.smlib); return { kernel: k, info: { name: k.name, version: k.version } }; } catch (e) { notes.push('native: ' + (e.message || e)); } }
+    if (!G.AakarSmlibBinding && desk) { try { const mod = await import('aakar-asset://smlib/aakar-smlib.mjs'); const init = mod.init || (mod.default && mod.default.init); if (init) G.AakarSmlibBinding = { name: mod.name || 'SMLib', version: mod.version || '', init }; } catch (e) { notes.push('wasm module: ' + (e.message || e)); } }
+    if (!G.AakarSmlibBinding) { try { await smScript('smlib/aakar-smlib.js'); } catch (e) { notes.push('script: ' + (e.message || e)); } }
+    if (!G.AakarSmlibBinding) throw new Error('no SMLib binding installed — ' + notes.join(' | '));
+    const B = G.AakarSmlibBinding; let k;
+    try { k = await B.init({ base: desk ? 'aakar-asset://smlib/' : 'smlib/' }); } catch (e) { notes.push('binding: ' + (e.message || e)); throw new Error(notes.join(' | ')); }
+    return { kernel: k, info: { name: B.name || k.name || 'SMLib', version: B.version || k.version || '' } };
+  }
+  X.useSMLib = async function () {
+    X.state = 'loading'; X.kernel = null; X.loading = null; const notes = [];
+    try {
+      const r = await Promise.race([loadSmlib(notes), new Promise((res, rej) => setTimeout(() => rej(new Error('timed out after 90 s')), 90000))]);
+      const nm = /^SMLib/i.test(r.info.name || '') ? r.info.name : 'SMLib' + (r.info.name ? ' (' + r.info.name + ')' : '');
+      X.useKernel(r.kernel, { name: nm, version: r.info.version });
+    } catch (e) { X.useAakarKernel(); X.log.push('SMLib not available — AakarKernel stays active (' + (e.message || e) + ')'); chip(); return false; }
+    X.useExactBooleans = stored() !== '0'; pref('smlib'); chip(); refresh(); return true;
+  };
   /** exact properties of every exact body: volume, area, centroid, inertia tensor (unit density), B-rep structure and validity */
   X.properties = function () {
     if (X.state !== 'ready' || !X.kernel.massProps) throw new Error('The active exact kernel does not report mass properties');
@@ -19961,7 +19998,8 @@ G.AakarKernel = AK;
   };
   X.showProps = function () { try { X.lastProps = X.properties(); } catch (e) { try { (IK && IK.toast ? IK.toast : P.toast)(e.message, true); } catch (e2) { /* ignore */ } } X.openPanel(); };
   X.useAakarKernel();
-  if (pref() === 'occt') { try { G.setTimeout(() => { X.useOpenCascade().then(chip); }, 400); } catch (e) { /* ignore */ } }   // the user last chose OpenCascade: bring it back (falls back to AakarKernel if it is not there)
+  if (pref() === 'occt') { try { G.setTimeout(() => { X.useOpenCascade().then(chip); }, 400); } catch (e) { /* ignore */ } }
+  else if (pref() === 'smlib') { try { G.setTimeout(() => { X.useSMLib().then(chip); }, 400); } catch (e) { /* ignore */ } }   // the user last chose SMLib (falls back to AakarKernel if it is not there)   // the user last chose OpenCascade: bring it back (falls back to AakarKernel if it is not there)
   // status-bar chip
   try {
     const d = G.document, foot = d && d.getElementById('status');

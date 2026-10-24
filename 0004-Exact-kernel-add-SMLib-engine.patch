@@ -1,0 +1,434 @@
+From d651592544bb068c08739bf8d215bc7d761a6b27 Mon Sep 17 00:00:00 2001
+From: Ajaykumar <a.nerurmuthukrishnan@shell.com>
+Date: Fri, 23 Oct 2026 20:14:10 +0000
+Subject: [PATCH] Exact kernel: add SMLib as a third switchable engine
+
+- panel: Engine AakarKernel | OpenCascade | SMLib, choice remembered
+- SMLib is commercial and not shipped: plug in your licensed build via
+  a native N-API addon (app/smlib/native/index.js, main process, sync IPC
+  with {__sm} handles) or a WebAssembly module (app/smlib/aakar-smlib.mjs)
+- main.js: aakar-asset://smlib/ host, loadSmlibNative / smlibCall / smlibInfo
+- preload.js: window.aakarDesktop.smlib bridge
+- same kernel contract and 13-check self-test as OpenCascade; falls back to
+  AakarKernel with the reason in the log
+- .gitignore keeps licensed SMLib files out; asarUnpack app/smlib/**
+- tests: native loader, handles, stale/unknown calls, smlib asset host
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01MvLybUGZkdXhnZxC5CmdGQ
+---
+ .gitignore                        | 10 ++++++
+ app/index.html                    | 42 +++++++++++++++++++++++--
+ app/smlib/README.md               | 44 ++++++++++++++++++++++++++
+ app/smlib/aakar-smlib.js          | 12 ++++++++
+ app/smlib/native/index.example.js | 34 +++++++++++++++++++++
+ app/smlib/native/package.json     |  4 +++
+ app/smlib/package.json            |  4 +++
+ docs/WHATS_NEW_8_12.md            | 12 ++++++++
+ main.js                           | 51 ++++++++++++++++++++++++++++---
+ package.json                      |  3 +-
+ preload.js                        |  7 ++++-
+ test/run-tests.mjs                | 35 +++++++++++++++++++++
+ 12 files changed, 250 insertions(+), 8 deletions(-)
+ create mode 100644 app/smlib/README.md
+ create mode 100644 app/smlib/aakar-smlib.js
+ create mode 100644 app/smlib/native/index.example.js
+ create mode 100644 app/smlib/native/package.json
+ create mode 100644 app/smlib/package.json
+
+diff --git a/.gitignore b/.gitignore
+index 8dcf76a..c696b6d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -8,3 +8,13 @@ app/occt/*
+ !app/occt/aakar-occt.js
+ !app/occt/README.md
+ !app/occt/package.json
++
++# SMLib is commercial: never commit the licensed library or its builds. Only the Aakar loader, README and templates are tracked.
++app/smlib/*
++!app/smlib/README.md
++!app/smlib/aakar-smlib.js
++!app/smlib/package.json
++!app/smlib/native/
++app/smlib/native/*
++!app/smlib/native/index.example.js
++!app/smlib/native/package.json
+diff --git a/app/index.html b/app/index.html
+index 3ed86a2..38c1d1a 100644
+--- a/app/index.html
++++ b/app/index.html
+@@ -18822,7 +18822,7 @@ self.__H['img.trace'] = async (p, prog) => {
+     if (X.state === 'absent') h += '<p class="note">Aakar works fully without it. To add exact STEP export, exact volumes and exact booleans, place the OpenCascade kernel next to the app (folder <b>occt</b> — see occt/README.md). The desktop build made by the GitHub workflow includes it when its self-test passes.</p><div class="row"><button class="btn sm" data-a="retry">Look for it again</button></div>';
+     if (X.state === 'error') h += '<p class="bad">' + esc(X.error || '') + '</p><div class="row"><button class="btn sm" data-a="retry">Try again</button></div>';
+     if (X.state === 'ready') {
+-      if (X.builtin) h += '<div class="row"><b>Engine</b><button class="btn sm' + (X.name === 'AakarKernel' ? ' primary' : '') + '" data-a="eng-ak" title="Built in, offline, no WebAssembly">AakarKernel</button><button class="btn sm' + (X.name !== 'AakarKernel' ? ' primary' : '') + '" data-a="eng-oc" title="Needs the OpenCascade binding in the occt folder">OpenCascade</button></div>';
++      if (X.builtin) h += '<div class="row"><b>Engine</b><button class="btn sm' + (X.name === 'AakarKernel' ? ' primary' : '') + '" data-a="eng-ak" title="Built in, offline, no WebAssembly">AakarKernel</button><button class="btn sm' + (/^OpenCascade/.test(X.name || '') ? ' primary' : '') + '" data-a="eng-oc" title="Needs the OpenCascade binding in the occt folder">OpenCascade</button><button class="btn sm' + (/^SMLib/.test(X.name || '') ? ' primary' : '') + '" data-a="eng-sm" title="Needs your licensed SMLib binding in the smlib folder (see app/smlib/README.md)">SMLib</button></div>';
+       h += '<div class="row"><label><input type="checkbox" data-k="bool" ' + (X.useExactBooleans ? 'checked' : '') + '> Use the exact kernel for booleans of exact bodies</label></div><div class="row"><button class="btn sm primary" data-a="report">Exact vs faceted report</button><button class="btn sm" data-a="step">Export exact STEP</button><button class="btn sm" data-a="test">Run self-test</button>' + (X.kernel && X.kernel.massProps ? '<button class="btn sm" data-a="props" title="Volume, area, centroid, inertia and B-rep structure">Exact properties</button>' : '') + '</div>';
+       if (X.lastProps) h += '<h5>Exact properties</h5><table><tr><th>Body</th><th>Volume</th><th>Area</th><th>Centroid</th><th>Faces</th><th>Edges</th><th>Valid</th></tr>' + X.lastProps.map((r) => '<tr><td>' + esc(r.name) + '</td><td class="n">' + r.volume.toFixed(3) + '</td><td class="n">' + (isFinite(r.area) ? r.area.toFixed(3) : '—') + '</td><td class="n">' + (r.centroid || []).map((x) => (isFinite(x) ? x.toFixed(2) : '—')).join(', ') + '</td><td>' + (r.info ? Object.keys(r.info.faces).map((k) => r.info.faces[k] + ' ' + k).join(', ') : '') + '</td><td>' + (r.info ? Object.keys(r.info.edges).map((k) => r.info.edges[k] + ' ' + k).join(', ') : '') + '</td><td class="' + (r.valid == null ? '' : r.valid ? 'ok' : 'bad') + '">' + (r.valid == null ? '—' : r.valid ? '✓' : '✗') + '</td></tr>' + (!r.inertia ? '' : '<tr><td colspan="7" class="note">inertia about the centroid, unit density: Ixx ' + r.inertia[0][0].toFixed(1) + ' · Iyy ' + r.inertia[1][1].toFixed(1) + ' · Izz ' + r.inertia[2][2].toFixed(1) + ' · Ixy ' + r.inertia[0][1].toFixed(1) + ' · Iyz ' + r.inertia[1][2].toFixed(1) + ' · Izx ' + r.inertia[2][0].toFixed(1) + (r.approximate ? ' · ' + r.approximate + ' face(s) integrated on facets' : '') + '</td></tr>')).join('') + '</table>';
+       if (X.lastReport) h += '<table><tr><th>Body</th><th>Exact</th><th>Volume (exact)</th><th>Faceted</th><th>Δ</th></tr>' + X.lastReport.map((r) => '<tr><td>' + esc(r.name) + '</td><td>' + (r.exact ? '✓' : '—') + '</td><td class="n">' + (r.volume != null ? r.volume.toFixed(2) : '—') + '</td><td class="n">' + r.faceted.toFixed(2) + '</td><td class="n">' + (r.diff != null ? r.diff.toFixed(2) + ' %' : '') + '</td></tr>').join('') + '</table>';
+@@ -18835,6 +18835,7 @@ self.__H['img.trace'] = async (p, prog) => {
+     if (A('props')) A('props').onclick = () => { try { X.lastProps = X.properties(); } catch (e) { toast(e.message, true); } renderPanel(); };
+     if (A('eng-ak')) A('eng-ak').onclick = () => { X.useAakarKernel(true); renderPanel(); try { F.invalidate(st.doc, 0); P.regenerate(); } catch (e) { /* ignore */ } };
+     if (A('eng-oc')) A('eng-oc').onclick = () => { X.useOpenCascade().then((ok) => { toast(ok ? 'OpenCascade is active' : 'OpenCascade is not installed — AakarKernel stays active', !ok); renderPanel(); }); };
++    if (A('eng-sm')) A('eng-sm').onclick = () => { if (!X.useSMLib) return toast('SMLib support is not wired in this build', true); X.useSMLib().then((ok) => { toast(ok ? 'SMLib is active' : 'SMLib is not installed — AakarKernel stays active (see the log)', !ok); renderPanel(); }); };
+     if (A('test')) A('test').onclick = () => { try { const t = X.selfTest(); toast('Self-test: ' + t.passed + ' of ' + t.total + ' passed', t.passed !== t.total); } catch (e) { toast(e.message, true); } };
+     if (A('step')) A('step').onclick = () => { try { const o = X.exportStep({ name: 'Aakar_Model' }); if (o.text) CAD.io.download('model_exact.step', o.text, 'application/step'); else { o.files.forEach((t, i) => CAD.io.download('model_exact_' + (i + 1) + '.step', t, 'application/step')); if (o.facetedStep) CAD.io.download('model_faceted.step', o.facetedStep, 'application/step'); } toast('Exported ' + o.exact + ' exact bod' + (o.exact === 1 ? 'y' : 'ies') + (o.faceted ? ' + ' + o.faceted + ' faceted' : '')); } catch (e) { toast(e.message, true); } };
+     if (bt) bt.onchange = () => { X.useExactBooleans = bt.checked; if (X.chip) X.chip(); try { G.localStorage.setItem('aakar.exact.booleans', bt.checked ? '1' : '0'); } catch (e) { /* ignore */ } try { F.invalidate(st.doc, 0); P.regenerate(); } catch (e) { /* ignore */ } };
+@@ -19951,6 +19952,42 @@ G.AakarKernel = AK;
+     X.useExactBooleans = stored() !== '0'; pref('occt');
+     chip(); refresh(); return true;
+   };
++  // ------------------------------------------------------------------ SMLib (8.12): a third engine, loaded from YOUR licensed binding
++  // SMLib is a commercial C++ NURBS / solid-modelling library; Aakar cannot ship it. Any of these routes provides it (first one found wins):
++  //   1. window.AakarSmlibBinding = { name, version, init(opts) -> kernel }     already on the page
++  //   2. desktop, native: app/smlib/native/index.js (wraps an N-API addon built from SMLib) runs in the main process, called over sync IPC
++  //   3. desktop, WebAssembly: app/smlib/aakar-smlib.mjs served as aakar-asset://smlib/  (exports { name, version, init })
++  //   4. web / plain HTML: classic script smlib/aakar-smlib.js next to index.html, defining window.AakarSmlibBinding
++  // The kernel must offer the same calls as the OpenCascade binding (see app/smlib/README.md); the same self-test checks it.
++  const REQ_SM = ['box', 'cylinder', 'sphere', 'translate', 'fuse', 'cut', 'common', 'volume', 'area', 'mesh', 'stepExport'];
++  const SM_OPT = ['cone', 'torus', 'rotate', 'scale', 'bbox', 'massProps', 'info', 'validate', 'stepImport', 'release'];
++  function smlibIpcKernel(br) {
++    const inf = br.info(); if (!inf || !inf.available) throw new Error((inf && inf.error) || 'no native SMLib module in app/smlib/native');
++    const call = (m) => (...a) => { const r = br.call(m, a); if (!r || !r.ok) throw new Error('SMLib ' + m + ': ' + ((r && r.error) || 'failed')); return r.value; };
++    const k = { name: inf.name || 'SMLib', version: inf.version || '' };
++    REQ_SM.concat(SM_OPT).forEach((m) => { if (!inf.methods || inf.methods.includes(m)) k[m] = call(m); });
++    return k;
++  }
++  function smScript(url) { return new Promise((res, rej) => { const el = G.document.createElement('script'); el.src = url; el.async = true; el.onload = () => res(true); el.onerror = () => { el.remove(); rej(new Error('not found: ' + url)); }; G.document.head.appendChild(el); }); }
++  async function loadSmlib(notes) {
++    const desk = G.aakarDesktop && G.aakarDesktop.isDesktop;
++    if (!G.AakarSmlibBinding && desk && G.aakarDesktop.smlib) { try { const k = smlibIpcKernel(G.aakarDesktop.smlib); return { kernel: k, info: { name: k.name, version: k.version } }; } catch (e) { notes.push('native: ' + (e.message || e)); } }
++    if (!G.AakarSmlibBinding && desk) { try { const mod = await import('aakar-asset://smlib/aakar-smlib.mjs'); const init = mod.init || (mod.default && mod.default.init); if (init) G.AakarSmlibBinding = { name: mod.name || 'SMLib', version: mod.version || '', init }; } catch (e) { notes.push('wasm module: ' + (e.message || e)); } }
++    if (!G.AakarSmlibBinding) { try { await smScript('smlib/aakar-smlib.js'); } catch (e) { notes.push('script: ' + (e.message || e)); } }
++    if (!G.AakarSmlibBinding) throw new Error('no SMLib binding installed — ' + notes.join(' | '));
++    const B = G.AakarSmlibBinding; let k;
++    try { k = await B.init({ base: desk ? 'aakar-asset://smlib/' : 'smlib/' }); } catch (e) { notes.push('binding: ' + (e.message || e)); throw new Error(notes.join(' | ')); }
++    return { kernel: k, info: { name: B.name || k.name || 'SMLib', version: B.version || k.version || '' } };
++  }
++  X.useSMLib = async function () {
++    X.state = 'loading'; X.kernel = null; X.loading = null; const notes = [];
++    try {
++      const r = await Promise.race([loadSmlib(notes), new Promise((res, rej) => setTimeout(() => rej(new Error('timed out after 90 s')), 90000))]);
++      const nm = /^SMLib/i.test(r.info.name || '') ? r.info.name : 'SMLib' + (r.info.name ? ' (' + r.info.name + ')' : '');
++      X.useKernel(r.kernel, { name: nm, version: r.info.version });
++    } catch (e) { X.useAakarKernel(); X.log.push('SMLib not available — AakarKernel stays active (' + (e.message || e) + ')'); chip(); return false; }
++    X.useExactBooleans = stored() !== '0'; pref('smlib'); chip(); refresh(); return true;
++  };
+   /** exact properties of every exact body: volume, area, centroid, inertia tensor (unit density), B-rep structure and validity */
+   X.properties = function () {
+     if (X.state !== 'ready' || !X.kernel.massProps) throw new Error('The active exact kernel does not report mass properties');
+@@ -19961,7 +19998,8 @@ G.AakarKernel = AK;
+   };
+   X.showProps = function () { try { X.lastProps = X.properties(); } catch (e) { try { (IK && IK.toast ? IK.toast : P.toast)(e.message, true); } catch (e2) { /* ignore */ } } X.openPanel(); };
+   X.useAakarKernel();
+-  if (pref() === 'occt') { try { G.setTimeout(() => { X.useOpenCascade().then(chip); }, 400); } catch (e) { /* ignore */ } }   // the user last chose OpenCascade: bring it back (falls back to AakarKernel if it is not there)
++  if (pref() === 'occt') { try { G.setTimeout(() => { X.useOpenCascade().then(chip); }, 400); } catch (e) { /* ignore */ } }
++  else if (pref() === 'smlib') { try { G.setTimeout(() => { X.useSMLib().then(chip); }, 400); } catch (e) { /* ignore */ } }   // the user last chose SMLib (falls back to AakarKernel if it is not there)   // the user last chose OpenCascade: bring it back (falls back to AakarKernel if it is not there)
+   // status-bar chip
+   try {
+     const d = G.document, foot = d && d.getElementById('status');
+diff --git a/app/smlib/README.md b/app/smlib/README.md
+new file mode 100644
+index 0000000..3e3f304
+--- /dev/null
++++ b/app/smlib/README.md
+@@ -0,0 +1,44 @@
++# app/smlib: optional SMLib engine
++
++The **Exact kernel** panel offers three engines: **AakarKernel | OpenCascade | SMLib**. Aakar remembers the one you pick (`aakar.exact.engine`). If the one you pick cannot start, AakarKernel stays active and the panel's *Log* says why.
++
++**SMLib is a commercial C++ library.** It is not open source, not on npm and not redistributable, so Aakar cannot ship it. This folder only holds the slot it plugs into. You need your own SMLib licence and build. Never commit the library, the addon or the `.wasm` to a public repository; `.gitignore` already keeps them out.
++
++## Two ways to plug it in
++
++### A. Native addon (desktop app, recommended for C++)
++1. Build a small **N-API addon** (for example with `node-addon-api` and `cmake-js`) that links SMLib and exposes the calls in the table below. Build it for Electron's ABI (`npx electron-rebuild` or `cmake-js --runtime=electron --runtime-version=33.4.11`).
++2. Copy `native/index.example.js` to `native/index.js` and point its `require()` at your `.node` file.
++3. Run `npm start` and choose **Engine ▸ SMLib**.
++
++How it runs:
++- **Where:** `index.js` runs in Electron's **main process** (`main.js` → `loadSmlibNative`). The page calls it over synchronous IPC through `window.aakarDesktop.smlib` (`preload.js`).
++- **Shapes:** they stay in the main process. The page only sees handles `{ __sm: id }`, and old intermediates are released after 5000 handles.
++- **Packaging:** `app/smlib/**` is unpacked from the asar archive (`asarUnpack`), so `.node` and `.dll` files load in the EXE.
++
++### B. WebAssembly (desktop or web)
++1. Compile SMLib plus a thin binding with Emscripten into `aakar-smlib.mjs` (plus its `.wasm`). It is an ES module exporting `{ name, version, init(opts) }`, where `init` returns the kernel described below.
++2. Put the files in this folder:
++   - **Desktop:** it is served as `aakar-asset://smlib/…`.
++   - **Web / local server:** `aakar-smlib.js` (committed) imports it.
++3. Check it before packaging with `node tools/occt-selftest.mjs app/smlib/aakar-smlib.mjs`. The same 13 checks OpenCascade must pass apply here.
++
++Aakar tries these routes in order: an already-present `window.AakarSmlibBinding`, then the native addon, then the desktop WebAssembly module, then `smlib/aakar-smlib.js`.
++
++## The kernel contract (the same one OpenCascade's binding implements)
++| Call | Returns | Notes |
++|---|---|---|
++| `box(w, d, h)` | shape | corner at the origin |
++| `cylinder(r, h)` | shape | base centred on the origin, axis +Z |
++| `sphere(r)` | shape | centred on the origin |
++| `translate(shape, [x, y, z])` | shape | |
++| `fuse(a, b)`, `cut(a, b)`, `common(a, b)` | shape | |
++| `volume(shape)`, `area(shape)` | number | mm³, mm² |
++| `mesh(shape, tol)` | `{ positions: Float32Array, indices: Uint32Array }` | tol = chordal deviation in mm |
++| `stepExport(shape)` | string | ISO 10303-21 with exact surfaces |
++| *optional* `stepImport(text)`, `cone(r1, r2, h)`, `torus(R, r)`, `rotate`, `scale`, `bbox`, `massProps`, `info`, `validate`, `release` | | enable more of the panel (Exact properties, STEP import) |
++
++The panel's **Run self-test** button runs the conformance checks against the active engine: volumes, placement, booleans, area, mesh smoothness, a true `CYLINDRICAL_SURFACE` in STEP, and a STEP round trip.
++
++## Getting SMLib
++SMLib was developed by Solid Modeling Solutions, and its manuals are now published on NVIDIA's documentation site. Licensing terms and availability are set by the rights holder. Contact them, or a reseller, for a licence and the C++ SDK.
+diff --git a/app/smlib/aakar-smlib.js b/app/smlib/aakar-smlib.js
+new file mode 100644
+index 0000000..1954c38
+--- /dev/null
++++ b/app/smlib/aakar-smlib.js
+@@ -0,0 +1,12 @@
++/* Classic-script loader for an SMLib binding built as an ES module (web build and desktop fallback): the real code is aakar-smlib.mjs next to
++ * this file, which YOU provide from your licensed SMLib (see README.md). Aakar's Exact-kernel panel loads this file when Engine ▸ SMLib is chosen
++ * and calls window.AakarSmlibBinding.init(). Without aakar-smlib.mjs the import fails and AakarKernel stays active. */
++(function (G) {
++  'use strict';
++  let mod = null; const here = (document.currentScript && document.currentScript.src) || new URL('smlib/aakar-smlib.js', location.href).href;
++  const load = () => mod || (mod = import(new URL('./aakar-smlib.mjs', here).href));
++  G.AakarSmlibBinding = {
++    name: 'SMLib', version: '',
++    init: (opts) => load().then((m) => m.init(opts)).then((k) => { G.AakarSmlibBinding.version = k.version || ''; return k; }, (e) => { mod = null; delete G.AakarSmlibBinding; throw e; })
++  };
++})(window);
+diff --git a/app/smlib/native/index.example.js b/app/smlib/native/index.example.js
+new file mode 100644
+index 0000000..6ed7851
+--- /dev/null
++++ b/app/smlib/native/index.example.js
+@@ -0,0 +1,34 @@
++// Template for app/smlib/native/index.js: the SMLib engine for the DESKTOP app, run in Electron's main process (see ../README.md).
++// Copy this file to index.js and replace the require() below with YOUR N-API addon compiled against your licensed SMLib.
++// Aakar calls these functions synchronously over IPC; shapes stay here, the page only sees handles.
++'use strict';
++const path = require('path');
++
++exports.name = 'SMLib';
++exports.version = '';
++
++/** called once when the user picks Engine ▸ SMLib. May return a Promise. Must return an object with the calls below. */
++exports.init = function init(opts) {
++  // const addon = require(path.join(opts.dir, 'build', 'Release', 'aakar_smlib.node'));   // <- your compiled addon
++  const addon = null;
++  if (!addon) throw new Error('index.example.js is a template: build the SMLib addon and load it in app/smlib/native/index.js');
++  exports.version = addon.version ? addon.version() : '';
++  return {
++    // primitives — Aakar's placement convention: box corner at the origin; cylinder / cone base centred on the origin, axis +Z; sphere / torus centred
++    box: (w, d, h) => addon.box(w, d, h),
++    cylinder: (r, h) => addon.cylinder(r, h),
++    sphere: (r) => addon.sphere(r),
++    translate: (s, v) => addon.translate(s, v[0], v[1], v[2]),
++    // booleans (return new shapes; inputs stay valid)
++    fuse: (a, b) => addon.fuse(a, b), cut: (a, b) => addon.cut(a, b), common: (a, b) => addon.common(a, b),
++    // measurements
++    volume: (s) => addon.volume(s), area: (s) => addon.area(s),
++    // triangles for display: { positions: Float32Array (xyz…), indices: Uint32Array } — tol = chordal tolerance in mm
++    mesh: (s, tol) => addon.mesh(s, tol),
++    // ISO 10303-21 text with exact geometry (CYLINDRICAL_SURFACE etc.)
++    stepExport: (s) => addon.stepExport(s),
++    // optional: stepImport(text), cone(r1, r2, h), torus(R, r), rotate(s, origin, axis, radians), scale(s, f), bbox(s) -> { min, max },
++    //           massProps(s) -> { volume, area, centroid: [x,y,z], inertia: [[...]] }, info(s), validate(s) -> { ok, issues }, release(s)
++    release: (s) => addon.release && addon.release(s)
++  };
++};
+diff --git a/app/smlib/native/package.json b/app/smlib/native/package.json
+new file mode 100644
+index 0000000..3a660a7
+--- /dev/null
++++ b/app/smlib/native/package.json
+@@ -0,0 +1,4 @@
++{
++  "//": "the native SMLib route runs in Electron main process as CommonJS (index.js, see index.example.js)",
++  "type": "commonjs"
++}
+diff --git a/app/smlib/package.json b/app/smlib/package.json
+new file mode 100644
+index 0000000..362801f
+--- /dev/null
++++ b/app/smlib/package.json
+@@ -0,0 +1,4 @@
++{
++  "//": "app/smlib may hold an ES-module (WebAssembly) SMLib binding: aakar-smlib.mjs",
++  "type": "module"
++}
+diff --git a/docs/WHATS_NEW_8_12.md b/docs/WHATS_NEW_8_12.md
+index 7dc7274..dc2eaeb 100644
+--- a/docs/WHATS_NEW_8_12.md
++++ b/docs/WHATS_NEW_8_12.md
+@@ -51,3 +51,15 @@ Blend, Match and the Continuity check now go up to **G3**, where the rate of cha
+ - **Blend G3:** a degree-7 cross section. A test pair of curved panels measures 0 % curvature-rate difference at G3, against about 100 % at G2.
+ - **Match G3:** moves 4 control rows. The target needs at least 5 rows and degree 3 or more across the edge.
+ - **Class-A example:** opens as a G2 blend as before. Switch it to G3 in the feature dialog.
++
++## SMLib as a third exact-kernel engine
++The Exact kernel panel now offers **Engine: AakarKernel | OpenCascade | SMLib**, and Aakar remembers the choice. SMLib is a commercial C++ library, so it is **not shipped**. You plug in your own licensed build, and if none is installed AakarKernel stays active. The log says why.
++- **Native route (desktop):** `app/smlib/native/index.js` wraps an N-API addon. It runs in Electron's main process, and the page calls it over synchronous IPC (`window.aakarDesktop.smlib`, with handles `{ __sm }`). `index.example.js` is the template.
++- **WebAssembly route:** `app/smlib/aakar-smlib.mjs`, served as `aakar-asset://smlib/`. On the web it loads through `smlib/aakar-smlib.js`.
++- **Contract and self-test:** the same as OpenCascade (13 checks). See `app/smlib/README.md`.
++- **Repository:** `.gitignore` keeps the licensed SMLib files out of git, and `asarUnpack` includes `app/smlib/**`.
++- **Tested with a stand-in kernel (occt-wasm) in the SMLib slot:**
++  - native route in Electron: 13/13 self-test, the choice survives a restart, and box and cylinder are exact with exact STEP;
++  - WebAssembly route in the browser: 13/13;
++  - SMLib missing: it falls back cleanly.
++  - `npm test` has 9 new checks for the main-process loader and IPC handles.
+diff --git a/main.js b/main.js
+index 82838de..ed26840 100644
+--- a/main.js
++++ b/main.js
+@@ -10,14 +10,20 @@ const WEB_PREFS = { preload: path.join(__dirname, 'preload.js'), contextIsolatio
+ // Optional exact kernel (OpenCascade WebAssembly). Its files live in app/occt and are served as aakar-asset://occt/<file>:
+ // a file:// page cannot fetch WebAssembly or import ES modules from disk, a privileged custom scheme can.
+ protocol.registerSchemesAsPrivileged([{ scheme: 'aakar-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
+-const OCCT_DIR = path.join(__dirname, 'app', 'occt').replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
++const unpacked = (d) => d.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
++const OCCT_DIR = unpacked(path.join(__dirname, 'app', 'occt'));
++// Optional SMLib engine (commercial; you supply your licensed build): app/smlib/aakar-smlib.mjs (WebAssembly, served as aakar-asset://smlib/)
++// and/or app/smlib/native/index.js (Node / N-API addon, runs here in the main process and is called over synchronous IPC).
++const SMLIB_DIR = unpacked(path.join(__dirname, 'app', 'smlib'));
++const ASSET_DIRS = { occt: OCCT_DIR, smlib: SMLIB_DIR };
+ const MIME = { '.wasm': 'application/wasm', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.txt': 'text/plain' };
+ 
+ /** request handler for aakar-asset:// (exported for the tests) */
+-async function serveAsset(request, dir = OCCT_DIR) {
++async function serveAsset(request, dirOverride) {
+   try {
+     const u = new URL(request.url), rel = decodeURIComponent(u.pathname).replace(/^\/+/, '');
+-    if (u.hostname !== 'occt' || !rel || rel.split(/[\\/]/).includes('..')) return new Response('forbidden', { status: 403 });
++    if (!Object.prototype.hasOwnProperty.call(ASSET_DIRS, u.hostname) || !rel || rel.split(/[\\/]/).includes('..')) return new Response('forbidden', { status: 403 });
++    const dir = dirOverride || ASSET_DIRS[u.hostname];
+     const file = path.join(dir, rel);
+     if (!file.startsWith(path.resolve(dir) + path.sep)) return new Response('forbidden', { status: 403 });
+     const data = await fs.promises.readFile(file);
+@@ -25,6 +31,43 @@ async function serveAsset(request, dir = OCCT_DIR) {
+   } catch (e) { return new Response('not found', { status: 404 }); }
+ }
+ 
++// ---- SMLib native route: a kernel object living in this process; the page calls it through window.aakarDesktop.smlib (preload.js)
++const smlib = { kernel: null, error: null, loaded: false, name: 'SMLib', version: '', handles: new Map(), next: 1 };
++const SM_METHODS = ['box', 'cylinder', 'sphere', 'translate', 'fuse', 'cut', 'common', 'volume', 'area', 'mesh', 'stepExport', 'cone', 'torus', 'rotate', 'scale', 'bbox', 'massProps', 'info', 'validate', 'stepImport', 'release'];
++/** loads app/smlib/native/index.js once (exported for the tests): it must export init(opts) -> kernel (or a Promise of one), or be the kernel */
++async function loadSmlibNative(dir = path.join(SMLIB_DIR, 'native')) {
++  if (smlib.loaded) return smlib; smlib.loaded = true;
++  const file = path.join(dir, 'index.js');
++  if (!fs.existsSync(file)) { smlib.error = 'no native SMLib module (' + path.relative(__dirname, file) + ')'; return smlib; }
++  try {
++    const m = require(file), k = typeof m.init === 'function' ? await m.init({ dir }) : m;
++    const miss = SM_METHODS.slice(0, 11).filter((x) => typeof k[x] !== 'function');
++    if (miss.length) throw new Error('the SMLib module lacks: ' + miss.join(', '));
++    smlib.kernel = k; smlib.name = m.name || k.name || 'SMLib'; smlib.version = m.version || k.version || '';
++  } catch (e) { smlib.error = (e && e.message) || String(e); }
++  return smlib;
++}
++// shapes stay in this process; the page only ever sees handle objects { __sm: id }
++const SHAPE_OUT = ['box', 'cylinder', 'sphere', 'translate', 'fuse', 'cut', 'common', 'cone', 'torus', 'rotate', 'scale', 'stepImport'];   // calls that return a shape
++function smlibCall(method, args) {
++  try {
++    if (!smlib.kernel) return { ok: false, error: smlib.error || 'SMLib is not loaded' };
++    if (!SM_METHODS.includes(method) || typeof smlib.kernel[method] !== 'function') return { ok: false, error: 'unknown method ' + method };
++    const isH = (x) => x != null && typeof x === 'object' && typeof x.__sm === 'number';
++    const a = (args || []).map((x) => { if (!isH(x)) return x; if (!smlib.handles.has(x.__sm)) throw new Error('stale SMLib handle ' + x.__sm); return smlib.handles.get(x.__sm); });
++    if (method === 'release') { const h = args && args[0]; if (isH(h) && smlib.handles.has(h.__sm)) { const sh = smlib.handles.get(h.__sm); smlib.handles.delete(h.__sm); if (typeof smlib.kernel.release === 'function') try { smlib.kernel.release(sh); } catch (e) { /* ignore */ } } return { ok: true, value: null }; }
++    let v = smlib.kernel[method](...a);
++    if (SHAPE_OUT.includes(method)) {
++      const id = smlib.next++; smlib.handles.set(id, v); v = { __sm: id };
++      if (smlib.handles.size > 5000) [...smlib.handles.keys()].slice(0, 2000).forEach((k) => { const sh = smlib.handles.get(k); smlib.handles.delete(k); if (typeof smlib.kernel.release === 'function') try { smlib.kernel.release(sh); } catch (e) { /* ignore */ } });   // long replays: free the oldest intermediates
++    }
++    return { ok: true, value: v };
++  } catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }
++}
++function smlibInfo() { return { available: !!smlib.kernel, name: smlib.name, version: smlib.version, error: smlib.error, methods: smlib.kernel ? SM_METHODS.filter((m) => typeof smlib.kernel[m] === 'function') : [] }; }
++ipcMain.on('aakar:smlib-info', (event) => { loadSmlibNative().then(() => { event.returnValue = smlibInfo(); }, (e) => { event.returnValue = { available: false, error: String(e) }; }); });
++ipcMain.on('aakar:smlib', (event, method, args) => { event.returnValue = smlibCall(method, args); });
++
+ function createMainWindow() {
+   const win = new BrowserWindow({ width: 1600, height: 960, minWidth: 900, minHeight: 600, backgroundColor: BG, show: false, autoHideMenuBar: true, title: 'Aakar', icon: path.join(__dirname, 'build', 'icon.ico'), webPreferences: WEB_PREFS });
+   win.once('ready-to-show', () => { win.maximize(); win.show(); });
+@@ -77,4 +120,4 @@ else {
+   });
+   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+ }
+-module.exports = { serveAsset };
++module.exports = { serveAsset, loadSmlibNative, smlibCall, smlibInfo };
+diff --git a/package.json b/package.json
+index fa58b3d..69628a6 100644
+--- a/package.json
++++ b/package.json
+@@ -38,7 +38,8 @@
+     ],
+     "asar": true,
+     "asarUnpack": [
+-      "app/occt/**/*"
++      "app/occt/**/*",
++      "app/smlib/**/*"
+     ],
+     "win": {
+       "icon": "build/icon.ico",
+diff --git a/preload.js b/preload.js
+index 365727d..7c06437 100644
+--- a/preload.js
++++ b/preload.js
+@@ -1,4 +1,9 @@
+ 'use strict';
+ const { contextBridge, ipcRenderer, webFrame } = require('electron');
+-contextBridge.exposeInMainWorld('aakarDesktop', { isDesktop: true, prompt: (message, value) => ipcRenderer.sendSync('aakar:prompt', message, value) });
++contextBridge.exposeInMainWorld('aakarDesktop', {
++  isDesktop: true,
++  prompt: (message, value) => ipcRenderer.sendSync('aakar:prompt', message, value),
++  // optional SMLib engine (native route, see app/smlib/README.md): synchronous calls into the main process
++  smlib: { info: () => ipcRenderer.sendSync('aakar:smlib-info'), call: (method, args) => ipcRenderer.sendSync('aakar:smlib', method, args) }
++});
+ webFrame.executeJavaScript('window.prompt = function (m, d) { return window.aakarDesktop.prompt(m, d); };').catch(() => {});
+diff --git a/test/run-tests.mjs b/test/run-tests.mjs
+index c533d62..44df748 100644
+--- a/test/run-tests.mjs
++++ b/test/run-tests.mjs
+@@ -24,6 +24,41 @@ let pass = 0, fail = 0; const ok = (c, m) => { if (c) { pass++; console.log('  o
+   const trav = await Promise.all(['aakar-asset://occt/../aakar-secret.txt', 'aakar-asset://occt/%2E%2E/aakar-secret.txt', 'aakar-asset://occt/..%2Faakar-secret.txt', 'aakar-asset://occt/%2e%2e%5caakar-secret.txt'].map(async (u) => { const r = await serveAsset(new Request(u), dir); return r.status === 200 ? (await r.text()) : r.status; }));
+   ok(trav.every((x) => x !== 'secret'), 'files outside app/occt can never be read (statuses ' + trav.join(', ') + ')');
+   ok((await serveAsset(new Request('aakar-asset://other/k.wasm'), dir)).status === 403, 'other hosts are refused');
++  ok((await serveAsset(new Request('aakar-asset://smlib/k.wasm'), dir)).status === 200, 'the smlib host is served too (SMLib WebAssembly route)');
++}
++
++// ---- 1b. SMLib native route in main.js: loader, IPC call shim, handles (with a stand-in kernel module)
++{
++  const require = createRequire(path.join(ROOT, 'main.js')), noop = () => {};
++  const fake = { app: { on: noop, whenReady: () => new Promise(noop), requestSingleInstanceLock: () => true, quit: noop }, BrowserWindow: function () {}, ipcMain: { on: noop }, shell: {}, Menu: {}, dialog: {}, protocol: { registerSchemesAsPrivileged: noop, handle: noop } };
++  const orig = Module._load; Module._load = function (req, ...rest) { return req === 'electron' ? fake : orig.call(this, req, ...rest); };
++  const mainPath = require.resolve(path.join(ROOT, 'main.js')); delete require.cache[mainPath];
++  const M = require(mainPath); Module._load = orig;
++  const none = await M.loadSmlibNative(fs.mkdtempSync(path.join(os.tmpdir(), 'aakar-nosm-')));
++  ok(!none.kernel && /no native SMLib module/.test(none.error) && M.smlibInfo().available === false, 'no native SMLib module: reported as unavailable (' + none.error + ')');
++  ok(M.smlibCall('box', [1, 1, 1]).ok === false, 'calls fail cleanly while SMLib is not loaded');
++}
++{
++  const require = createRequire(path.join(ROOT, 'main.js')), noop = () => {};
++  const fake = { app: { on: noop, whenReady: () => new Promise(noop), requestSingleInstanceLock: () => true, quit: noop }, BrowserWindow: function () {}, ipcMain: { on: noop }, shell: {}, Menu: {}, dialog: {}, protocol: { registerSchemesAsPrivileged: noop, handle: noop } };
++  const orig = Module._load; Module._load = function (req, ...rest) { return req === 'electron' ? fake : orig.call(this, req, ...rest); };
++  const mainPath = require.resolve(path.join(ROOT, 'main.js')); delete require.cache[mainPath];
++  const M = require(mainPath); Module._load = orig;
++  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'aakar-sm-'));
++  fs.writeFileSync(path.join(d, 'index.js'), `exports.name = 'SMLib test'; exports.version = '9.9';
++    exports.init = async () => { const S = []; const put = (v) => (S.push({ v }), S[S.length - 1]);
++      return { box: (w, d, h) => put(w * d * h), cylinder: (r, h) => put(Math.PI * r * r * h), sphere: (r) => put(4 / 3 * Math.PI * r ** 3), translate: (s) => put(s.v),
++        fuse: (a, b) => put(a.v + b.v), cut: (a, b) => put(a.v - b.v), common: (a, b) => put(Math.min(a.v, b.v)), volume: (s) => s.v, area: () => 0,
++        mesh: () => ({ positions: new Float32Array(9), indices: new Uint32Array([0, 1, 2]) }), stepExport: () => 'ISO-10303-21;', release: () => {} }; };`);
++  const st = await M.loadSmlibNative(d), inf = M.smlibInfo();
++  ok(st.kernel && inf.available && inf.name === 'SMLib test' && inf.version === '9.9' && inf.methods.includes('release'), 'native SMLib module loads (async init) and reports its name, version and methods');
++  const a = M.smlibCall('box', [10, 10, 10]), b = M.smlibCall('box', [5, 2, 1]);
++  ok(a.ok && a.value && typeof a.value.__sm === 'number', 'shapes come back as handles { __sm }');
++  const c = M.smlibCall('cut', [a.value, b.value]), v = M.smlibCall('volume', [c.value]);
++  ok(v.ok && v.value === 990, 'handles round-trip through booleans and measurements (volume ' + v.value + ')');
++  const m = M.smlibCall('mesh', [c.value, 0.1]); ok(m.ok && m.value.positions instanceof Float32Array, 'mesh data passes through unchanged');
++  ok(M.smlibCall('rotate', [a.value]).ok === false && M.smlibCall('__proto__', []).ok === false, 'missing / unknown methods are refused');
++  M.smlibCall('release', [c.value]); ok(/stale/.test(M.smlibCall('volume', [c.value]).error || ''), 'a released handle is reported as stale');
+ }
+ 
+ // ---- 2. the kernel build tool and the self-test gate, with stand-in "occt-wasm" packages in a scratch copy
+-- 
+2.43.0
+

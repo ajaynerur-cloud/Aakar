@@ -1,0 +1,4 @@
+{
+  "//": "the native SMLib route runs in Electron main process as CommonJS (index.js, see index.example.js)",
+  "type": "commonjs"
+}

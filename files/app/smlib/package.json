@@ -1,0 +1,4 @@
+{
+  "//": "app/smlib may hold an ES-module (WebAssembly) SMLib binding: aakar-smlib.mjs",
+  "type": "module"
+}

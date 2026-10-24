@@ -24,6 +24,41 @@ let pass = 0, fail = 0; const ok = (c, m) => { if (c) { pass++; console.log('  o
   const trav = await Promise.all(['aakar-asset://occt/../aakar-secret.txt', 'aakar-asset://occt/%2E%2E/aakar-secret.txt', 'aakar-asset://occt/..%2Faakar-secret.txt', 'aakar-asset://occt/%2e%2e%5caakar-secret.txt'].map(async (u) => { const r = await serveAsset(new Request(u), dir); return r.status === 200 ? (await r.text()) : r.status; }));
   ok(trav.every((x) => x !== 'secret'), 'files outside app/occt can never be read (statuses ' + trav.join(', ') + ')');
   ok((await serveAsset(new Request('aakar-asset://other/k.wasm'), dir)).status === 403, 'other hosts are refused');
+  ok((await serveAsset(new Request('aakar-asset://smlib/k.wasm'), dir)).status === 200, 'the smlib host is served too (SMLib WebAssembly route)');
+}
+
+// ---- 1b. SMLib native route in main.js: loader, IPC call shim, handles (with a stand-in kernel module)
+{
+  const require = createRequire(path.join(ROOT, 'main.js')), noop = () => {};
+  const fake = { app: { on: noop, whenReady: () => new Promise(noop), requestSingleInstanceLock: () => true, quit: noop }, BrowserWindow: function () {}, ipcMain: { on: noop }, shell: {}, Menu: {}, dialog: {}, protocol: { registerSchemesAsPrivileged: noop, handle: noop } };
+  const orig = Module._load; Module._load = function (req, ...rest) { return req === 'electron' ? fake : orig.call(this, req, ...rest); };
+  const mainPath = require.resolve(path.join(ROOT, 'main.js')); delete require.cache[mainPath];
+  const M = require(mainPath); Module._load = orig;
+  const none = await M.loadSmlibNative(fs.mkdtempSync(path.join(os.tmpdir(), 'aakar-nosm-')));
+  ok(!none.kernel && /no native SMLib module/.test(none.error) && M.smlibInfo().available === false, 'no native SMLib module: reported as unavailable (' + none.error + ')');
+  ok(M.smlibCall('box', [1, 1, 1]).ok === false, 'calls fail cleanly while SMLib is not loaded');
+}
+{
+  const require = createRequire(path.join(ROOT, 'main.js')), noop = () => {};
+  const fake = { app: { on: noop, whenReady: () => new Promise(noop), requestSingleInstanceLock: () => true, quit: noop }, BrowserWindow: function () {}, ipcMain: { on: noop }, shell: {}, Menu: {}, dialog: {}, protocol: { registerSchemesAsPrivileged: noop, handle: noop } };
+  const orig = Module._load; Module._load = function (req, ...rest) { return req === 'electron' ? fake : orig.call(this, req, ...rest); };
+  const mainPath = require.resolve(path.join(ROOT, 'main.js')); delete require.cache[mainPath];
+  const M = require(mainPath); Module._load = orig;
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'aakar-sm-'));
+  fs.writeFileSync(path.join(d, 'index.js'), `exports.name = 'SMLib test'; exports.version = '9.9';
+    exports.init = async () => { const S = []; const put = (v) => (S.push({ v }), S[S.length - 1]);
+      return { box: (w, d, h) => put(w * d * h), cylinder: (r, h) => put(Math.PI * r * r * h), sphere: (r) => put(4 / 3 * Math.PI * r ** 3), translate: (s) => put(s.v),
+        fuse: (a, b) => put(a.v + b.v), cut: (a, b) => put(a.v - b.v), common: (a, b) => put(Math.min(a.v, b.v)), volume: (s) => s.v, area: () => 0,
+        mesh: () => ({ positions: new Float32Array(9), indices: new Uint32Array([0, 1, 2]) }), stepExport: () => 'ISO-10303-21;', release: () => {} }; };`);
+  const st = await M.loadSmlibNative(d), inf = M.smlibInfo();
+  ok(st.kernel && inf.available && inf.name === 'SMLib test' && inf.version === '9.9' && inf.methods.includes('release'), 'native SMLib module loads (async init) and reports its name, version and methods');
+  const a = M.smlibCall('box', [10, 10, 10]), b = M.smlibCall('box', [5, 2, 1]);
+  ok(a.ok && a.value && typeof a.value.__sm === 'number', 'shapes come back as handles { __sm }');
+  const c = M.smlibCall('cut', [a.value, b.value]), v = M.smlibCall('volume', [c.value]);
+  ok(v.ok && v.value === 990, 'handles round-trip through booleans and measurements (volume ' + v.value + ')');
+  const m = M.smlibCall('mesh', [c.value, 0.1]); ok(m.ok && m.value.positions instanceof Float32Array, 'mesh data passes through unchanged');
+  ok(M.smlibCall('rotate', [a.value]).ok === false && M.smlibCall('__proto__', []).ok === false, 'missing / unknown methods are refused');
+  M.smlibCall('release', [c.value]); ok(/stale/.test(M.smlibCall('volume', [c.value]).error || ''), 'a released handle is reported as stale');
 }
 
 // ---- 2. the kernel build tool and the self-test gate, with stand-in "occt-wasm" packages in a scratch copy

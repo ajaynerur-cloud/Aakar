@@ -38,7 +38,8 @@
     ],
     "asar": true,
     "asarUnpack": [
-      "app/occt/**/*"
+      "app/occt/**/*",
+      "app/smlib/**/*"
     ],
     "win": {
       "icon": "build/icon.ico",
