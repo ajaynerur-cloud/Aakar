@@ -205,7 +205,8 @@
     if (missing) { RG.prev = null; c.msg = { hint: 'Choose: ' + missing.label.toLowerCase() }; showMsg(); P.redraw(); return; }
     try {
       const p = paramsOf(c), H = F.H(st.doc);
-      if (c.type.indexOf('ref') === 0) { const g = RG.computeRef(c.type, p, c.base, H); RG.prev = { ref: g }; c.msg = { ok: summary(g) }; }
+      if (RG.X && RG.X[c.type]) { const r = RG.X[c.type].compute(p, c.base, H) || {}; RG.prev = { polys: r.polys || [] }; c.msg = { ok: r.msg || 'OK' }; }
+      else if (c.type.indexOf('ref') === 0) { const g = RG.computeRef(c.type, p, c.base, H); RG.prev = { ref: g }; c.msg = { ok: summary(g) }; }
       else { const polys = RG.computeCurves(c.type, p, c.base, H); RG.prev = { polys }; c.msg = { ok: polys.length + ' curve' + (polys.length > 1 ? 's' : '') + ' · length ' + polys.map((q) => A.polyLen(q.pts, q.closed)).reduce((a, b) => a + b, 0).toFixed(2) + ' mm' }; }
     } catch (e) { RG.prev = null; c.msg = { bad: e.message || String(e) }; }
     showMsg(); P.redraw();
@@ -275,7 +276,7 @@
   function onInput(e) { const t = e.target, c = RG.cur; if (!c) return; if (t.dataset.v && t.type === 'text') { const n = evalNum(t.value); if (isFinite(n)) { c.v[t.dataset.v] = n; updatePreview(); } } }
   function create() {
     const c = RG.cur; if (!c) return; const p = paramsOf(c);
-    try { const H = F.H(st.doc); if (c.type.indexOf('ref') === 0) RG.computeRef(c.type, p, c.base, H); else RG.computeCurves(c.type, p, c.base, H); } catch (e) { return toast(e.message || String(e), true); }
+    try { const H = F.H(st.doc); if (RG.X && RG.X[c.type]) RG.X[c.type].compute(p, c.base, H); else if (c.type.indexOf('ref') === 0) RG.computeRef(c.type, p, c.base, H); else RG.computeCurves(c.type, p, c.base, H); } catch (e) { return toast(e.message || String(e), true); }
     const type = c.type, nm = c.name, edit = c.edit && st.doc.features.find((x) => x.id === c.edit.id); closePanel();   // undo / redo rebuild the document: use the live feature
     if (c.edit && !edit) return toast('That feature no longer exists', true);
     if (edit) { if (nm && nm !== edit.name) edit.name = nm; P.updateFeature(edit, p); status((edit.name) + ' updated'); }

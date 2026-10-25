@@ -104,3 +104,8 @@ body.sk-command #tbR{background:linear-gradient(to left,rgba(246,248,250,.97),rg
 body.sk-graphite .tbchev{color:#1e2229;background:linear-gradient(to right,rgba(244,245,247,.97),rgba(244,245,247,.85));box-shadow:0 0 8px rgba(30,36,48,.25)}
 body.sk-graphite #tbR{background:linear-gradient(to left,rgba(244,245,247,.97),rgba(244,245,247,.85))}
 body.sk-focus .tbchev{display:none!important}
+
+/* status messages on the light skins */
+body.sk-command .rgp .err.ok,body.sk-graphite .rgp .err.ok{color:#0b5c32;background:#e3f5ea;border-color:#8fcfaa}
+body.sk-command .rgp .err.bad,body.sk-graphite .rgp .err.bad{color:#9c1c2a;background:#fdeaec;border-color:#e6a0a8}
+body.sk-command .rgp .err.hint,body.sk-graphite .rgp .err.hint{color:#4b5565;background:#f1f3f7;border-color:#c2c9d3}
