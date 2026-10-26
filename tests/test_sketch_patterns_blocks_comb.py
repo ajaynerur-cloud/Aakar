@@ -1,0 +1,31 @@
+import sys,json; sys.path.insert(0,'/home/claude')
+from common import *
+exec(open('ts.py').read().split("with sync_playwright()")[0].split("import sys,json; sys.path.insert(0,'/home/claude')\nfrom common import *")[1])
+with sync_playwright() as p:
+    b,pg=open_app(p,'index.html'); pg.evaluate(SETUP); pg.wait_for_timeout(500)
+    pg.evaluate("()=>{window.prompt=(m,d)=>'MyBlock'; __h.api.view.s=3; __h.api.view.cx=120; __h.api.view.cy=330; __h.api.changed()}")
+    print('buttons:',pg.evaluate("()=>[...document.querySelectorAll('.sk-btn')].map(b=>b.dataset.tool).filter(t=>/pat|blk|comb/.test(t)).join(',')"))
+    n0=pg.evaluate("()=>__sk.ents.length")
+    # linear pattern of the rectangle l1..l4 : select ents, set n=3, click (0,0) then (0,70)
+    pg.evaluate("()=>{document.querySelector('.skx-n').value=3; document.querySelector('.skx-n').dispatchEvent(new Event('input'))}")
+    pg.evaluate("()=>__h.api.select([{kind:'ent',id:'l1'},{kind:'ent',id:'l2'},{kind:'ent',id:'l3'},{kind:'ent',id:'l4'}]); ")
+    pg.evaluate("()=>__h.api.setTool('patlin')"); click(pg,0,0); click(pg,0,-25)
+    s=snapshot(pg); n1=pg.evaluate("()=>__sk.ents.length"); print('LINEAR: ents',n0,'->',n1,'|',s['toast'])
+    ys=pg.evaluate("()=>[...new Set(__sk.pts.filter(p=>!p.ref).map(p=>Math.round(p.y)))].sort((a,b)=>a-b)"); print('   distinct Y:',ys)
+    # circular pattern of the right-hand crossing lines t1,t2 around (150,20)... use ex line around (100,20), n=4, 360
+    pg.evaluate("()=>{document.querySelector('.skx-n').value=4; document.querySelector('.skx-n').dispatchEvent(new Event('input'))}")
+    pg.evaluate("()=>__h.api.select([{kind:'ent',id:'ex'}])"); pg.evaluate("()=>__h.api.setTool('patcir')"); click(pg,100,20)
+    n2=pg.evaluate("()=>__sk.ents.length"); print('CIRCULAR: ents',n1,'->',n2,'|',snapshot(pg)['toast'])
+    ends=pg.evaluate("()=>__sk.ents.slice(-3).map(e=>{const P=id=>__sk.pts.find(p=>p.id===id);const a=P(e.p1),b=P(e.p2);return [a.x.toFixed(1),a.y.toFixed(1),b.x.toFixed(1),b.y.toFixed(1)].join(',')})"); print('   copies:',ends)
+    # block: select 'ex' + 't1' make block then insert
+    pg.evaluate("()=>__h.api.select([{kind:'ent',id:'t1'},{kind:'ent',id:'t2'}])"); pg.evaluate("()=>document.querySelector('.sk-btn[data-tool=blkmake]').click()"); pg.wait_for_timeout(200)
+    print('block list:',pg.evaluate("()=>[...document.querySelector('.skx-blk').options].map(o=>o.value)"),'|',pg.evaluate("()=>localStorage.getItem('aakar.w2.blocks')").__len__(),'bytes saved')
+    pg.evaluate("()=>{document.querySelector('.skx-rot').value=90; document.querySelector('.skx-rot').dispatchEvent(new Event('input'))}")
+    n3=pg.evaluate("()=>__sk.ents.length"); pg.evaluate("()=>__h.api.setTool('blkins')"); click(pg,-20,-15); n4=pg.evaluate("()=>__sk.ents.length"); print('BLOCK insert: ents',n3,'->',n4,'|',snapshot(pg)['toast'])
+    # comb
+    pg.evaluate("()=>__h.api.setTool('bspline')")
+    for (x,y) in [(0,-30),(25,-5),(50,-40),(75,-10)]: click(pg,x,y)
+    pg.evaluate("()=>__h.api.commitCurve(false)"); pg.wait_for_timeout(200)
+    print('curve ents:',pg.evaluate("()=>__sk.ents.filter(e=>!e.ref).map(e=>e.type).join(',')"))
+    pg.evaluate("()=>document.querySelector('.sk-btn[data-tool=comb]').click()"); pg.wait_for_timeout(300)
+    shot(pg,'/home/claude/sk_comb.png'); print(pg.errs[:4]); b.close()

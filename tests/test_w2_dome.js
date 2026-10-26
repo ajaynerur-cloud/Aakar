@@ -1,0 +1,11 @@
+const P=PRISM,F=P.F,st=P.st,A=AAKAR_W1,SV=CAD.solver; const log={};
+const wait=(ms)=>new Promise(r=>setTimeout(r,ms));
+const settle=async()=>{for(let i=0;i<16;i++){await wait(500); const bad=st.doc.features.some(f=>f._status&&/background/i.test(f._status.msg||'')); if(!bad)return i;} return -1;};
+const fresh=()=>{st.doc=F.newDoc();P.regenerate();};
+const box=(w,d,h,x=0,y=0,z=0)=>P.commitFeature({type:'primitive',params:{kind:'box',w,d,h,pos:[x,y,z]}},true);
+const B=(i=0)=>st.bodies[i]; const stat=(f)=>f._status?(f._status.msg||JSON.stringify(f._status)):null;
+fresh(); box(60,40,20); const v1=B().solid.volume();
+const wiz=(p)=>{ const bb=B(); return P.commitFeature({type:'w2Wiz',params:Object.assign({body:bb.key,face:F.faceRef(bb.solid,bb.solid.F.findIndex(x=>x.n[2]>0.99)),type:'boss',shape:'round',size:12,h:5,draft:0,hole:0,hdepth:8,du:0,dv:0,inset:1,wall:1.5,clear:0.2},p)},true);};
+const mode=(typeof __MODE!=='undefined')?__MODE:'dome';
+let f=wiz({type:'dome',size:20,h:5}); let w=await settle(); log.dome={err:stat(f),dv:Math.round(B().solid.volume()-v1),expect:Math.round(Math.PI*5/6*(3*100+25)),top:+B().solid.bbox().max[2].toFixed(2),settle:w};
+return log;

@@ -1,0 +1,21 @@
+import sys; sys.path.insert(0,'/home/claude')
+from common import *
+with sync_playwright() as p:
+    b,pg=open_app(p,'index.html',hide_wheel=False); box_scene(pg)
+    pg.wait_for_timeout(800)
+    print('dock rect',pg.evaluate("()=>{const r=document.querySelector('#w1dock').getBoundingClientRect();return [Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]}"))
+    pg.click('#w1dock [data-a=g]'); pg.wait_for_timeout(300)
+    print('gumball on:',pg.evaluate("()=>AAKAR_W1.gumballOn"),'dock btn on:',pg.evaluate("()=>document.querySelector('#w1dock [data-a=g]').classList.contains('on')"),'ribbon btn on:',pg.evaluate("()=>{const b=document.querySelector('#tb-w1g');return b?b.classList.contains('on'):null}"))
+    pg.click('#w1dock [data-a=g]'); pg.wait_for_timeout(200); print('gumball off:',pg.evaluate("()=>!AAKAR_W1.gumballOn"))
+    pg.evaluate("()=>{const st=PRISM.st,b=st.bodies[0],s=b.solid;const fi=s.F.findIndex(f=>f.n[2]>0.99);st.sel={type:'face',bodyId:b.key,bodyIds:[b.key],faces:[fi],offset:false};PRISM.redraw()}")
+    pg.click('#w1dock [data-a=o]'); pg.wait_for_timeout(600); print('offset dialog:',pg.evaluate("()=>document.querySelector('#dlgTitle').textContent")); pg.click('#dlgCancel'); pg.wait_for_timeout(300)
+    pg.click('#w1dock [data-a=s]'); pg.wait_for_timeout(300); print('select+ panel:',pg.evaluate("()=>document.querySelector('#w1-select').classList.contains('on')"), pg.evaluate("()=>{const a=document.querySelector('#w1dock').getBoundingClientRect(),b=document.querySelector('#w1-select').getBoundingClientRect();return a.right<=b.left}"),'(no overlap)')
+    pg.click('#w1dock [data-a=r]'); pg.wait_for_timeout(300); print('radial open:',pg.evaluate("()=>document.querySelector('#w1rad').classList.contains('open')")); pg.keyboard.press('Escape'); pg.wait_for_timeout(200)
+    # drag the grip, then fold
+    g=pg.locator('#w1dock .gr').bounding_box(); pg.mouse.move(g['x']+20,g['y']+6); pg.mouse.down(); pg.mouse.move(g['x']+120,g['y']+90,steps=5); pg.mouse.up(); pg.wait_for_timeout(200)
+    print('after drag',pg.evaluate("()=>localStorage.getItem('aakar.w1.dock')"))
+    pg.evaluate("()=>document.querySelector('#w1-select').classList.remove('on')")
+    pg.dblclick('#w1dock .gr'); pg.wait_for_timeout(200); print('folded:',pg.evaluate("()=>document.querySelector('#w1dock').classList.contains('min')"))
+    pg.dblclick('#w1dock .gr'); pg.evaluate("()=>{PRISM.openSketcher(null,{kind:'std',plane:'XY'})}"); pg.wait_for_timeout(600)
+    print('hidden in sketch:',pg.evaluate("()=>getComputedStyle(document.querySelector('#w1dock')).display==='none'"))
+    print(pg.errs); b.close()

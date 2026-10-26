@@ -1,0 +1,18 @@
+import sys; sys.path.insert(0,'/home/claude')
+from common import *
+with sync_playwright() as p:
+    b,pg=open_app(p,'index.html',hide_wheel=True); box_scene(pg)
+    pg.wait_for_timeout(800)
+    pg.click('#w1dock [data-a=more]'); pg.wait_for_timeout(400)
+    print('palette open:',pg.evaluate("()=>document.querySelector('#w2more').classList.contains('on')"),'| tools:',pg.evaluate("()=>[...document.querySelectorAll('#w2more .g button')].map(b=>b.textContent.trim()).join(' · ')"))
+    pg.screenshot(path='/home/claude/more1.png',clip={'x':260,'y':134,'width':970,'height':690})
+    pg.fill('#w2more .q','curv'); pg.wait_for_timeout(200); print('filter curv ->',pg.evaluate("()=>[...document.querySelectorAll('#w2more .g button')].map(b=>b.textContent.trim()).join(' · ')"))
+    pg.fill('#w2more .q','')
+    pg.evaluate("()=>{const b=[...document.querySelectorAll('#w2more .g button')].find(x=>/Deform/.test(x.textContent)); b.click()}"); pg.wait_for_timeout(600)
+    print('dialog:',pg.evaluate("()=>document.querySelector('#dlgTitle').textContent"),'| palette closed:',pg.evaluate("()=>!document.querySelector('#w2more').classList.contains('on')"))
+    pg.screenshot(path='/home/claude/deform_dlg.png',clip={'x':260,'y':134,'width':970,'height':690})
+    pg.click('#dlgOk'); pg.wait_for_timeout(1500)
+    print('after OK:',pg.evaluate("()=>PRISM.st.doc.features.map(f=>f.name).join(' | ')"),'| faces',pg.evaluate("()=>PRISM.st.bodies[0].solid.F.length"))
+    pg.keyboard.press('Control+k'); pg.wait_for_timeout(500); pg.keyboard.type('bridge'); pg.wait_for_timeout(500)
+    print('Ctrl+K bridge ->',pg.evaluate("()=>[...document.querySelectorAll('#x10pal *')].filter(e=>e.children.length===0&&/Bridge/i.test(e.textContent)).slice(0,2).map(e=>e.textContent.trim().slice(0,70))"))
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(200); print(pg.errs[:4]); b.close()
