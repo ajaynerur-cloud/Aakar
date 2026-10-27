@@ -3,7 +3,7 @@
 <head><script id="aakar-w1-seed">(function(){try{var K='prism.v7.layout',o=JSON.parse(localStorage.getItem(K)||'{}')||{};if(o.w1layout)return;o.collapsed=o.collapsed||{};['Sketch+ examples','Examples','Kernel','Macros','Mesh','Export 3D'].forEach(function(t){if(o.collapsed[t]===undefined)o.collapsed[t]=true;});o.w1layout=1;localStorage.setItem(K,JSON.stringify(o));}catch(e){}})();(function(){try{var K='prism.v7.layout',o=JSON.parse(localStorage.getItem(K)||'{}')||{};if(o.w2layout)return;o.collapsed=o.collapsed||{};if(o.collapsed['Curves & curvature']===undefined)o.collapsed['Curves & curvature']=true;o.w2layout=1;localStorage.setItem(K,JSON.stringify(o));}catch(e){}})();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Aakar 8.29.0 — Parametric · NURBS · SubD · Analysis · Drawings · Render</title>
+<title>Aakar 8.29.2 — Parametric · NURBS · SubD · Analysis · Drawings · Render</title>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkFha2FyIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWYyNzM2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMGQxMTE4Ii8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9ImwiIHgxPSIwIiB5MT0iMCIgeDI9IjAiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmZmM0OGEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmZjlhNGQiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iciIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iI2ZmOGEzZCIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2UyNjUxYSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHg9IjgiIHk9IjgiIHdpZHRoPSIyNDAiIGhlaWdodD0iMjQwIiByeD0iNTYiIGZpbGw9InVybCgjYmcpIiBzdHJva2U9IiNmZjhhM2QiIHN0cm9rZS13aWR0aD0iNSIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyOCAxMzApIHNjYWxlKC43NCkgdHJhbnNsYXRlKC0xMjggLTEyOCkiPjxwb2x5Z29uIHBvaW50cz0iMTEyLDI4IDE0NiwyOCA4OCwyMjggMzAsMjI4IiBmaWxsPSJ1cmwoI2wpIi8+PHBvbHlnb24gcG9pbnRzPSIxMTIsMjggMTQ2LDI4IDIyNiwyMjggMTY4LDIyOCIgZmlsbD0idXJsKCNyKSIvPjxwb2x5Z29uIHBvaW50cz0iMTEyLDI4IDE0NiwyOCAxMjguOCw4OCIgZmlsbD0iI2I4NTAwZiIvPjxwb2x5Z29uIHBvaW50cz0iMTEwLjYsMTUwIDE0Ni4yLDE1MCAxNTYuMiwxODYgMTAwLjIsMTg2IiBmaWxsPSIjZmZmMWUzIi8+PC9nPjwvc3ZnPg==">
 <style>
 :root{--bg:#12161f;--panel:#1a202c;--panel2:#212938;--line:#2c3547;--txt:#dfe6f2;--mut:#8a97ad;--acc:#ff8a3d;--acc2:#3db8ff;--ok:#42d392;--bad:#ff5d6c;--warn:#ffc94d;--r:8px;font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
@@ -101,7 +101,7 @@ body.editmode #hint{color:var(--acc)}
 .sk-bar{display:flex;flex-wrap:wrap;gap:4px;padding:5px 6px;background:#1a202c;border-bottom:1px solid var(--line)}
 .sk-grp{display:flex;gap:2px;align-items:center;padding-right:6px;border-right:1px solid var(--line)}
 .sk-grp:last-child{border-right:none;margin-left:auto}
-.sk-gl{font-size:9px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;writing-mode:vertical-rl;transform:rotate(180deg)}
+#sketcher .sk-gl,.sk-gl{font-size:9.5px;font-weight:600;line-height:1;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;writing-mode:horizontal-tb!important;transform:none!important;white-space:nowrap;padding:0 5px 0 3px;align-self:center}
 .sk-btn{display:flex;align-items:center;gap:4px;height:32px;min-width:32px;justify-content:center;background:none;border:1px solid transparent;border-radius:6px;cursor:pointer;color:var(--txt);padding:0 5px}
 .sk-btn svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .sk-btn:hover{background:var(--panel2);border-color:var(--line)}.sk-btn.on{background:#3a2a1f;border-color:var(--acc);color:var(--acc)}
@@ -253,7 +253,7 @@ body.sketching #filterbar,body.sketching #viewnav{display:none}
 <body><div id="aakarSplash"><svg viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="aal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient><linearGradient id="aar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient></defs><polygon points="112,28 146,28 88,228 30,228" fill="url(#aal)"/><polygon points="112,28 146,28 226,228 168,228" fill="url(#aar)"/><polygon points="112,28 146,28 128.8,88" fill="#b8500f"/><polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/></svg><b>Aakar</b><small>FORM · SHAPE · CAD</small></div>
 <header id="top">
   <div class="row1">
-    <div class="brand" title="Aakar"><svg viewBox="0 0 256 256" aria-label="Aakar logo"><defs><linearGradient id="aal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient><linearGradient id="aar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient></defs><polygon points="112,28 146,28 88,228 30,228" fill="url(#aal)"/><polygon points="112,28 146,28 226,228 168,228" fill="url(#aar)"/><polygon points="112,28 146,28 128.8,88" fill="#b8500f"/><polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/></svg><span>Aakar <b>8.29.0</b></span></div>
+    <div class="brand" title="Aakar"><svg viewBox="0 0 256 256" aria-label="Aakar logo"><defs><linearGradient id="aal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient><linearGradient id="aar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient></defs><polygon points="112,28 146,28 88,228 30,228" fill="url(#aal)"/><polygon points="112,28 146,28 226,228 168,228" fill="url(#aar)"/><polygon points="112,28 146,28 128.8,88" fill="#b8500f"/><polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/></svg><span>Aakar <b>8.29.2</b></span></div>
     <nav id="ribbon"><button data-tab="model" class="on">Model</button><button data-tab="surface">Surface</button><button data-tab="subd">SubD</button><button data-tab="bim" style="display:none" aria-hidden="true">BIM</button><button data-tab="analysis">Analysis</button><button data-tab="drawing">Drawing</button><button data-tab="cam">CAM</button><button data-tab="learn">Tutorials</button></nav>
     <div class="tb-right"><button class="pill" id="btnLeft" title="Feature / body panel">☰</button><button class="pill" id="btnRight" title="Inspector panel">⚙</button></div>
   </div>
@@ -9448,7 +9448,7 @@ body.sketching #filterbar,body.sketching #viewnav{display:none}
 
   // ---------------------------------------------------------------- branding
   try {
-    const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.0</b>';
+    const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.2</b>';
     document.title = 'Aakar 5 — Parametric · NURBS · SubD · BIM · Analysis · Drawings';
     P.status('Aakar 5 add-on loaded — new tools in Surface ▸ Surface+ / Surface edit / Analyse and SubD ▸ SubD+. Press ▶ Demo for a complex example.');
   } catch (e) { /* headless */ }
@@ -10690,7 +10690,7 @@ precision mediump float; void main(){}`;
   P.setTab(cur);
   Object.keys(L.palettes).forEach(renderPalette);
   bodyCls(); applyCards(); enhance(); renderDocks();
-  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.0</b>'; } catch (e) { /* ignore */ }
+  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.2</b>'; } catch (e) { /* ignore */ }
   P.status('Aakar 7 — drag a group header to the left / right edge to dock it, back to the ribbon to undock, or onto the 3D view to float · ▾ collapses · ⌃ minimises the ribbon · ☷ Layout · ▶ Vase demo');
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -10888,7 +10888,7 @@ precision mediump float; void main(){}`;
   setTimeout(() => window.dispatchEvent(new Event('resize')), 30);
   CAD.v8 = CAD.v8 || {};
   CAD.v8.windows = { W, open, close, switchTo, save, rename, popOut, blankDoc, render };
-  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.0</b>'; } catch (e) { /* ignore */ }
+  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.2</b>'; } catch (e) { /* ignore */ }
   document.title = W.active.name + ' — Aakar 8';
   P.status('Aakar 8 — every project opens in its own window (tabs under the ribbon, ✕ closes, ↗ pops out) · drag tool groups to the left / right edge to dock them · Render tab: materials, .skm, lights');
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -11573,7 +11573,7 @@ precision mediump float; void main(){}`;
   const cur = st.tab; TABS.forEach(t => { try { P.setTab(t); harvest(); } catch (e) { /* ignore */ } }); P.setTab(cur); harvest();
   bodyCls(); applyTB(); renderTL(); if (UI.dims) openDims();
   CAD.v81 = { renderTL, setRoll, moveFeature, openDims, renderDims, labels, exportDAE, importDAE, parseDAE, exportOBJ, toolbarMenu, historyMenu, UI, applyTB };
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.0</b>'; document.title = document.title; } catch (e) { /* ignore */ }
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.2</b>'; document.title = document.title; } catch (e) { /* ignore */ }
   P.status('Aakar 8.1 — sketch splines (fit / NURBS / Bézier / conic / ellipse) · revolve open profiles · NURBS tab · timeline & history · detailed dimensions · ▤ Toolbars · SketchUp / Plasticity exchange · .skm');
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -12177,7 +12177,7 @@ precision mediump float; void main(){}`;
     ['x9guide', 'Handbook', guide, 'Download the printable tutorial handbook', IC.book]
   ]);
   CAD.x9.ui = { open, buildAll, COURSES, guide, A };
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.0</b>'; document.title = document.title; } catch (e) { /* ignore */ }
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.2</b>'; document.title = document.title; } catch (e) { /* ignore */ }
   P.status('Aakar 8.15.1 — new CAM tab (3-axis CAM, simulation, G-code) · new Tutorials tab (Examples, Handbook, Import tutorial, Library)');
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -13279,7 +13279,7 @@ precision mediump float; void main(){}`;
   ]);
   CAD.x10.ui = { openPal, runCmd, harvest, asmPanel, mateCmd, measPanel, startMeasure, secPanel, sec, parPanel, compareWith, compareMenu, comPanel, addComment, conPanel, autosave, savePanel, recover, api, insertJSON, bom, components, faceGeom, dbAll, endPick };
   renderPins();
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.0</b>'; document.title = document.title; } catch (e) { /* ignore */ }
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.2</b>'; document.title = document.title; } catch (e) { /* ignore */ }
   P.status('Aakar 8.4 — NURBS & SubD fillets (variable radius) · assemblies & mates · measure & section · parameters · auto-save · compare · comments · Ctrl+K command search · script console');
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -13902,7 +13902,7 @@ precision mediump float; void main(){}`;
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && panelEl && panelEl.classList.contains('on') && !recording && !typing(e.target)) panelEl.classList.remove('on'); });
 
   CAD.x85 = { selectAll, selectNone, invert, boxSelect, effective, setSelection, saveAs, openControls, toggleMode, cfg: () => cfg, rebuildKeys, PRESETS };
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.0</b>'; document.title = document.title; } catch (e) { /* ignore */ }
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.29.2</b>'; document.title = document.title; } catch (e) { /* ignore */ }
   P.status('Aakar 8.5: Ctrl+A selects all · ▢ Select (Q) = drag to box-select · ⚙ Controls = mouse buttons and shortcuts · Save as');
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -25746,7 +25746,7 @@ struct BOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
  function openSearch(){close();try{if(window.CAD&&CAD.x10&&CAD.x10.ui){CAD.x10.ui.openPal();return;}}catch(e){}document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true}));}
  function boot(){try{
   document.body.classList.add('x855');if(S.focus)document.body.classList.add('x855-focus');
-  document.title='Aakar 8.29.0 — Parametric · NURBS · SubD · BIM · Analysis · Drawings · Render';const br=$('.brand span');if(br)br.innerHTML = 'Aakar <b>8.29.0</b>';
+  document.title='Aakar 8.29.2 — Parametric · NURBS · SubD · BIM · Analysis · Drawings · Render';const br=$('.brand span');if(br)br.innerHTML = 'Aakar <b>8.29.2</b>';
   const row=$('#top .row1');if(!row||$('#x855bar'))return;
   const I={file:'<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z M14 3v4h4"/></svg>',tools:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg>',search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg>',ws:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16 M3 9h6"/></svg>'};
   const bar=document.createElement('div');bar.id='x855bar';
@@ -26667,7 +26667,7 @@ body.sk-dock #wsCtx .s button.on{background:rgba(31,199,180,.2);color:#3fe0cd;fo
     var pop = buildPicker(); buildButton(pop); buildCube();
     try { var rb = document.getElementById('ribbon'); ['cam', 'learn'].forEach(function (t) { var b = rb && rb.querySelector('[data-tab="' + t + '"]'); if (b) rb.appendChild(b); }); } catch (e) { /* ignore */ } // CAM + Tutorials sit after Render
     try { buildWs(); } catch (e) { /* keep the classic ribbon */ }
-    var ver = function () { try { var bs = document.querySelector('.brand span'); if (bs) bs.innerHTML = 'Aakar <b>8.29.0</b>'; document.title = document.title.replace(/Aakar \d+(\.\d+)*/, 'Aakar 8.29.0'); } catch (e) { /* ignore */ } };
+    var ver = function () { try { var bs = document.querySelector('.brand span'); if (bs) bs.innerHTML = 'Aakar <b>8.29.2</b>'; document.title = document.title.replace(/Aakar \d+(\.\d+)*/, 'Aakar 8.29.2'); } catch (e) { /* ignore */ } };
     ver(); setTimeout(ver, 1500); setTimeout(ver, 4000);
     var saved = get();
     apply(saved || 'classic');
@@ -33032,6 +33032,8 @@ const AKC = (function () {
     '#sketcher .sk-bar.skc.skc-tight{gap:2px 2px;padding:5px 4px}',
     '#sketcher .sk-bar.skc.skc-tight>.sk-grp>.sk-btn,#sketcher .sk-bar.skc.skc-tight .skc-menu>.skc-tr{min-width:27px;height:30px;padding:0 3px}',
     '#sketcher .sk-bar.skc.skc-tight .skc-tr .car{display:none}',
+    '#sketcher .sk-bar.skc.skc-tight>.sk-grp>.sk-gl{font-size:8.5px;letter-spacing:.03em;padding:0 3px 0 1px}',
+    '#sketcher .sk-bar.skc.skc-nolbl>.sk-grp>.sk-gl{display:none}',
     '#sketcher .sk-bar.skc.skc-tight>.sk-grp{padding-right:2px}',
     /* popups */
     '#sketcher .sk-bar.skc .skc-pop,#sketcher .sk-bar.skc .skc-vpop{display:none}',
@@ -33049,7 +33051,7 @@ const AKC = (function () {
     '#sketcher .sk-bar.skc .skc-vpop .sk-grp:hover,#sketcher .sk-bar.skc .skc-vpop .sk-grp:focus-within{opacity:1}',
     '#sketcher .sk-bar.skc .skc-vpop .skc-foot{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mut,#8a97ad);padding:2px 2px 0;cursor:pointer;order:9}',
     /* mode button */
-    '#sketcher .sk-bar .skc-mode{align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--line,#2c3547);border-radius:6px;background:none;color:var(--mut,#8a97ad);cursor:pointer;padding:0;margin:0 1px}',
+    '#sketcher .sk-bar .skc-mode{align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--line,#2c3547);border-radius:6px;background:none;color:var(--mut,#8a97ad);cursor:pointer;padding:0;margin:0 4px 0 1px}',
     '#sketcher .sk-bar .skc-mode:hover{color:var(--acc,#ff8a3d);border-color:var(--acc,#ff8a3d)}',
     '#sketcher .sk-bar .skc-mode svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}',
     '#sketcher .sk-bar.skc .skc-mode{background:#3a2a1f;color:var(--acc,#ff8a3d);border-color:var(--acc,#ff8a3d)}'
@@ -33137,9 +33139,10 @@ const AKC = (function () {
       return ys.length > 1 && Math.max.apply(null, ys) - Math.min.apply(null, ys) > 14;
     }
     function fitIcons() {
-      bar.classList.remove('skc-icons', 'skc-tight'); if (!bar.classList.contains('skc')) return;
+      bar.classList.remove('skc-icons', 'skc-tight', 'skc-nolbl'); if (!bar.classList.contains('skc')) return;
       if (wrapped()) bar.classList.add('skc-icons');
       if (wrapped()) bar.classList.add('skc-tight');
+      if (wrapped()) bar.classList.add('skc-nolbl');
     }
     function apply() {
       bar.classList.toggle('skc', !!cfg.compact);
