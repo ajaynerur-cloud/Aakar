@@ -1,32 +1,60 @@
 name: Build Aakar Windows EXE
-
 on:
   push:
     branches: [ main, master ]
     tags: [ 'v*' ]
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       # installs electron, electron-builder and occt-wasm (pinned in package.json / package-lock.json)
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
-
+      # The EXE version comes from index.html (the <title> "Aakar X.Y.Z"), not from the number typed in package.json.
+      # electron-builder names and stamps the EXE with package.json "version", so copy the index.html version into it
+      # for this build only (nothing is committed back).
+      - name: Version - take it from index.html
+        id: ver
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('fs'), path = require('path');
+            const skip = new Set(['node_modules', 'dist', '.git', 'build', 'out']);
+            const found = [];
+            (function walk(d, depth) {
+              if (depth > 3) return;
+              for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+                if (skip.has(e.name)) continue;
+                const p = path.join(d, e.name);
+                if (e.isDirectory()) walk(p, depth + 1); else if (e.name.toLowerCase() === 'index.html') found.push(p);
+              }
+            })('.', 0);
+            const pref = ['app/index.html', 'index.html', 'src/index.html', 'www/index.html'];
+            found.sort((a, b) => { const ia = pref.indexOf(a.replace(/\\\\/g, '/')), ib = pref.indexOf(b.replace(/\\\\/g, '/')); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
+            let ver = null, from = null;
+            for (const f of found) {
+              const s = fs.readFileSync(f, 'utf8');
+              const m = /<title>\s*Aakar\s+(\d+\.\d+\.\d+)/i.exec(s) || /Aakar\s*<b>\s*(\d+\.\d+\.\d+)\s*<\/b>/i.exec(s);
+              if (m) { ver = m[1]; from = f; break; }
+            }
+            if (!ver) { console.log('::error title=No version::Could not find \"Aakar X.Y.Z\" in any index.html (' + found.join(', ') + ')'); process.exit(1); }
+            const pk = JSON.parse(fs.readFileSync('package.json', 'utf8')), old = pk.version;
+            pk.version = ver;
+            if (pk.build && pk.build.buildVersion) pk.build.buildVersion = ver;
+            fs.writeFileSync('package.json', JSON.stringify(pk, null, 2) + '\n');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + ver + '\n');
+            console.log('::notice title=EXE version::' + ver + ' (from ' + from + ', package.json had ' + old + ')');
+          "
       - name: Package tests (asset protocol, kernel binding, self-test gate)
         run: npm test
-
       # OpenCascade (occt-wasm) is copied into app/occt as plain files and loaded at run time by app/occt/aakar-occt.mjs.
       # It is NOT bundled (no esbuild): bundling is what broke it before. The committed binding files are never deleted.
       - name: OpenCascade - copy runtime and self-test
@@ -43,14 +71,12 @@ jobs:
           node -e "const f='app/occt/aakar-occt.mjs',fs=require('fs');let s=fs.readFileSync(f,'utf8');const o=\"const FILES = ['occt-wasm.js', 'occt-wasm.mjs', 'index.js'];\";if(s.includes(o)){fs.writeFileSync(f,s.replace(o,\"const FILES = ['index.js', 'occt-wasm.mjs', 'occt-wasm.js'];\"));console.log('::warning title=Old OpenCascade binding::app/occt/aakar-occt.mjs loads occt-wasm.js first - fixed for this build. Commit the updated file.')}"
           node scripts/fetch-occt-wasm.js
           node tools/occt-selftest.mjs app/occt/aakar-occt.mjs
-
       - name: OpenCascade - leave it out if it did not pass
         if: steps.occt.outcome != 'success'
         shell: bash
         run: |
           echo "::warning title=OpenCascade not packaged::occt-wasm did not pass its self-test - see the step above. The EXE uses AakarKernel only."
           find app/occt -type f ! -name 'aakar-occt.mjs' ! -name 'aakar-occt.js' ! -name 'README.md' ! -name 'package.json' -delete
-
       - name: OpenCascade - check what is packaged
         shell: bash
         run: |
@@ -59,20 +85,24 @@ jobs:
             test -f app/occt/index.js && test -f app/occt/occt-wasm.js && test -f app/occt/occt-wasm.wasm
             echo "::notice title=OpenCascade packaged::occt-wasm $(node -p "require('./app/occt/occt-wasm-manifest.json').version") ($(node -p "require('./app/occt/occt-wasm-manifest.json').wasmMB") MB) is in the EXE."
           fi
-
       - name: Build installer and portable EXE
-        run: npm run dist
+        run: npm run dist -- -c.extraMetadata.version=${{ steps.ver.outputs.version }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-
+      - name: Check the EXE carries the index.html version
+        shell: bash
+        run: |
+          ls -la dist/*.exe
+          ls dist/*.exe | grep -q "${{ steps.ver.outputs.version }}" \
+            && echo "::notice title=EXE version OK::${{ steps.ver.outputs.version }}" \
+            || echo "::warning title=EXE file name::The EXE name does not contain ${{ steps.ver.outputs.version }} - check artifactName in package.json (use \${version})."
       - name: Upload EXE files
         uses: actions/upload-artifact@v4
         with:
-          name: Aakar-windows
+          name: Aakar-windows-${{ steps.ver.outputs.version }}
           path: |
             dist/*.exe
           if-no-files-found: error
-
       - name: Attach to GitHub Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
