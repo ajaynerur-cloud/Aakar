@@ -1,0 +1,159 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "2.0",
+  "minimumAakarVersion": "8.20.0",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "category": "Tool Validation",
+  "packId": "tooltest.01.gumball",
+  "title": "ToolTest 1 - Gumball",
+  "courses": [
+    {
+      "id": "tooltest.01.gumball",
+      "title": "ToolTest 1 - Gumball",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Use the on-model Gumball for direct move, plane move, rotate and scale, then compare with numeric editing.",
+      "tags": [
+        "gumball",
+        "direct edit",
+        "move",
+        "rotate",
+        "scale"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create and select a reference body",
+          "learn": "Create and select a reference body",
+          "instructions": "Create a clearly asymmetric body and select it.",
+          "inputs": {
+            "reference": "asymmetric solid"
+          },
+          "expectedResult": "The body is selected and its orientation is obvious.",
+          "checkpoint": {
+            "expected": "The body is selected and its orientation is obvious."
+          },
+          "validationChecks": [
+            "Selection is visible"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model > Primitive"
+        },
+        {
+          "id": "step-02",
+          "title": "Enable Gumball",
+          "learn": "Enable Gumball",
+          "instructions": "Turn on the Gumball.",
+          "inputs": {
+            "toggle": "Alt+G or Gumball"
+          },
+          "expectedResult": "On-model direct-edit handles appear.",
+          "checkpoint": {
+            "expected": "On-model direct-edit handles appear."
+          },
+          "validationChecks": [
+            "Gumball is visible for the active selection"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Gumball"
+        },
+        {
+          "id": "step-03",
+          "title": "Move using arrows",
+          "learn": "Move using arrows",
+          "instructions": "Drag one axis arrow.",
+          "inputs": {
+            "operation": "axis move"
+          },
+          "expectedResult": "The selection translates along one axis.",
+          "checkpoint": {
+            "expected": "The selection translates along one axis."
+          },
+          "validationChecks": [
+            "Movement is constrained to the selected axis"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > axis arrow"
+        },
+        {
+          "id": "step-04",
+          "title": "Move in a plane",
+          "learn": "Move in a plane",
+          "instructions": "Drag a plane square.",
+          "inputs": {
+            "operation": "plane move"
+          },
+          "expectedResult": "The selection translates in the selected plane.",
+          "checkpoint": {
+            "expected": "The selection translates in the selected plane."
+          },
+          "validationChecks": [
+            "Movement stays in the selected plane"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > plane square"
+        },
+        {
+          "id": "step-05",
+          "title": "Rotate with a ring",
+          "learn": "Rotate with a ring",
+          "instructions": "Drag a rotation ring.",
+          "inputs": {
+            "operation": "rotate"
+          },
+          "expectedResult": "The selection rotates about the chosen Gumball axis.",
+          "checkpoint": {
+            "expected": "The selection rotates about the chosen Gumball axis."
+          },
+          "validationChecks": [
+            "Rotation occurs about the intended axis"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > rotation ring"
+        },
+        {
+          "id": "step-06",
+          "title": "Scale with cube handles",
+          "learn": "Scale with cube handles",
+          "instructions": "Drag a scale cube; repeat with Shift for uniform scaling.",
+          "inputs": {
+            "operation": "scale",
+            "modifier": "Shift for uniform"
+          },
+          "expectedResult": "The selection scales; Shift produces uniform scale.",
+          "checkpoint": {
+            "expected": "The selection scales; Shift produces uniform scale."
+          },
+          "validationChecks": [
+            "Non-uniform scale changes the chosen direction",
+            "Shift produces uniform scale"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > scale cube"
+        },
+        {
+          "id": "step-07",
+          "title": "Use numeric Gumball",
+          "learn": "Use numeric Gumball",
+          "instructions": "Enter exact move/rotate/scale values and apply.",
+          "inputs": {
+            "values": "controlled numeric values"
+          },
+          "expectedResult": "The model updates to the exact numeric transform.",
+          "checkpoint": {
+            "expected": "The model updates to the exact numeric transform."
+          },
+          "validationChecks": [
+            "Numeric edit regenerates",
+            "Result remains selectable/editable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > numeric"
+        }
+      ]
+    }
+  ]
+}

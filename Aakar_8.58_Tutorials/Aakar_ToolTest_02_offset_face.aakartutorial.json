@@ -1,0 +1,104 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "2.0",
+  "minimumAakarVersion": "8.20.0",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "category": "Tool Validation",
+  "packId": "tooltest.02.offset-face",
+  "title": "ToolTest 2 - Offset Face",
+  "courses": [
+    {
+      "id": "tooltest.02.offset-face",
+      "title": "ToolTest 2 - Offset Face",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Offset selected faces and verify neighboring topology heals around the edited faces.",
+      "tags": [
+        "offset face",
+        "direct edit",
+        "auto-heal"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create reference solid",
+          "learn": "Create reference solid",
+          "instructions": "Create a stepped solid with neighboring faces around the target face.",
+          "inputs": {
+            "geometry": "stepped solid"
+          },
+          "expectedResult": "A valid solid with a clear target face.",
+          "checkpoint": {
+            "expected": "A valid solid with a clear target face."
+          },
+          "validationChecks": [
+            "Target face selectable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model > Box / Extrude"
+        },
+        {
+          "id": "step-02",
+          "title": "Offset face outward",
+          "learn": "Offset face outward",
+          "instructions": "Select one face and offset it outward.",
+          "inputs": {
+            "distance": 5
+          },
+          "expectedResult": "The selected face moves outward while neighboring geometry reconnects.",
+          "checkpoint": {
+            "expected": "The selected face moves outward while neighboring geometry reconnects."
+          },
+          "validationChecks": [
+            "Body remains valid",
+            "Adjacent topology reconnects",
+            "Offset is editable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Offset face"
+        },
+        {
+          "id": "step-03",
+          "title": "Offset face inward",
+          "learn": "Offset face inward",
+          "instructions": "Edit the offset to a negative value.",
+          "inputs": {
+            "distance": -3
+          },
+          "expectedResult": "The selected face moves inward and the body heals.",
+          "checkpoint": {
+            "expected": "The selected face moves inward and the body heals."
+          },
+          "validationChecks": [
+            "Body remains valid",
+            "No open boundary is introduced"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Offset face"
+        },
+        {
+          "id": "step-04",
+          "title": "Edit the offset",
+          "learn": "Edit the offset",
+          "instructions": "Change the distance and regenerate.",
+          "inputs": {
+            "distance": 8
+          },
+          "expectedResult": "The direct edit updates parametrically.",
+          "checkpoint": {
+            "expected": "The direct edit updates parametrically."
+          },
+          "validationChecks": [
+            "Feature remains editable",
+            "Downstream model remains valid"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Timeline > Offset face"
+        }
+      ]
+    }
+  ]
+}

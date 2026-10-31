@@ -1,0 +1,107 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "2.0",
+  "minimumAakarVersion": "8.20.0",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "category": "Tool Validation",
+  "packId": "tooltest.03.move-face",
+  "title": "ToolTest 3 - Move Face with Auto-Heal",
+  "courses": [
+    {
+      "id": "tooltest.03.move-face",
+      "title": "ToolTest 3 - Move Face with Auto-Heal",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Move and rotate selected faces while inspecting extension, trimming or tilting of neighboring faces during healing.",
+      "tags": [
+        "move face",
+        "auto-heal",
+        "direct edit"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Prepare a reference solid",
+          "learn": "Prepare a reference solid",
+          "instructions": "Create a solid whose selected face has several neighboring faces.",
+          "inputs": {
+            "geometry": "reference solid"
+          },
+          "expectedResult": "A valid target for face movement.",
+          "checkpoint": {
+            "expected": "A valid target for face movement."
+          },
+          "validationChecks": [
+            "Target face selectable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model > Box / Extrude"
+        },
+        {
+          "id": "step-02",
+          "title": "Translate the face",
+          "learn": "Translate the face",
+          "instructions": "Select the face and translate it by an exact amount.",
+          "inputs": {
+            "translation": [
+              5,
+              0,
+              0
+            ]
+          },
+          "expectedResult": "The face relocates and neighboring faces reconnect.",
+          "checkpoint": {
+            "expected": "The face relocates and neighboring faces reconnect."
+          },
+          "validationChecks": [
+            "Move is stored as a Move feature",
+            "Body remains valid after auto-heal"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Gumball / Move numeric"
+        },
+        {
+          "id": "step-03",
+          "title": "Rotate the face",
+          "learn": "Rotate the face",
+          "instructions": "Rotate the selected face.",
+          "inputs": {
+            "rotationDegrees": 10
+          },
+          "expectedResult": "The face changes orientation and the surrounding topology heals.",
+          "checkpoint": {
+            "expected": "The face changes orientation and the surrounding topology heals."
+          },
+          "validationChecks": [
+            "Neighboring faces extend, trim or tilt as needed",
+            "No open shell remains"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Gumball / Move numeric"
+        },
+        {
+          "id": "step-04",
+          "title": "Edit the Move feature",
+          "learn": "Edit the Move feature",
+          "instructions": "Change translation or rotation and regenerate.",
+          "inputs": {
+            "edit": "translation or rotation"
+          },
+          "expectedResult": "The healed result updates.",
+          "checkpoint": {
+            "expected": "The healed result updates."
+          },
+          "validationChecks": [
+            "Feature editable",
+            "Valid solid retained"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Timeline > Move"
+        }
+      ]
+    }
+  ]
+}

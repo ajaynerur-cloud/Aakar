@@ -1,0 +1,1634 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "2.0",
+  "minimumAakarVersion": "8.20.0",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "category": "Tool Validation",
+  "packId": "aakar.tooltest-tutorials.07-24",
+  "title": "Aakar ToolTest Tutorials 07-24",
+  "courses": [
+    {
+      "id": "tooltest.07.deform",
+      "title": "ToolTest 7 - Deform: Bend, Twist, Taper and Flex",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 45,
+      "objective": "Apply controlled deformations to solids, NURBS surfaces, curves and SubD cages, then validate regeneration and benchmark preservation.",
+      "tags": [
+        "deform",
+        "bend",
+        "twist",
+        "taper",
+        "flex",
+        "solid",
+        "NURBS",
+        "SubD"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create and measure the reference body",
+          "learn": "Create and measure the reference body",
+          "instructions": "Create the same elongated reference solid used by ToolTest 7 and record its initial volume.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "geometry": "elongated reference solid",
+            "measurement": "initial volume V0"
+          },
+          "expectedResult": "A valid undeformed solid with recorded volume V0.",
+          "checkpoint": {
+            "expected": "A valid undeformed solid with recorded volume V0."
+          },
+          "validationChecks": [
+            "Body validity reports valid",
+            "V0 is recorded before deformation"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Model > Primitive > Box"
+        },
+        {
+          "id": "step-02",
+          "title": "Bend the solid",
+          "learn": "Bend the solid",
+          "instructions": "Select the solid and apply Bend only.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "axis": "Z",
+            "bendDirection": "X",
+            "bendDegrees": 30,
+            "twistDegrees": 0,
+            "taperPercent": 0,
+            "rangePercent": [
+              0,
+              100
+            ],
+            "segments": 24
+          },
+          "expectedResult": "A smoothly bent editable solid.",
+          "checkpoint": {
+            "expected": "A smoothly bent editable solid."
+          },
+          "validationChecks": [
+            "Deform feature appears in timeline",
+            "Solid remains valid",
+            "Measured volume ratio Vbend/V0 is approximately 0.9997"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Deform"
+        },
+        {
+          "id": "step-03",
+          "title": "Twist the solid",
+          "learn": "Twist the solid",
+          "instructions": "Reset to the reference state and apply Twist only using the ToolTest twist value.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "axis": "Z",
+            "bendDegrees": 0,
+            "twistDegrees": "ToolTest value",
+            "taperPercent": 0,
+            "rangePercent": [
+              0,
+              100
+            ],
+            "segments": 24
+          },
+          "expectedResult": "A progressively twisted valid solid.",
+          "checkpoint": {
+            "expected": "A progressively twisted valid solid."
+          },
+          "validationChecks": [
+            "Timeline feature is editable",
+            "Solid remains valid",
+            "Volume deviation is within 1.1 percent of the ToolTest reference"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Deform"
+        },
+        {
+          "id": "step-04",
+          "title": "Taper the solid",
+          "learn": "Taper the solid",
+          "instructions": "Reset and apply Taper only using the ToolTest taper value.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "axis": "Z",
+            "bendDegrees": 0,
+            "twistDegrees": 0,
+            "taperPercent": "ToolTest value",
+            "rangePercent": [
+              0,
+              100
+            ],
+            "segments": 24
+          },
+          "expectedResult": "A progressively tapered valid body.",
+          "checkpoint": {
+            "expected": "A progressively tapered valid body."
+          },
+          "validationChecks": [
+            "Solid remains valid",
+            "Taper benchmark reports exact volume preservation"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Deform"
+        },
+        {
+          "id": "step-05",
+          "title": "Combine into Flex",
+          "learn": "Combine into Flex",
+          "instructions": "Apply non-zero Bend, Twist and Taper together.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "axis": "Z",
+            "bendDegrees": 30,
+            "twistDegrees": 45,
+            "taperPercent": 15,
+            "rangePercent": [
+              0,
+              100
+            ],
+            "segments": 32
+          },
+          "expectedResult": "One editable Flex-style deformation combining all three effects.",
+          "checkpoint": {
+            "expected": "One editable Flex-style deformation combining all three effects."
+          },
+          "validationChecks": [
+            "No inside-out geometry error",
+            "Feature regenerates after editing one parameter"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Deform"
+        },
+        {
+          "id": "step-06",
+          "title": "Repeat on other geometry classes",
+          "learn": "Repeat on other geometry classes",
+          "instructions": "Repeat the controlled deformation on a NURBS surface, a curve and a SubD cage.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "targets": [
+              "NURBS surface",
+              "curve",
+              "SubD cage"
+            ]
+          },
+          "expectedResult": "Each supported object visibly deforms and remains editable.",
+          "checkpoint": {
+            "expected": "Each supported object visibly deforms and remains editable."
+          },
+          "validationChecks": [
+            "NURBS target deforms",
+            "Curve target deforms",
+            "SubD cage deforms",
+            "No unsupported-target error"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Surface / Curves / SubD > Deform"
+        }
+      ],
+      "toolTestBenchmark": {
+        "taperVolume": "exact",
+        "bendVolumeRatio": 0.9997,
+        "twistTolerancePercent": 1.1
+      }
+    },
+    {
+      "id": "tooltest.08.split",
+      "title": "ToolTest 8 - Split Face, Split Body and Silhouette Split",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 40,
+      "objective": "Use all split modes and verify face independence, solid validity and expected body volumes.",
+      "tags": [
+        "split",
+        "face",
+        "body",
+        "silhouette",
+        "volume"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create split reference geometry",
+          "learn": "Create split reference geometry",
+          "instructions": "Create the ToolTest main body and an intersecting tool body.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "mainBody": "ToolTest reference solid",
+            "toolBody": "intersecting cutter"
+          },
+          "expectedResult": "Two valid, visibly intersecting bodies.",
+          "checkpoint": {
+            "expected": "Two valid, visibly intersecting bodies."
+          },
+          "validationChecks": [
+            "Both bodies are valid",
+            "Tool body passes fully through the target region"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Model > Primitives"
+        },
+        {
+          "id": "step-02",
+          "title": "Split a face",
+          "learn": "Split a face",
+          "instructions": "Select the target face and split it through its middle.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "axis": "appropriate model axis",
+            "planePosition": "face midpoint",
+            "splitWholePatch": true
+          },
+          "expectedResult": "The original face becomes independently selectable regions without removing material.",
+          "checkpoint": {
+            "expected": "The original face becomes independently selectable regions without removing material."
+          },
+          "validationChecks": [
+            "Target remains one valid solid",
+            "Split boundary is visible",
+            "Both new face regions are independently selectable",
+            "Volume is unchanged"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Split > Face"
+        },
+        {
+          "id": "step-03",
+          "title": "Split body by tool body",
+          "learn": "Split body by tool body",
+          "instructions": "Use the intersecting tool body to divide the main body.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "target": "main body",
+            "tool": "intersecting body"
+          },
+          "expectedResult": "The target is divided into the expected resulting bodies.",
+          "checkpoint": {
+            "expected": "The target is divided into the expected resulting bodies."
+          },
+          "validationChecks": [
+            "Both resulting bodies are valid",
+            "Body A volume matches ToolTest expected volume",
+            "Body B volume matches ToolTest expected volume",
+            "Sum of resulting volumes matches the expected split result"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Split > Body"
+        },
+        {
+          "id": "step-04",
+          "title": "Create a silhouette split",
+          "learn": "Create a silhouette split",
+          "instructions": "Select a curved body and split the faces along the selected silhouette direction.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "direction": "ToolTest direction or current view"
+          },
+          "expectedResult": "Curved faces are divided along a selectable parting boundary.",
+          "checkpoint": {
+            "expected": "Curved faces are divided along a selectable parting boundary."
+          },
+          "validationChecks": [
+            "Separate face regions exist",
+            "Underlying body remains valid",
+            "No material is unintentionally removed"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Split > Silhouette"
+        }
+      ],
+      "toolTestBenchmark": {
+        "splitFace": "valid solid retained",
+        "splitBody": "two halves match expected volumes"
+      }
+    },
+    {
+      "id": "tooltest.09.rule-fillet-chamfer",
+      "title": "ToolTest 9 - Rule Fillet and Chamfer with Three Radii",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 35,
+      "objective": "Apply up to three rule-based passes and verify that every pass becomes an ordinary editable timeline feature.",
+      "tags": [
+        "fillet",
+        "chamfer",
+        "rules",
+        "three radii",
+        "timeline"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create the multi-edge reference body",
+          "learn": "Create the multi-edge reference body",
+          "instructions": "Create a block containing convex, concave and selectable edge groups.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "geometry": "ToolTest multi-edge body"
+          },
+          "expectedResult": "A valid sharp-edged solid with several edge classes.",
+          "checkpoint": {
+            "expected": "A valid sharp-edged solid with several edge classes."
+          },
+          "validationChecks": [
+            "Convex edges exist",
+            "Concave or selected edge group exists"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Model > Primitive / Extrude"
+        },
+        {
+          "id": "step-02",
+          "title": "Run three fillet passes",
+          "learn": "Run three fillet passes",
+          "instructions": "Configure three rule passes in one operation.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "type": "Fillet",
+            "pass1": {
+              "rule": "selected or convex",
+              "radius": 3
+            },
+            "pass2": {
+              "rule": "next ToolTest group",
+              "radius": 1
+            },
+            "pass3": {
+              "rule": "remaining sharp group",
+              "radius": 0.5
+            }
+          },
+          "expectedResult": "Three different fillet sizes appear on their intended edge groups.",
+          "checkpoint": {
+            "expected": "Three different fillet sizes appear on their intended edge groups."
+          },
+          "validationChecks": [
+            "Pass 1 creates an ordinary editable Fillet feature",
+            "Pass 2 creates a separate editable Fillet feature",
+            "Pass 3 creates a separate editable Fillet feature",
+            "All successful passes regenerate in order"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Rule fillet"
+        },
+        {
+          "id": "step-03",
+          "title": "Edit the middle pass",
+          "learn": "Edit the middle pass",
+          "instructions": "Change only the second pass radius and regenerate.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "pass2Radius": 1.5
+          },
+          "expectedResult": "Only the intended intermediate fillet changes, with downstream regeneration.",
+          "checkpoint": {
+            "expected": "Only the intended intermediate fillet changes, with downstream regeneration."
+          },
+          "validationChecks": [
+            "Second pass remains independently editable",
+            "Downstream pass regenerates without losing references"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Timeline > Fillet feature > Edit"
+        },
+        {
+          "id": "step-04",
+          "title": "Repeat as chamfer",
+          "learn": "Repeat as chamfer",
+          "instructions": "Repeat the rule workflow with Chamfer selected.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "type": "Chamfer",
+            "distances": [
+              3,
+              1,
+              0.5
+            ]
+          },
+          "expectedResult": "Independent editable chamfer features are created for successful passes.",
+          "checkpoint": {
+            "expected": "Independent editable chamfer features are created for successful passes."
+          },
+          "validationChecks": [
+            "Each successful pass is an ordinary Chamfer feature",
+            "Final body remains valid"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Rule fillet"
+        }
+      ],
+      "toolTestBenchmark": {
+        "acceptance": "each pass is an ordinary editable fillet or chamfer feature"
+      }
+    },
+    {
+      "id": "tooltest.11.feature-wizards",
+      "title": "ToolTest 11 - Boss, Dome, Dimple, Lip and Groove",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 55,
+      "objective": "Build the five face-based feature families and validate topology, volume response and editability.",
+      "tags": [
+        "boss",
+        "dome",
+        "dimple",
+        "lip",
+        "groove",
+        "draft",
+        "hole"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create reference plate",
+          "learn": "Create reference plate",
+          "instructions": "Create the ToolTest plate and record its baseline volume.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "reference": "ToolTest plate",
+            "measurement": "baseline volume"
+          },
+          "expectedResult": "A valid plate with a suitable flat face.",
+          "checkpoint": {
+            "expected": "A valid plate with a suitable flat face."
+          },
+          "validationChecks": [
+            "Baseline volume recorded",
+            "Top face selectable"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Model > Box"
+        },
+        {
+          "id": "step-02",
+          "title": "Round, square and hex bosses",
+          "learn": "Round, square and hex bosses",
+          "instructions": "Create and edit the boss through three profile types.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "size": 12,
+            "height": 5,
+            "draftDegrees": 0,
+            "holeDiameter": 0,
+            "shapes": [
+              "round",
+              "square",
+              "hex"
+            ]
+          },
+          "expectedResult": "Each profile regenerates as a raised boss attached to the plate.",
+          "checkpoint": {
+            "expected": "Each profile regenerates as a raised boss attached to the plate."
+          },
+          "validationChecks": [
+            "Round boss valid",
+            "Square boss valid",
+            "Hex boss valid",
+            "Result remains a single solid"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Boss"
+        },
+        {
+          "id": "step-03",
+          "title": "Drafted boss with hole",
+          "learn": "Drafted boss with hole",
+          "instructions": "Add draft and a central hole to the boss.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "shape": "round",
+            "size": 12,
+            "height": 5,
+            "draftDegrees": 3,
+            "holeDiameter": 4,
+            "holeDepth": 8
+          },
+          "expectedResult": "A drafted boss with central material removal.",
+          "checkpoint": {
+            "expected": "A drafted boss with central material removal."
+          },
+          "validationChecks": [
+            "Draft visibly changes side walls",
+            "Hole exists at the intended position",
+            "Feature remains editable"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Boss"
+        },
+        {
+          "id": "step-04",
+          "title": "Dome benchmark",
+          "learn": "Dome benchmark",
+          "instructions": "Apply the ToolTest dome inputs to the reference face and measure the result.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "parameters": "ToolTest dome parameters"
+          },
+          "expectedResult": "A raised spherical-cap feature.",
+          "checkpoint": {
+            "expected": "A raised spherical-cap feature."
+          },
+          "validationChecks": [
+            "Valid solid",
+            "ToolTest measured result is 842",
+            "Reference expected result is 851",
+            "Difference is reported, not hidden"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Dome"
+        },
+        {
+          "id": "step-05",
+          "title": "Dimple benchmark",
+          "learn": "Dimple benchmark",
+          "instructions": "Apply the ToolTest dimple inputs and measure removed volume/result.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "parameters": "ToolTest dimple parameters"
+          },
+          "expectedResult": "An inward spherical-cap removal.",
+          "checkpoint": {
+            "expected": "An inward spherical-cap removal."
+          },
+          "validationChecks": [
+            "Valid solid",
+            "ToolTest measured result is -652",
+            "Reference expected result is -662",
+            "Difference is reported, not hidden"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Dimple"
+        },
+        {
+          "id": "step-06",
+          "title": "Create a perimeter lip",
+          "learn": "Create a perimeter lip",
+          "instructions": "Build a raised wall following the selected face outline.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "inset": 1,
+            "wallThickness": 1.5,
+            "height": 5
+          },
+          "expectedResult": "A continuous perimeter lip.",
+          "checkpoint": {
+            "expected": "A continuous perimeter lip."
+          },
+          "validationChecks": [
+            "Lip follows intended outline",
+            "No broken segments",
+            "Body remains valid"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Lip"
+        },
+        {
+          "id": "step-07",
+          "title": "Create the matching groove",
+          "learn": "Create the matching groove",
+          "instructions": "Cut a corresponding channel with clearance.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "inset": 1,
+            "wallThickness": 1.5,
+            "clearance": 0.2,
+            "depth": 5
+          },
+          "expectedResult": "A continuous recessed mating groove.",
+          "checkpoint": {
+            "expected": "A continuous recessed mating groove."
+          },
+          "validationChecks": [
+            "Groove removes material",
+            "Groove follows perimeter",
+            "Clearance is represented",
+            "Body remains valid"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Groove"
+        }
+      ],
+      "toolTestBenchmark": {
+        "dome": {
+          "measured": 842,
+          "expected": 851
+        },
+        "dimple": {
+          "measured": -652,
+          "expected": -662
+        }
+      }
+    },
+    {
+      "id": "tooltest.12.patterns",
+      "title": "ToolTest 12 - Pattern on Face and Sketch Patterns",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 45,
+      "objective": "Create grid and circular face patterns in Join and Cut modes, then create editable sketch patterns.",
+      "tags": [
+        "pattern",
+        "face pattern",
+        "grid",
+        "circular",
+        "sketch pattern",
+        "join",
+        "cut"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create target and source feature",
+          "learn": "Create target and source feature",
+          "instructions": "Create a reference plate and separate source body positioned on its face.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "target": "reference plate",
+            "source": "boss or cutter body"
+          },
+          "expectedResult": "A valid target plus a patternable source.",
+          "checkpoint": {
+            "expected": "A valid target plus a patternable source."
+          },
+          "validationChecks": [
+            "Source intersects or contacts target as required by the selected result mode"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Model > Primitive / Boss / Cutter"
+        },
+        {
+          "id": "step-02",
+          "title": "Grid pattern - Join",
+          "learn": "Grid pattern - Join",
+          "instructions": "Pattern the source across the selected face and join the copies.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "layout": "grid",
+            "columnsU": 3,
+            "rowsV": 2,
+            "spacingU": 15,
+            "spacingV": 15,
+            "result": "join"
+          },
+          "expectedResult": "A 3 by 2 joined array on the face.",
+          "checkpoint": {
+            "expected": "A 3 by 2 joined array on the face."
+          },
+          "validationChecks": [
+            "Six intended placements are represented",
+            "Joined result is part of target",
+            "Final body valid",
+            "Volume matches ToolTest expected Join result"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Face pattern"
+        },
+        {
+          "id": "step-03",
+          "title": "Grid pattern - Cut",
+          "learn": "Grid pattern - Cut",
+          "instructions": "Use a cutter source with the same grid and Cut result.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "layout": "grid",
+            "columnsU": 3,
+            "rowsV": 2,
+            "spacingU": 15,
+            "spacingV": 15,
+            "result": "cut"
+          },
+          "expectedResult": "A repeated grid of material removals.",
+          "checkpoint": {
+            "expected": "A repeated grid of material removals."
+          },
+          "validationChecks": [
+            "All intended cuts exist",
+            "Final body valid",
+            "Volume matches ToolTest expected Cut result"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Face pattern"
+        },
+        {
+          "id": "step-04",
+          "title": "Circular pattern",
+          "learn": "Circular pattern",
+          "instructions": "Create a full circular face pattern.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "layout": "circular",
+            "count": 6,
+            "totalAngleDegrees": 360,
+            "centreShiftU": 0,
+            "centreShiftV": 0,
+            "result": "join or cut"
+          },
+          "expectedResult": "Six evenly distributed instances.",
+          "checkpoint": {
+            "expected": "Six evenly distributed instances."
+          },
+          "validationChecks": [
+            "Angular spacing visually uniform",
+            "Feature remains editable"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Part+ > Shape+ > Face pattern"
+        },
+        {
+          "id": "step-05",
+          "title": "Linear sketch pattern",
+          "learn": "Linear sketch pattern",
+          "instructions": "Pattern selected sketch geometry in two directions.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "columns": 3,
+            "rows": 2,
+            "spacingU": 15,
+            "spacingV": 15
+          },
+          "expectedResult": "Editable repeated sketch entities.",
+          "checkpoint": {
+            "expected": "Editable repeated sketch entities."
+          },
+          "validationChecks": [
+            "Copies remain sketch geometry",
+            "Changing count or spacing regenerates"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Pattern > Linear"
+        },
+        {
+          "id": "step-06",
+          "title": "Circular sketch pattern",
+          "learn": "Circular sketch pattern",
+          "instructions": "Pattern selected sketch geometry around a chosen centre.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "count": 6,
+            "totalAngleDegrees": 360
+          },
+          "expectedResult": "Editable radial sketch copies.",
+          "checkpoint": {
+            "expected": "Editable radial sketch copies."
+          },
+          "validationChecks": [
+            "Copy count correct",
+            "Rotation and centre edits regenerate"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Pattern > Circular"
+        }
+      ],
+      "toolTestBenchmark": {
+        "acceptance": "cut and join checked against expected volumes"
+      }
+    },
+    {
+      "id": "tooltest.13.sketch-curvature-comb",
+      "title": "ToolTest 13 - Sketch Curvature Comb",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 40,
+      "objective": "Compare live curvature comb behavior across every supported sketch curve type.",
+      "tags": [
+        "curvature comb",
+        "spline",
+        "nurbs",
+        "bezier",
+        "conic",
+        "ellipse",
+        "arc",
+        "circle"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create the comparison sketch",
+          "learn": "Create the comparison sketch",
+          "instructions": "Open a sketch and reserve separate areas for each curve type.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "plane": "XY"
+          },
+          "expectedResult": "An active editable sketch.",
+          "checkpoint": {
+            "expected": "An active editable sketch."
+          },
+          "validationChecks": [
+            "Sketch opens without errors"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Model > Sketch"
+        },
+        {
+          "id": "step-02",
+          "title": "Spline curvature comb",
+          "learn": "Spline curvature comb",
+          "instructions": "Create a Spline and enable the live curvature comb. Edit its defining geometry and observe the update.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "curveType": "Spline",
+            "comb": "on"
+          },
+          "expectedResult": "A live curvature comb follows the Spline.",
+          "checkpoint": {
+            "expected": "A live curvature comb follows the Spline."
+          },
+          "validationChecks": [
+            "Comb displays on Spline",
+            "Comb updates after editing the Spline",
+            "No unsupported-curve error"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Curvature comb"
+        },
+        {
+          "id": "step-03",
+          "title": "NURBS curvature comb",
+          "learn": "NURBS curvature comb",
+          "instructions": "Create a NURBS and enable the live curvature comb. Edit its defining geometry and observe the update.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "curveType": "NURBS",
+            "comb": "on"
+          },
+          "expectedResult": "A live curvature comb follows the NURBS.",
+          "checkpoint": {
+            "expected": "A live curvature comb follows the NURBS."
+          },
+          "validationChecks": [
+            "Comb displays on NURBS",
+            "Comb updates after editing the NURBS",
+            "No unsupported-curve error"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Curvature comb"
+        },
+        {
+          "id": "step-04",
+          "title": "Bezier curvature comb",
+          "learn": "Bezier curvature comb",
+          "instructions": "Create a Bezier and enable the live curvature comb. Edit its defining geometry and observe the update.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "curveType": "Bezier",
+            "comb": "on"
+          },
+          "expectedResult": "A live curvature comb follows the Bezier.",
+          "checkpoint": {
+            "expected": "A live curvature comb follows the Bezier."
+          },
+          "validationChecks": [
+            "Comb displays on Bezier",
+            "Comb updates after editing the Bezier",
+            "No unsupported-curve error"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Curvature comb"
+        },
+        {
+          "id": "step-05",
+          "title": "Conic curvature comb",
+          "learn": "Conic curvature comb",
+          "instructions": "Create a Conic and enable the live curvature comb. Edit its defining geometry and observe the update.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "curveType": "Conic",
+            "comb": "on"
+          },
+          "expectedResult": "A live curvature comb follows the Conic.",
+          "checkpoint": {
+            "expected": "A live curvature comb follows the Conic."
+          },
+          "validationChecks": [
+            "Comb displays on Conic",
+            "Comb updates after editing the Conic",
+            "No unsupported-curve error"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Curvature comb"
+        },
+        {
+          "id": "step-06",
+          "title": "Ellipse curvature comb",
+          "learn": "Ellipse curvature comb",
+          "instructions": "Create a Ellipse and enable the live curvature comb. Edit its defining geometry and observe the update.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "curveType": "Ellipse",
+            "comb": "on"
+          },
+          "expectedResult": "A live curvature comb follows the Ellipse.",
+          "checkpoint": {
+            "expected": "A live curvature comb follows the Ellipse."
+          },
+          "validationChecks": [
+            "Comb displays on Ellipse",
+            "Comb updates after editing the Ellipse",
+            "No unsupported-curve error"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Curvature comb"
+        },
+        {
+          "id": "step-07",
+          "title": "Arc curvature comb",
+          "learn": "Arc curvature comb",
+          "instructions": "Create a Arc and enable the live curvature comb. Edit its defining geometry and observe the update.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "curveType": "Arc",
+            "comb": "on"
+          },
+          "expectedResult": "A live curvature comb follows the Arc.",
+          "checkpoint": {
+            "expected": "A live curvature comb follows the Arc."
+          },
+          "validationChecks": [
+            "Comb displays on Arc",
+            "Comb updates after editing the Arc",
+            "No unsupported-curve error"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Curvature comb"
+        },
+        {
+          "id": "step-08",
+          "title": "Circle curvature comb",
+          "learn": "Circle curvature comb",
+          "instructions": "Create a Circle and enable the live curvature comb. Edit its defining geometry and observe the update.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "curveType": "Circle",
+            "comb": "on"
+          },
+          "expectedResult": "A live curvature comb follows the Circle.",
+          "checkpoint": {
+            "expected": "A live curvature comb follows the Circle."
+          },
+          "validationChecks": [
+            "Comb displays on Circle",
+            "Comb updates after editing the Circle",
+            "No unsupported-curve error"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Curvature comb"
+        }
+      ],
+      "toolTestBenchmark": {
+        "supported": [
+          "spline",
+          "NURBS",
+          "Bezier",
+          "conic",
+          "ellipse",
+          "arc",
+          "circle"
+        ]
+      }
+    },
+    {
+      "id": "tooltest.16.bridge-g0-g3",
+      "title": "ToolTest 16 - Bridge Curve G0 to G3",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 45,
+      "objective": "Build bridge curves at G0, G1, G2 and G3, vary end tension independently and validate the G3 end-curvature behavior.",
+      "tags": [
+        "bridge curve",
+        "G0",
+        "G1",
+        "G2",
+        "G3",
+        "tension",
+        "curvature"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create two source curves",
+          "learn": "Create two source curves",
+          "instructions": "Create two separated source curves with clearly different end directions and curvature.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "sourceA": "editable curve",
+            "sourceB": "editable curve"
+          },
+          "expectedResult": "Two non-touching source curves with selectable ends.",
+          "checkpoint": {
+            "expected": "Two non-touching source curves with selectable ends."
+          },
+          "validationChecks": [
+            "Both curve ends selectable"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Surface > Curves"
+        },
+        {
+          "id": "step-02",
+          "title": "Bridge at G0",
+          "learn": "Bridge at G0",
+          "instructions": "Join the selected ends with positional continuity.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "continuity": "G0",
+            "tensionA": 1,
+            "tensionB": 1
+          },
+          "expectedResult": "A bridge whose endpoints meet both source curves.",
+          "checkpoint": {
+            "expected": "A bridge whose endpoints meet both source curves."
+          },
+          "validationChecks": [
+            "No positional gap at either end"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Bridge"
+        },
+        {
+          "id": "step-03",
+          "title": "Bridge at G1",
+          "learn": "Bridge at G1",
+          "instructions": "Edit continuity to G1.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "continuity": "G1",
+            "tensionA": 1,
+            "tensionB": 1
+          },
+          "expectedResult": "The bridge meets the source tangent directions.",
+          "checkpoint": {
+            "expected": "The bridge meets the source tangent directions."
+          },
+          "validationChecks": [
+            "Endpoint contact retained",
+            "Tangent direction is continuous at both ends"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Bridge"
+        },
+        {
+          "id": "step-04",
+          "title": "Bridge at G2",
+          "learn": "Bridge at G2",
+          "instructions": "Edit continuity to G2 and enable curvature combs.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "continuity": "G2",
+            "tensionA": 1,
+            "tensionB": 1,
+            "curvatureComb": "on"
+          },
+          "expectedResult": "Curvature comb transitions smoothly across the junctions.",
+          "checkpoint": {
+            "expected": "Curvature comb transitions smoothly across the junctions."
+          },
+          "validationChecks": [
+            "G0 and G1 conditions remain satisfied",
+            "Curvature continuity visible at both ends"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Bridge"
+        },
+        {
+          "id": "step-05",
+          "title": "Bridge at G3",
+          "learn": "Bridge at G3",
+          "instructions": "Edit continuity to G3 and compare the comb at each end.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "continuity": "G3",
+            "tensionA": 1,
+            "tensionB": 1,
+            "curvatureComb": "on"
+          },
+          "expectedResult": "Higher-order continuity at each join.",
+          "checkpoint": {
+            "expected": "Higher-order continuity at each join."
+          },
+          "validationChecks": [
+            "End curvature behavior matches the source curves at G3",
+            "No visible comb discontinuity attributable to lower continuity"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Bridge"
+        },
+        {
+          "id": "step-06",
+          "title": "Independent tension",
+          "learn": "Independent tension",
+          "instructions": "Use unequal tension values and then reverse them.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "trial1": {
+              "tensionA": 0.5,
+              "tensionB": 1.5
+            },
+            "trial2": {
+              "tensionA": 1.5,
+              "tensionB": 0.5
+            }
+          },
+          "expectedResult": "The bridge shape shifts toward the lower/higher influence while endpoints and selected continuity remain satisfied.",
+          "checkpoint": {
+            "expected": "The bridge shape shifts toward the lower/higher influence while endpoints and selected continuity remain satisfied."
+          },
+          "validationChecks": [
+            "Both end-tension values are independently editable",
+            "Bridge regenerates for both trials"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Bridge"
+        }
+      ],
+      "toolTestBenchmark": {
+        "acceptance": "end curvature matches source curves at G3"
+      }
+    },
+    {
+      "id": "tooltest.17.isocurves-edge-curve",
+      "title": "ToolTest 17 - Isocurves and Edge to Curve",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 35,
+      "objective": "Extract exact surface isocurves and convert a circular solid edge into an independent exact curve.",
+      "tags": [
+        "isocurve",
+        "edge to curve",
+        "NURBS",
+        "radius",
+        "deviation"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create the NURBS reference surface",
+          "learn": "Create the NURBS reference surface",
+          "instructions": "Create the ToolTest NURBS surface.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "surface": "ToolTest NURBS reference"
+          },
+          "expectedResult": "A selectable NURBS surface.",
+          "checkpoint": {
+            "expected": "A selectable NURBS surface."
+          },
+          "validationChecks": [
+            "Surface is valid"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Surface > Create / Loft"
+        },
+        {
+          "id": "step-02",
+          "title": "Extract a U isocurve",
+          "learn": "Extract a U isocurve",
+          "instructions": "Extract one U-direction isocurve at the test parameter.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "direction": "U",
+            "mode": "parameter",
+            "parameter": "ToolTest value"
+          },
+          "expectedResult": "An independent curve lying on the source surface.",
+          "checkpoint": {
+            "expected": "An independent curve lying on the source surface."
+          },
+          "validationChecks": [
+            "Maximum deviation from surface is approximately 1e-14"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Isocurves"
+        },
+        {
+          "id": "step-03",
+          "title": "Extract V and multiple isocurves",
+          "learn": "Extract V and multiple isocurves",
+          "instructions": "Create one V isocurve and a set of evenly distributed curves.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "direction": "V then U/V",
+            "mode": "count",
+            "count": 5
+          },
+          "expectedResult": "Editable U/V curve sets on the surface.",
+          "checkpoint": {
+            "expected": "Editable U/V curve sets on the surface."
+          },
+          "validationChecks": [
+            "Every extracted curve lies on the surface",
+            "No unexpected offset from the surface"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Isocurves"
+        },
+        {
+          "id": "step-04",
+          "title": "Create the R10 edge reference",
+          "learn": "Create the R10 edge reference",
+          "instructions": "Create or select the ToolTest circular edge of radius 10.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "expectedRadius": 10
+          },
+          "expectedResult": "A circular solid edge with radius 10.",
+          "checkpoint": {
+            "expected": "A circular solid edge with radius 10."
+          },
+          "validationChecks": [
+            "Edge measurement equals 10 before conversion"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Model > Cylinder / Circular feature"
+        },
+        {
+          "id": "step-05",
+          "title": "Convert edge to curve",
+          "learn": "Convert edge to curve",
+          "instructions": "Select the circular edge and convert it.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "source": "R10 solid edge"
+          },
+          "expectedResult": "An independent exact circular curve coincident with the original edge.",
+          "checkpoint": {
+            "expected": "An independent exact circular curve coincident with the original edge."
+          },
+          "validationChecks": [
+            "Converted curve radius equals exactly 10",
+            "Curve remains after hiding the source body"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Edge to curve"
+        }
+      ],
+      "toolTestBenchmark": {
+        "isocurveDeviationApprox": 1e-14,
+        "circularEdgeRadius": 10
+      }
+    },
+    {
+      "id": "tooltest.18.pen",
+      "title": "ToolTest 18 - Pen: Draw Directly on a Face or Plane",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 30,
+      "objective": "Draw curves without creating a conventional sketch and validate snapping to model vertices.",
+      "tags": [
+        "pen",
+        "direct drawing",
+        "face",
+        "plane",
+        "vertex snap"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Draw on a plane",
+          "learn": "Draw on a plane",
+          "instructions": "Activate Pen, choose a plane, place points and finish the curve.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "support": "plane",
+            "points": "three or more"
+          },
+          "expectedResult": "An independent curve is created without a conventional sketch feature.",
+          "checkpoint": {
+            "expected": "An independent curve is created without a conventional sketch feature."
+          },
+          "validationChecks": [
+            "Pen session starts and finishes",
+            "Curve appears in the model",
+            "No sketch was required"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Pen"
+        },
+        {
+          "id": "step-02",
+          "title": "Draw on a model face",
+          "learn": "Draw on a model face",
+          "instructions": "Activate Pen on a selected face and place a curve across it.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "support": "selected face"
+          },
+          "expectedResult": "A curve is created directly on the selected support.",
+          "checkpoint": {
+            "expected": "A curve is created directly on the selected support."
+          },
+          "validationChecks": [
+            "Curve follows the intended face/plane support",
+            "Curve can be selected independently"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Pen"
+        },
+        {
+          "id": "step-03",
+          "title": "Snap to model vertices",
+          "learn": "Snap to model vertices",
+          "instructions": "Start or end the Pen curve at existing model vertices.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "snapTargets": "two model vertices"
+          },
+          "expectedResult": "Pen points coincide with the selected vertices.",
+          "checkpoint": {
+            "expected": "Pen points coincide with the selected vertices."
+          },
+          "validationChecks": [
+            "Vertex snap indicator/behavior activates",
+            "Endpoint coincidence is preserved",
+            "End-to-end workflow completes"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "NURBS+ > Curves & curvature > Pen"
+        },
+        {
+          "id": "step-04",
+          "title": "Use the result downstream",
+          "learn": "Use the result downstream",
+          "instructions": "Select the Pen curve as input to any supported downstream operation.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "input": "Pen-created curve"
+          },
+          "expectedResult": "The curve is accepted as downstream construction geometry.",
+          "checkpoint": {
+            "expected": "The curve is accepted as downstream construction geometry."
+          },
+          "validationChecks": [
+            "Curve is selectable by downstream tool"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Surface > Sweep / Project / Trim"
+        }
+      ],
+      "toolTestBenchmark": {
+        "acceptance": "tested end to end and snaps to model vertices"
+      }
+    },
+    {
+      "id": "tooltest.19.sketch-blocks",
+      "title": "ToolTest 19 - Sketch Blocks: Create, Insert and Rotate",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 30,
+      "objective": "Create a reusable sketch block, insert multiple instances and control each insertion rotation.",
+      "tags": [
+        "sketch block",
+        "insert",
+        "rotation",
+        "reuse"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Draw block source geometry",
+          "learn": "Draw block source geometry",
+          "instructions": "Create a small asymmetric profile so its orientation is obvious.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "plane": "XY",
+            "profile": "asymmetric closed or open sketch group"
+          },
+          "expectedResult": "Selectable source geometry exists.",
+          "checkpoint": {
+            "expected": "Selectable source geometry exists."
+          },
+          "validationChecks": [
+            "All intended source entities can be selected"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Model > Sketch"
+        },
+        {
+          "id": "step-02",
+          "title": "Make a block",
+          "learn": "Make a block",
+          "instructions": "Select the source entities and create a named block.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "name": "ToolTest Block"
+          },
+          "expectedResult": "The reusable block appears in the block library.",
+          "checkpoint": {
+            "expected": "The reusable block appears in the block library."
+          },
+          "validationChecks": [
+            "Block creation succeeds",
+            "Block appears in insertion choices"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Blocks > Make block"
+        },
+        {
+          "id": "step-03",
+          "title": "Insert at zero degrees",
+          "learn": "Insert at zero degrees",
+          "instructions": "Insert the saved block at a new position.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "rotationDegrees": 0
+          },
+          "expectedResult": "A second instance appears with the original orientation.",
+          "checkpoint": {
+            "expected": "A second instance appears with the original orientation."
+          },
+          "validationChecks": [
+            "Inserted instance exists",
+            "Original source remains"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Blocks > Insert block"
+        },
+        {
+          "id": "step-04",
+          "title": "Insert rotated copies",
+          "learn": "Insert rotated copies",
+          "instructions": "Insert additional copies with explicit rotations.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "rotationsDegrees": [
+              45,
+              90
+            ]
+          },
+          "expectedResult": "Rotated instances appear at the selected locations.",
+          "checkpoint": {
+            "expected": "Rotated instances appear at the selected locations."
+          },
+          "validationChecks": [
+            "45-degree instance orientation correct",
+            "90-degree instance orientation correct",
+            "Insert and rotation controls remain editable"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Blocks > Insert block"
+        },
+        {
+          "id": "step-05",
+          "title": "Edit and inspect reuse",
+          "learn": "Edit and inspect reuse",
+          "instructions": "Edit or reposition an inserted instance and inspect sketch stability.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "operation": "move or rotate one insertion"
+          },
+          "expectedResult": "The selected insertion updates without corrupting the other geometry.",
+          "checkpoint": {
+            "expected": "The selected insertion updates without corrupting the other geometry."
+          },
+          "validationChecks": [
+            "Sketch remains editable",
+            "No duplicate or missing entities after regeneration"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Sketch > Blocks"
+        }
+      ],
+      "toolTestBenchmark": {
+        "acceptance": "block insert and rotation work"
+      }
+    },
+    {
+      "id": "tooltest.24.curvature-analysis",
+      "title": "ToolTest 24 - Curvature Map, Isocurve Display and Section Comb",
+      "category": "Tool Validation",
+      "level": "Intermediate to Advanced",
+      "estimatedMinutes": 40,
+      "objective": "Use the three curvature-analysis displays and validate the fillet-curvature benchmark.",
+      "tags": [
+        "curvature map",
+        "isocurve display",
+        "section curvature comb",
+        "fillet"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create the fillet reference body",
+          "learn": "Create the fillet reference body",
+          "instructions": "Create the same filleted solid used in ToolTest 24.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "geometry": "ToolTest fillet reference"
+          },
+          "expectedResult": "A valid solid with a measurable fillet.",
+          "checkpoint": {
+            "expected": "A valid solid with a measurable fillet."
+          },
+          "validationChecks": [
+            "Fillet feature valid",
+            "Analysis target selectable"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Model > Fillet"
+        },
+        {
+          "id": "step-02",
+          "title": "Enable curvature map",
+          "learn": "Enable curvature map",
+          "instructions": "Colour the solid by curvature and inspect the ToolTest location.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "mode": "magnitude or ToolTest mode"
+          },
+          "expectedResult": "Curvature colours and legend are displayed on the solid.",
+          "checkpoint": {
+            "expected": "Curvature colours and legend are displayed on the solid."
+          },
+          "validationChecks": [
+            "Measured curvature is 0.168",
+            "Expected curvature is 0.167",
+            "Absolute difference is 0.001",
+            "Relative difference is approximately 0.60 percent"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Analysis > Curvature map"
+        },
+        {
+          "id": "step-03",
+          "title": "Display surface isocurves",
+          "learn": "Display surface isocurves",
+          "instructions": "Enable U/V isocurve display on a NURBS surface and vary density.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "directions": [
+              "U",
+              "V"
+            ],
+            "density": "adjustable"
+          },
+          "expectedResult": "Parameter-direction lines are visible without changing model geometry.",
+          "checkpoint": {
+            "expected": "Parameter-direction lines are visible without changing model geometry."
+          },
+          "validationChecks": [
+            "Lines follow U/V directions",
+            "Display toggle does not alter feature history or geometry"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Analysis > Isocurve display"
+        },
+        {
+          "id": "step-04",
+          "title": "Enable section curvature comb",
+          "learn": "Enable section curvature comb",
+          "instructions": "Enable the section plane and move it through the fillet.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "planePosition": "through fillet",
+            "combScale": "readable"
+          },
+          "expectedResult": "A live section outline and curvature comb update as the plane moves.",
+          "checkpoint": {
+            "expected": "A live section outline and curvature comb update as the plane moves."
+          },
+          "validationChecks": [
+            "Section outline follows the cut",
+            "Comb follows the section curve",
+            "Moving the plane updates the analysis"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Analysis > Section curvature comb"
+        },
+        {
+          "id": "step-05",
+          "title": "Record validation result",
+          "learn": "Record validation result",
+          "instructions": "Record the displayed benchmark and analysis state.",
+          "why": "Build the feature with controlled inputs, inspect the editable result, and compare it with the ToolTest acceptance criteria.",
+          "inputs": {
+            "measured": 0.168,
+            "expected": 0.167
+          },
+          "expectedResult": "The tutorial reports the actual and expected values together.",
+          "checkpoint": {
+            "expected": "The tutorial reports the actual and expected values together."
+          },
+          "validationChecks": [
+            "Measured value is not silently replaced",
+            "Difference is shown",
+            "Validation completes"
+          ],
+          "recovery": "Press Ctrl+Z, confirm the selection and values, then repeat this step. If regeneration fails, reduce the feature size or deformation and retry.",
+          "toolPath": "Analysis > Validation"
+        }
+      ],
+      "toolTestBenchmark": {
+        "filletCurvature": {
+          "measured": 0.168,
+          "expected": 0.167,
+          "absoluteDifference": 0.001,
+          "relativeDifferencePercent": 0.5988023952
+        }
+      }
+    }
+  ]
+}

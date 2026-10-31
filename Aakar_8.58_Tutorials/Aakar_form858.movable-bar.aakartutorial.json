@@ -1,0 +1,160 @@
+{
+ "schema": "aakar.tutorial.pack",
+ "schemaVersion": "2.0",
+ "minimumAakarVersion": "8.58.0",
+ "units": "mm",
+ "executionPolicy": "declarative-only",
+ "assemblyIncluded": false,
+ "packId": "aakar.form858.movable-bar",
+ "title": "AakarFORM 8.58 · Movable shape toolbar",
+ "category": "AakarFORM",
+ "courses": [
+  {
+   "id": "form858.movable-bar",
+   "title": "Move, pin and collapse the SHAPE toolbar",
+   "category": "AakarFORM",
+   "level": "Beginner",
+   "estimatedMinutes": 5,
+   "objective": "The floating SHAPE / FACE / EDGE bar can be dragged out of the way, pinned where you put it, collapsed to its name, and reset — so it never blocks the object you want to pick.",
+   "tags": [
+    "toolbar",
+    "selection",
+    "AakarFORM"
+   ],
+   "steps": [
+    {
+     "title": "Make a plate with a hole",
+     "instructions": [
+      "A 60 × 40 × 15 plate with a Ø18 hole is built for you.",
+      "Open the AakarFORM tab and click the top face of the plate: the floating bar appears next to it."
+     ],
+     "why": "You need something selected to see the bar.",
+     "checkpoint": {
+      "expected": "A plate with a hole and a floating FACE bar."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "AakarFORM › click a face",
+     "tool": "extrude",
+     "build": [
+      {
+       "sketch": {
+        "key": "s1",
+        "name": "Plate",
+        "plane": "XY",
+        "offset": 0,
+        "ents": [
+         {
+          "t": "rect",
+          "c": [
+           0,
+           0
+          ],
+          "w": 60,
+          "h": 40
+         },
+         {
+          "t": "circle",
+          "c": [
+           0,
+           0
+          ],
+          "r": 9
+         }
+        ]
+       }
+      },
+      {
+       "feature": {
+        "key": "plate",
+        "type": "extrude",
+        "name": "Plate",
+        "params": {
+         "sketch": "$s1",
+         "region": "all",
+         "dist": 15,
+         "op": "new"
+        }
+       }
+      }
+     ]
+    },
+    {
+     "title": "Drag the bar by its grip",
+     "instructions": [
+      "Press and hold the dotted grip (⠿) at the left end of the bar and drag it to a free corner.",
+      "Release: the bar is now PINNED there (the ○ button turns ◉)."
+     ],
+     "why": "A pinned bar stays put when you select something else, so it no longer covers the geometry.",
+     "checkpoint": {
+      "expected": "The bar sits where you dropped it and the pin button is on."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "",
+     "build": [
+      {
+       "note": "Drag the bar by its grip"
+      }
+     ]
+    },
+    {
+     "title": "Select something else",
+     "instructions": [
+      "Click a side face, then an edge.",
+      "The bar keeps its place and changes its buttons to match the selection."
+     ],
+     "why": "The bar follows the selection only while it is not pinned.",
+     "checkpoint": {
+      "expected": "The bar stayed in the corner while the selection changed."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "",
+     "build": [
+      {
+       "note": "Select something else"
+      }
+     ]
+    },
+    {
+     "title": "Collapse the bar",
+     "instructions": [
+      "Click ▾ at the right end of the bar: only its name and the two small buttons remain.",
+      "Click ▸ to bring the buttons back."
+     ],
+     "why": "A collapsed bar needs very little room, but is still one click away.",
+     "checkpoint": {
+      "expected": "Collapsed bar shows only the name."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "",
+     "build": [
+      {
+       "note": "Collapse the bar"
+      }
+     ]
+    },
+    {
+     "title": "Let it follow the selection again",
+     "instructions": [
+      "Double-click the grip (⠿), or press ◉ , or use AakarFORM › Pick › Reset bar."
+     ],
+     "why": "Reset puts the bar back above the selection with all its buttons.",
+     "checkpoint": {
+      "expected": "The bar sits next to the selection again."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "",
+     "build": [
+      {
+       "note": "Let it follow the selection again"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

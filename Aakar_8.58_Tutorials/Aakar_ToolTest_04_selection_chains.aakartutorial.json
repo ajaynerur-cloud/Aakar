@@ -1,0 +1,103 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "2.0",
+  "minimumAakarVersion": "8.20.0",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "category": "Tool Validation",
+  "packId": "tooltest.04.selection-chains",
+  "title": "ToolTest 4 - Loop, Ring and Chain Selection",
+  "courses": [
+    {
+      "id": "tooltest.04.selection-chains",
+      "title": "ToolTest 4 - Loop, Ring and Chain Selection",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Practice topology-aware loop, ring and chain expansion and verify only the intended connected set is selected.",
+      "tags": [
+        "loop selection",
+        "ring selection",
+        "chain selection",
+        "select+"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create a topology-rich reference model",
+          "learn": "Create a topology-rich reference model",
+          "instructions": "Create a body with multiple connected edge paths and loops.",
+          "inputs": {
+            "geometry": "reference with loops/rings/chains"
+          },
+          "expectedResult": "Several candidate edge paths are available.",
+          "checkpoint": {
+            "expected": "Several candidate edge paths are available."
+          },
+          "validationChecks": [
+            "Individual edges selectable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model"
+        },
+        {
+          "id": "step-02",
+          "title": "Chain selection",
+          "learn": "Chain selection",
+          "instructions": "Select a seed edge and expand to its connected chain.",
+          "inputs": {
+            "mode": "chain"
+          },
+          "expectedResult": "A connected edge chain is selected.",
+          "checkpoint": {
+            "expected": "A connected edge chain is selected."
+          },
+          "validationChecks": [
+            "Selected set is connected",
+            "Unrelated branches are excluded"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Select+ > Chain"
+        },
+        {
+          "id": "step-03",
+          "title": "Loop selection",
+          "learn": "Loop selection",
+          "instructions": "Select an edge and expand to the corresponding loop.",
+          "inputs": {
+            "mode": "loop"
+          },
+          "expectedResult": "A closed or topology-consistent loop is selected.",
+          "checkpoint": {
+            "expected": "A closed or topology-consistent loop is selected."
+          },
+          "validationChecks": [
+            "Loop selection follows the intended perimeter"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Select+ > Loop"
+        },
+        {
+          "id": "step-04",
+          "title": "Ring selection",
+          "learn": "Ring selection",
+          "instructions": "Select a seed edge and expand across the corresponding ring.",
+          "inputs": {
+            "mode": "ring"
+          },
+          "expectedResult": "The corresponding edge ring becomes selected.",
+          "checkpoint": {
+            "expected": "The corresponding edge ring becomes selected."
+          },
+          "validationChecks": [
+            "Ring follows the intended topology",
+            "Selection does not spill into unrelated edges"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Select+ > Ring"
+        }
+      ]
+    }
+  ]
+}

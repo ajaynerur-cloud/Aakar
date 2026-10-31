@@ -1,0 +1,100 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "2.0",
+  "minimumAakarVersion": "8.20.0",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "category": "Tool Validation",
+  "packId": "tooltest.05.select-similar",
+  "title": "ToolTest 5 - Select Similar",
+  "courses": [
+    {
+      "id": "tooltest.05.select-similar",
+      "title": "ToolTest 5 - Select Similar",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Expand a seed selection to geometrically/topologically similar entities and check that dissimilar entities remain excluded.",
+      "tags": [
+        "select similar",
+        "selection"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create mixed geometry",
+          "learn": "Create mixed geometry",
+          "instructions": "Create repeated faces/edges plus visibly different geometry.",
+          "inputs": {
+            "geometry": "mixed similar and dissimilar entities"
+          },
+          "expectedResult": "A model suitable for similarity testing.",
+          "checkpoint": {
+            "expected": "A model suitable for similarity testing."
+          },
+          "validationChecks": [
+            "At least two similar entities and one dissimilar entity exist"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model"
+        },
+        {
+          "id": "step-02",
+          "title": "Pick the seed",
+          "learn": "Pick the seed",
+          "instructions": "Select one representative entity.",
+          "inputs": {
+            "seed": "representative face or edge"
+          },
+          "expectedResult": "One entity is selected.",
+          "checkpoint": {
+            "expected": "One entity is selected."
+          },
+          "validationChecks": [
+            "Only seed selected initially"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Viewport selection"
+        },
+        {
+          "id": "step-03",
+          "title": "Run Select Similar",
+          "learn": "Run Select Similar",
+          "instructions": "Expand the seed selection using Select Similar.",
+          "inputs": {
+            "mode": "similar"
+          },
+          "expectedResult": "Entities matching the command similarity criteria are added.",
+          "checkpoint": {
+            "expected": "Entities matching the command similarity criteria are added."
+          },
+          "validationChecks": [
+            "Expected repeated entities are selected",
+            "Clearly dissimilar entities remain excluded"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Select+ > Similar"
+        },
+        {
+          "id": "step-04",
+          "title": "Use expanded set downstream",
+          "learn": "Use expanded set downstream",
+          "instructions": "Apply a harmless downstream edit to verify the selected set is consumable.",
+          "inputs": {
+            "operation": "supported edit"
+          },
+          "expectedResult": "The downstream command receives the expanded selection.",
+          "checkpoint": {
+            "expected": "The downstream command receives the expanded selection."
+          },
+          "validationChecks": [
+            "Selection is accepted by downstream command"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct edit / feature command"
+        }
+      ]
+    }
+  ]
+}

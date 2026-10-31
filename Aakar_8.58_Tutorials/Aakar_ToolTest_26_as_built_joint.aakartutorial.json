@@ -1,0 +1,102 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "2.0",
+  "minimumAakarVersion": "8.20.0",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "category": "Tool Validation",
+  "packId": "tooltest.26.as-built-joint",
+  "title": "ToolTest 26 - As-Built Joint",
+  "courses": [
+    {
+      "id": "tooltest.26.as-built-joint",
+      "title": "ToolTest 26 - As-Built Joint",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Create a joint between components that are already positioned, keeping their current placement as the joint zero position.",
+      "tags": [
+        "as-built joint",
+        "assembly",
+        "joint zero"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Position two components",
+          "learn": "Position two components",
+          "instructions": "Place two components in their intended assembled positions before creating the joint.",
+          "inputs": {
+            "placement": "already assembled position"
+          },
+          "expectedResult": "Both parts are in the desired starting pose.",
+          "checkpoint": {
+            "expected": "Both parts are in the desired starting pose."
+          },
+          "validationChecks": [
+            "Relative placement visually verified"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > Move component"
+        },
+        {
+          "id": "step-02",
+          "title": "Start As-built joint",
+          "learn": "Start As-built joint",
+          "instructions": "Pick the two positioned components and the connection axis/point.",
+          "inputs": {
+            "components": 2,
+            "reference": "picked axis/point"
+          },
+          "expectedResult": "The As-built Joint dialog is ready without repositioning the parts.",
+          "checkpoint": {
+            "expected": "The As-built Joint dialog is ready without repositioning the parts."
+          },
+          "validationChecks": [
+            "Correct two components identified"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > As-built joint"
+        },
+        {
+          "id": "step-03",
+          "title": "Create the joint",
+          "learn": "Create the joint",
+          "instructions": "Choose the required joint type and commit.",
+          "inputs": {
+            "jointType": "revolute or rigid reference case"
+          },
+          "expectedResult": "A joint is created with the current placement as its zero position.",
+          "checkpoint": {
+            "expected": "A joint is created with the current placement as its zero position."
+          },
+          "validationChecks": [
+            "Nothing moves at creation",
+            "Joint feature is created"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > As-built joint"
+        },
+        {
+          "id": "step-04",
+          "title": "Inspect the zero position",
+          "learn": "Inspect the zero position",
+          "instructions": "Inspect or exercise the joint from its starting configuration.",
+          "inputs": {
+            "test": "return to zero"
+          },
+          "expectedResult": "Zero returns to the original as-built placement.",
+          "checkpoint": {
+            "expected": "Zero returns to the original as-built placement."
+          },
+          "validationChecks": [
+            "Original placement is the zero reference"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly / Motion"
+        }
+      ]
+    }
+  ]
+}

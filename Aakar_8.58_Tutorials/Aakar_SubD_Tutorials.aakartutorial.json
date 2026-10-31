@@ -1,0 +1,1416 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "1.0",
+  "minimumAakarVersion": "8.12.1",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "packId": "aakar.subd",
+  "title": "Aakar SubD Tutorials",
+  "category": "SubD",
+  "courses": [
+    {
+      "id": "subd.cage",
+      "title": "Understanding the SubD Cage",
+      "level": "Beginner",
+      "estimatedMinutes": 25,
+      "objective": "Learn cage, limit surface, vertices, edges and faces",
+      "requiredTools": [
+        "SubD Box",
+        "SubD Edit"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create SubD cube",
+          "toolPath": "SubD > Create SubD cube",
+          "instructions": [
+            "Create SubD cube."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create subd cube."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Toggle cage and limit surface",
+          "toolPath": "SubD > Toggle cage and limit surface",
+          "instructions": [
+            "Toggle cage and limit surface."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for toggle cage and limit surface."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Move vertex",
+          "toolPath": "SubD > Move vertex",
+          "instructions": [
+            "Move vertex."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for move vertex."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Move edge",
+          "toolPath": "SubD > Move edge",
+          "instructions": [
+            "Move edge."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for move edge."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Move face",
+          "toolPath": "SubD > Move face",
+          "instructions": [
+            "Move face."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for move face."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Change subdivision level",
+          "toolPath": "SubD > Change subdivision level",
+          "instructions": [
+            "Change subdivision level."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for change subdivision level."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.extrude-inset",
+      "title": "SubD Extrude and Inset",
+      "level": "Beginner",
+      "estimatedMinutes": 30,
+      "objective": "Create an enclosure using face operations",
+      "requiredTools": [
+        "SubD Extrude",
+        "Inset"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create cage",
+          "toolPath": "SubD > Create cage",
+          "instructions": [
+            "Create cage."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create cage."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Select face",
+          "toolPath": "SubD > Select face",
+          "instructions": [
+            "Select face."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for select face."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Extrude face",
+          "toolPath": "SubD > Extrude face",
+          "instructions": [
+            "Extrude face."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for extrude face."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Inset cap",
+          "toolPath": "SubD > Inset cap",
+          "instructions": [
+            "Inset cap."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inset cap."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Extrude inward",
+          "toolPath": "SubD > Extrude inward",
+          "instructions": [
+            "Extrude inward."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for extrude inward."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Add support loop",
+          "toolPath": "SubD > Add support loop",
+          "instructions": [
+            "Add support loop."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for add support loop."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Inspect limit surface",
+          "toolPath": "SubD > Inspect limit surface",
+          "instructions": [
+            "Inspect limit surface."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inspect limit surface."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.creases",
+      "title": "Full and Partial Creases",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Control sharpness without excessive support loops",
+      "requiredTools": [
+        "Crease",
+        "Partial Crease"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create three identical cages",
+          "toolPath": "SubD > Create three identical cages",
+          "instructions": [
+            "Create three identical cages."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create three identical cages."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Keep first smooth",
+          "toolPath": "SubD > Keep first smooth",
+          "instructions": [
+            "Keep first smooth."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for keep first smooth."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Apply partial crease",
+          "toolPath": "SubD > Apply partial crease",
+          "instructions": [
+            "Apply partial crease."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for apply partial crease."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Apply full crease",
+          "toolPath": "SubD > Apply full crease",
+          "instructions": [
+            "Apply full crease."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for apply full crease."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Compare silhouettes",
+          "toolPath": "SubD > Compare silhouettes",
+          "instructions": [
+            "Compare silhouettes."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for compare silhouettes."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Adjust crease weights",
+          "toolPath": "SubD > Adjust crease weights",
+          "instructions": [
+            "Adjust crease weights."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for adjust crease weights."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.bottle",
+      "title": "Symmetric SubD Bottle",
+      "level": "Intermediate",
+      "estimatedMinutes": 40,
+      "objective": "Create an editable bottle with symmetry",
+      "requiredTools": [
+        "Symmetry",
+        "Extrude",
+        "Loop Insert"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create half cage",
+          "toolPath": "SubD > Create half cage",
+          "instructions": [
+            "Create half cage."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create half cage."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Enable symmetry",
+          "toolPath": "SubD > Enable symmetry",
+          "instructions": [
+            "Enable symmetry."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for enable symmetry."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Extrude body upward",
+          "toolPath": "SubD > Extrude body upward",
+          "instructions": [
+            "Extrude body upward."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for extrude body upward."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Shape shoulder",
+          "toolPath": "SubD > Shape shoulder",
+          "instructions": [
+            "Shape shoulder."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for shape shoulder."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Form neck",
+          "toolPath": "SubD > Form neck",
+          "instructions": [
+            "Form neck."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for form neck."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Shape base",
+          "toolPath": "SubD > Shape base",
+          "instructions": [
+            "Shape base."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for shape base."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Add support loops",
+          "toolPath": "SubD > Add support loops",
+          "instructions": [
+            "Add support loops."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for add support loops."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-08",
+          "title": "Inspect seam",
+          "toolPath": "SubD > Inspect seam",
+          "instructions": [
+            "Inspect seam."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inspect seam."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.mouse",
+      "title": "Organic Computer Mouse",
+      "level": "Intermediate",
+      "estimatedMinutes": 50,
+      "objective": "Model a clean consumer-product form",
+      "requiredTools": [
+        "SubD Edit",
+        "Loop Insert",
+        "Crease"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create low-density box",
+          "toolPath": "SubD > Create low-density box",
+          "instructions": [
+            "Create low-density box."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create low-density box."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Set overall proportions",
+          "toolPath": "SubD > Set overall proportions",
+          "instructions": [
+            "Set overall proportions."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for set overall proportions."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Shape plan view",
+          "toolPath": "SubD > Shape plan view",
+          "instructions": [
+            "Shape plan view."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for shape plan view."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Shape side profile",
+          "toolPath": "SubD > Shape side profile",
+          "instructions": [
+            "Shape side profile."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for shape side profile."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Create crown",
+          "toolPath": "SubD > Create crown",
+          "instructions": [
+            "Create crown."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create crown."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Taper front",
+          "toolPath": "SubD > Taper front",
+          "instructions": [
+            "Taper front."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for taper front."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Control bottom boundary",
+          "toolPath": "SubD > Control bottom boundary",
+          "instructions": [
+            "Control bottom boundary."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for control bottom boundary."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-08",
+          "title": "Inspect smooth form",
+          "toolPath": "SubD > Inspect smooth form",
+          "instructions": [
+            "Inspect smooth form."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inspect smooth form."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.topology",
+      "title": "Topology and Edge Flow Repair",
+      "level": "Advanced",
+      "estimatedMinutes": 45,
+      "objective": "Recognize and repair pinching, stretched quads and poor poles",
+      "requiredTools": [
+        "Loop",
+        "Slide",
+        "Dissolve"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Open flawed cage",
+          "toolPath": "SubD > Open flawed cage",
+          "instructions": [
+            "Open flawed cage."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for open flawed cage."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Identify stretched faces",
+          "toolPath": "SubD > Identify stretched faces",
+          "instructions": [
+            "Identify stretched faces."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for identify stretched faces."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Redirect edge flow",
+          "toolPath": "SubD > Redirect edge flow",
+          "instructions": [
+            "Redirect edge flow."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for redirect edge flow."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Move poles",
+          "toolPath": "SubD > Move poles",
+          "instructions": [
+            "Move poles."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for move poles."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Reduce excess density",
+          "toolPath": "SubD > Reduce excess density",
+          "instructions": [
+            "Reduce excess density."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for reduce excess density."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Remove pinching",
+          "toolPath": "SubD > Remove pinching",
+          "instructions": [
+            "Remove pinching."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for remove pinching."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Validate quad flow",
+          "toolPath": "SubD > Validate quad flow",
+          "instructions": [
+            "Validate quad flow."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for validate quad flow."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.bridge",
+      "title": "SubD Bridge Workflow",
+      "level": "Intermediate",
+      "estimatedMinutes": 35,
+      "objective": "Connect separated boundaries cleanly",
+      "requiredTools": [
+        "Bridge",
+        "Twist"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create separated regions",
+          "toolPath": "SubD > Create separated regions",
+          "instructions": [
+            "Create separated regions."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create separated regions."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Select boundaries",
+          "toolPath": "SubD > Select boundaries",
+          "instructions": [
+            "Select boundaries."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for select boundaries."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Match vertex counts",
+          "toolPath": "SubD > Match vertex counts",
+          "instructions": [
+            "Match vertex counts."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for match vertex counts."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Bridge boundaries",
+          "toolPath": "SubD > Bridge boundaries",
+          "instructions": [
+            "Bridge boundaries."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for bridge boundaries."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Correct twist",
+          "toolPath": "SubD > Correct twist",
+          "instructions": [
+            "Correct twist."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for correct twist."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Redistribute loops",
+          "toolPath": "SubD > Redistribute loops",
+          "instructions": [
+            "Redistribute loops."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for redistribute loops."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Inspect smooth connection",
+          "toolPath": "SubD > Inspect smooth connection",
+          "instructions": [
+            "Inspect smooth connection."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inspect smooth connection."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.opening",
+      "title": "Controlled SubD Opening",
+      "level": "Intermediate",
+      "estimatedMinutes": 40,
+      "objective": "Create a stable opening in an organic body",
+      "requiredTools": [
+        "Inset",
+        "Delete Face",
+        "Crease"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Select target face",
+          "toolPath": "SubD > Select target face",
+          "instructions": [
+            "Select target face."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for select target face."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Inset boundary",
+          "toolPath": "SubD > Inset boundary",
+          "instructions": [
+            "Inset boundary."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inset boundary."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Open face region",
+          "toolPath": "SubD > Open face region",
+          "instructions": [
+            "Open face region."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for open face region."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Shape boundary",
+          "toolPath": "SubD > Shape boundary",
+          "instructions": [
+            "Shape boundary."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for shape boundary."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Add support topology",
+          "toolPath": "SubD > Add support topology",
+          "instructions": [
+            "Add support topology."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for add support topology."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Adjust crease",
+          "toolPath": "SubD > Adjust crease",
+          "instructions": [
+            "Adjust crease."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for adjust crease."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Inspect pinching",
+          "toolPath": "SubD > Inspect pinching",
+          "instructions": [
+            "Inspect pinching."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inspect pinching."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.grip",
+      "title": "Organic Handle and Grip",
+      "level": "Advanced",
+      "estimatedMinutes": 55,
+      "objective": "Create an integrated handle using extrusion and bridge",
+      "requiredTools": [
+        "Extrude",
+        "Bridge",
+        "Loop"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create host body",
+          "toolPath": "SubD > Create host body",
+          "instructions": [
+            "Create host body."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create host body."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Extrude handle start",
+          "toolPath": "SubD > Extrude handle start",
+          "instructions": [
+            "Extrude handle start."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for extrude handle start."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Curve continuation",
+          "toolPath": "SubD > Curve continuation",
+          "instructions": [
+            "Curve continuation."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for curve continuation."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Build return region",
+          "toolPath": "SubD > Build return region",
+          "instructions": [
+            "Build return region."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for build return region."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Bridge to body",
+          "toolPath": "SubD > Bridge to body",
+          "instructions": [
+            "Bridge to body."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for bridge to body."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Clean topology",
+          "toolPath": "SubD > Clean topology",
+          "instructions": [
+            "Clean topology."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for clean topology."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Inspect under subdivision",
+          "toolPath": "SubD > Inspect under subdivision",
+          "instructions": [
+            "Inspect under subdivision."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inspect under subdivision."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.housing",
+      "title": "SubD Product Housing",
+      "level": "Advanced",
+      "estimatedMinutes": 65,
+      "objective": "Build large forms before secondary detail",
+      "requiredTools": [
+        "SubD Edit",
+        "Inset",
+        "Crease"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create base cage",
+          "toolPath": "SubD > Create base cage",
+          "instructions": [
+            "Create base cage."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create base cage."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Establish primary form",
+          "toolPath": "SubD > Establish primary form",
+          "instructions": [
+            "Establish primary form."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for establish primary form."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Refine edge flow",
+          "toolPath": "SubD > Refine edge flow",
+          "instructions": [
+            "Refine edge flow."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for refine edge flow."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Create openings",
+          "toolPath": "SubD > Create openings",
+          "instructions": [
+            "Create openings."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create openings."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Apply creases",
+          "toolPath": "SubD > Apply creases",
+          "instructions": [
+            "Apply creases."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for apply creases."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Add secondary detail",
+          "toolPath": "SubD > Add secondary detail",
+          "instructions": [
+            "Add secondary detail."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for add secondary detail."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Inspect topology density",
+          "toolPath": "SubD > Inspect topology density",
+          "instructions": [
+            "Inspect topology density."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inspect topology density."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.to-nurbs",
+      "title": "SubD to NURBS Workflow",
+      "level": "Advanced",
+      "estimatedMinutes": 50,
+      "objective": "Convert an organic cage and inspect the resulting NURBS patches",
+      "requiredTools": [
+        "SubD to NURBS",
+        "Surface Analysis"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "modeling"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create clean quad cage",
+          "toolPath": "SubD > Create clean quad cage",
+          "instructions": [
+            "Create clean quad cage."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create clean quad cage."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Inspect extraordinary vertices",
+          "toolPath": "SubD > Inspect extraordinary vertices",
+          "instructions": [
+            "Inspect extraordinary vertices."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inspect extraordinary vertices."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Generate limit surface",
+          "toolPath": "SubD > Generate limit surface",
+          "instructions": [
+            "Generate limit surface."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for generate limit surface."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Convert to NURBS",
+          "toolPath": "SubD > Convert to NURBS",
+          "instructions": [
+            "Convert to NURBS."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for convert to nurbs."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Inspect patch layout",
+          "toolPath": "SubD > Inspect patch layout",
+          "instructions": [
+            "Inspect patch layout."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for inspect patch layout."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Check continuity",
+          "toolPath": "SubD > Check continuity",
+          "instructions": [
+            "Check continuity."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for check continuity."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Continue in Surface workspace",
+          "toolPath": "SubD > Continue in Surface workspace",
+          "instructions": [
+            "Continue in Surface workspace."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for continue in surface workspace."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    },
+    {
+      "id": "subd.hybrid",
+      "title": "Hybrid SubD and NURBS Product",
+      "level": "Expert",
+      "estimatedMinutes": 90,
+      "objective": "Combine organic SubD form creation with G3-capable NURBS finishing",
+      "requiredTools": [
+        "SubD",
+        "Convert to NURBS",
+        "Trim",
+        "Blend",
+        "G3 Match"
+      ],
+      "tags": [
+        "subd",
+        "topology",
+        "hybrid"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create organic SubD body",
+          "toolPath": "SubD > Create organic SubD body",
+          "instructions": [
+            "Create organic SubD body."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create organic subd body."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-02",
+          "title": "Repair topology",
+          "toolPath": "SubD > Repair topology",
+          "instructions": [
+            "Repair topology."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for repair topology."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-03",
+          "title": "Convert to NURBS",
+          "toolPath": "SubD > Convert to NURBS",
+          "instructions": [
+            "Convert to NURBS."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for convert to nurbs."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-04",
+          "title": "Trim functional opening",
+          "toolPath": "SubD > Trim functional opening",
+          "instructions": [
+            "Trim functional opening."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for trim functional opening."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-05",
+          "title": "Add NURBS patch",
+          "toolPath": "SubD > Add NURBS patch",
+          "instructions": [
+            "Add NURBS patch."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for add nurbs patch."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-06",
+          "title": "Create blend",
+          "toolPath": "SubD > Create blend",
+          "instructions": [
+            "Create blend."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for create blend."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-07",
+          "title": "Apply G2/G3 where suitable",
+          "toolPath": "SubD > Apply G2/G3 where suitable",
+          "instructions": [
+            "Apply G2/G3 where suitable."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for apply g2/g3 where suitable."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-08",
+          "title": "Run zebra analysis",
+          "toolPath": "SubD > Run zebra analysis",
+          "instructions": [
+            "Run zebra analysis."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for run zebra analysis."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        },
+        {
+          "id": "step-09",
+          "title": "Join and thicken",
+          "toolPath": "SubD > Join and thicken",
+          "instructions": [
+            "Join and thicken."
+          ],
+          "why": "This establishes the next editable feature.",
+          "checkpoint": {
+            "expected": "Checkpoint verified for join and thicken."
+          },
+          "recovery": "Check selection, dimensions and feature order, then retry."
+        }
+      ],
+      "completion": {
+        "retainEditableHistory": true,
+        "fitView": true,
+        "showSummary": true
+      }
+    }
+  ]
+}

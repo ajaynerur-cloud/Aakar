@@ -1,0 +1,127 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "2.0",
+  "minimumAakarVersion": "8.20.0",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "category": "Tool Validation",
+  "packId": "tooltest.27.joint-limits",
+  "title": "ToolTest 27 - Joint Limits",
+  "courses": [
+    {
+      "id": "tooltest.27.joint-limits",
+      "title": "ToolTest 27 - Joint Limits",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Apply motion limits to supported joints and verify movement stops at the configured bounds.",
+      "tags": [
+        "joint limits",
+        "revolute",
+        "slider",
+        "assembly"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create a movable joint",
+          "learn": "Create a movable joint",
+          "instructions": "Create a revolute or slider joint between two components.",
+          "inputs": {
+            "jointType": "revolute or slider"
+          },
+          "expectedResult": "A joint with one obvious motion degree of freedom.",
+          "checkpoint": {
+            "expected": "A joint with one obvious motion degree of freedom."
+          },
+          "validationChecks": [
+            "Joint moves in intended degree of freedom"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > Joint"
+        },
+        {
+          "id": "step-02",
+          "title": "Set lower and upper limits",
+          "learn": "Set lower and upper limits",
+          "instructions": "Enable limits and enter a lower and upper range.",
+          "inputs": {
+            "exampleRevoluteDegrees": [
+              -30,
+              60
+            ],
+            "exampleSliderMm": [
+              0,
+              25
+            ]
+          },
+          "expectedResult": "The joint has bounded travel.",
+          "checkpoint": {
+            "expected": "The joint has bounded travel."
+          },
+          "validationChecks": [
+            "Lower and upper limits are stored on the joint"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Joint > Limits"
+        },
+        {
+          "id": "step-03",
+          "title": "Exercise the joint to lower bound",
+          "learn": "Exercise the joint to lower bound",
+          "instructions": "Move toward the lower bound.",
+          "inputs": {
+            "target": "lower limit"
+          },
+          "expectedResult": "Motion stops at the configured lower bound.",
+          "checkpoint": {
+            "expected": "Motion stops at the configured lower bound."
+          },
+          "validationChecks": [
+            "Joint does not move past lower limit"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > drag / motion"
+        },
+        {
+          "id": "step-04",
+          "title": "Exercise the joint to upper bound",
+          "learn": "Exercise the joint to upper bound",
+          "instructions": "Move toward the upper bound.",
+          "inputs": {
+            "target": "upper limit"
+          },
+          "expectedResult": "Motion stops at the configured upper bound.",
+          "checkpoint": {
+            "expected": "Motion stops at the configured upper bound."
+          },
+          "validationChecks": [
+            "Joint does not move past upper limit"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > drag / motion"
+        },
+        {
+          "id": "step-05",
+          "title": "Edit limits",
+          "learn": "Edit limits",
+          "instructions": "Change one limit and retest.",
+          "inputs": {
+            "edit": "upper or lower limit"
+          },
+          "expectedResult": "Permitted travel updates to the new range.",
+          "checkpoint": {
+            "expected": "Permitted travel updates to the new range."
+          },
+          "validationChecks": [
+            "Joint remains editable",
+            "New bound controls motion"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Timeline / Joint properties"
+        }
+      ]
+    }
+  ]
+}

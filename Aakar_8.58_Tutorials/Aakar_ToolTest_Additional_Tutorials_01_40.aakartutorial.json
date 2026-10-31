@@ -1,0 +1,1150 @@
+{
+  "schema": "aakar.tutorial.pack",
+  "schemaVersion": "2.0",
+  "minimumAakarVersion": "8.20.0",
+  "units": "mm",
+  "executionPolicy": "declarative-only",
+  "assemblyIncluded": false,
+  "category": "Tool Validation",
+  "packId": "aakar.tooltest-additional.01-40",
+  "title": "Aakar Additional ToolTest Tutorials 01-40",
+  "courses": [
+    {
+      "id": "tooltest.01.gumball",
+      "title": "ToolTest 1 - Gumball",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Use the on-model Gumball for direct move, plane move, rotate and scale, then compare with numeric editing.",
+      "tags": [
+        "gumball",
+        "direct edit",
+        "move",
+        "rotate",
+        "scale"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create and select a reference body",
+          "learn": "Create and select a reference body",
+          "instructions": "Create a clearly asymmetric body and select it.",
+          "inputs": {
+            "reference": "asymmetric solid"
+          },
+          "expectedResult": "The body is selected and its orientation is obvious.",
+          "checkpoint": {
+            "expected": "The body is selected and its orientation is obvious."
+          },
+          "validationChecks": [
+            "Selection is visible"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model > Primitive"
+        },
+        {
+          "id": "step-02",
+          "title": "Enable Gumball",
+          "learn": "Enable Gumball",
+          "instructions": "Turn on the Gumball.",
+          "inputs": {
+            "toggle": "Alt+G or Gumball"
+          },
+          "expectedResult": "On-model direct-edit handles appear.",
+          "checkpoint": {
+            "expected": "On-model direct-edit handles appear."
+          },
+          "validationChecks": [
+            "Gumball is visible for the active selection"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Gumball"
+        },
+        {
+          "id": "step-03",
+          "title": "Move using arrows",
+          "learn": "Move using arrows",
+          "instructions": "Drag one axis arrow.",
+          "inputs": {
+            "operation": "axis move"
+          },
+          "expectedResult": "The selection translates along one axis.",
+          "checkpoint": {
+            "expected": "The selection translates along one axis."
+          },
+          "validationChecks": [
+            "Movement is constrained to the selected axis"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > axis arrow"
+        },
+        {
+          "id": "step-04",
+          "title": "Move in a plane",
+          "learn": "Move in a plane",
+          "instructions": "Drag a plane square.",
+          "inputs": {
+            "operation": "plane move"
+          },
+          "expectedResult": "The selection translates in the selected plane.",
+          "checkpoint": {
+            "expected": "The selection translates in the selected plane."
+          },
+          "validationChecks": [
+            "Movement stays in the selected plane"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > plane square"
+        },
+        {
+          "id": "step-05",
+          "title": "Rotate with a ring",
+          "learn": "Rotate with a ring",
+          "instructions": "Drag a rotation ring.",
+          "inputs": {
+            "operation": "rotate"
+          },
+          "expectedResult": "The selection rotates about the chosen Gumball axis.",
+          "checkpoint": {
+            "expected": "The selection rotates about the chosen Gumball axis."
+          },
+          "validationChecks": [
+            "Rotation occurs about the intended axis"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > rotation ring"
+        },
+        {
+          "id": "step-06",
+          "title": "Scale with cube handles",
+          "learn": "Scale with cube handles",
+          "instructions": "Drag a scale cube; repeat with Shift for uniform scaling.",
+          "inputs": {
+            "operation": "scale",
+            "modifier": "Shift for uniform"
+          },
+          "expectedResult": "The selection scales; Shift produces uniform scale.",
+          "checkpoint": {
+            "expected": "The selection scales; Shift produces uniform scale."
+          },
+          "validationChecks": [
+            "Non-uniform scale changes the chosen direction",
+            "Shift produces uniform scale"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > scale cube"
+        },
+        {
+          "id": "step-07",
+          "title": "Use numeric Gumball",
+          "learn": "Use numeric Gumball",
+          "instructions": "Enter exact move/rotate/scale values and apply.",
+          "inputs": {
+            "values": "controlled numeric values"
+          },
+          "expectedResult": "The model updates to the exact numeric transform.",
+          "checkpoint": {
+            "expected": "The model updates to the exact numeric transform."
+          },
+          "validationChecks": [
+            "Numeric edit regenerates",
+            "Result remains selectable/editable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Gumball > numeric"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.02.offset-face",
+      "title": "ToolTest 2 - Offset Face",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Offset selected faces and verify neighboring topology heals around the edited faces.",
+      "tags": [
+        "offset face",
+        "direct edit",
+        "auto-heal"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create reference solid",
+          "learn": "Create reference solid",
+          "instructions": "Create a stepped solid with neighboring faces around the target face.",
+          "inputs": {
+            "geometry": "stepped solid"
+          },
+          "expectedResult": "A valid solid with a clear target face.",
+          "checkpoint": {
+            "expected": "A valid solid with a clear target face."
+          },
+          "validationChecks": [
+            "Target face selectable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model > Box / Extrude"
+        },
+        {
+          "id": "step-02",
+          "title": "Offset face outward",
+          "learn": "Offset face outward",
+          "instructions": "Select one face and offset it outward.",
+          "inputs": {
+            "distance": 5
+          },
+          "expectedResult": "The selected face moves outward while neighboring geometry reconnects.",
+          "checkpoint": {
+            "expected": "The selected face moves outward while neighboring geometry reconnects."
+          },
+          "validationChecks": [
+            "Body remains valid",
+            "Adjacent topology reconnects",
+            "Offset is editable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Offset face"
+        },
+        {
+          "id": "step-03",
+          "title": "Offset face inward",
+          "learn": "Offset face inward",
+          "instructions": "Edit the offset to a negative value.",
+          "inputs": {
+            "distance": -3
+          },
+          "expectedResult": "The selected face moves inward and the body heals.",
+          "checkpoint": {
+            "expected": "The selected face moves inward and the body heals."
+          },
+          "validationChecks": [
+            "Body remains valid",
+            "No open boundary is introduced"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Offset face"
+        },
+        {
+          "id": "step-04",
+          "title": "Edit the offset",
+          "learn": "Edit the offset",
+          "instructions": "Change the distance and regenerate.",
+          "inputs": {
+            "distance": 8
+          },
+          "expectedResult": "The direct edit updates parametrically.",
+          "checkpoint": {
+            "expected": "The direct edit updates parametrically."
+          },
+          "validationChecks": [
+            "Feature remains editable",
+            "Downstream model remains valid"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Timeline > Offset face"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.03.move-face",
+      "title": "ToolTest 3 - Move Face with Auto-Heal",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Move and rotate selected faces while inspecting extension, trimming or tilting of neighboring faces during healing.",
+      "tags": [
+        "move face",
+        "auto-heal",
+        "direct edit"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Prepare a reference solid",
+          "learn": "Prepare a reference solid",
+          "instructions": "Create a solid whose selected face has several neighboring faces.",
+          "inputs": {
+            "geometry": "reference solid"
+          },
+          "expectedResult": "A valid target for face movement.",
+          "checkpoint": {
+            "expected": "A valid target for face movement."
+          },
+          "validationChecks": [
+            "Target face selectable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model > Box / Extrude"
+        },
+        {
+          "id": "step-02",
+          "title": "Translate the face",
+          "learn": "Translate the face",
+          "instructions": "Select the face and translate it by an exact amount.",
+          "inputs": {
+            "translation": [
+              5,
+              0,
+              0
+            ]
+          },
+          "expectedResult": "The face relocates and neighboring faces reconnect.",
+          "checkpoint": {
+            "expected": "The face relocates and neighboring faces reconnect."
+          },
+          "validationChecks": [
+            "Move is stored as a Move feature",
+            "Body remains valid after auto-heal"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Gumball / Move numeric"
+        },
+        {
+          "id": "step-03",
+          "title": "Rotate the face",
+          "learn": "Rotate the face",
+          "instructions": "Rotate the selected face.",
+          "inputs": {
+            "rotationDegrees": 10
+          },
+          "expectedResult": "The face changes orientation and the surrounding topology heals.",
+          "checkpoint": {
+            "expected": "The face changes orientation and the surrounding topology heals."
+          },
+          "validationChecks": [
+            "Neighboring faces extend, trim or tilt as needed",
+            "No open shell remains"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Gumball / Move numeric"
+        },
+        {
+          "id": "step-04",
+          "title": "Edit the Move feature",
+          "learn": "Edit the Move feature",
+          "instructions": "Change translation or rotation and regenerate.",
+          "inputs": {
+            "edit": "translation or rotation"
+          },
+          "expectedResult": "The healed result updates.",
+          "checkpoint": {
+            "expected": "The healed result updates."
+          },
+          "validationChecks": [
+            "Feature editable",
+            "Valid solid retained"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Timeline > Move"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.04.selection-chains",
+      "title": "ToolTest 4 - Loop, Ring and Chain Selection",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Practice topology-aware loop, ring and chain expansion and verify only the intended connected set is selected.",
+      "tags": [
+        "loop selection",
+        "ring selection",
+        "chain selection",
+        "select+"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create a topology-rich reference model",
+          "learn": "Create a topology-rich reference model",
+          "instructions": "Create a body with multiple connected edge paths and loops.",
+          "inputs": {
+            "geometry": "reference with loops/rings/chains"
+          },
+          "expectedResult": "Several candidate edge paths are available.",
+          "checkpoint": {
+            "expected": "Several candidate edge paths are available."
+          },
+          "validationChecks": [
+            "Individual edges selectable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model"
+        },
+        {
+          "id": "step-02",
+          "title": "Chain selection",
+          "learn": "Chain selection",
+          "instructions": "Select a seed edge and expand to its connected chain.",
+          "inputs": {
+            "mode": "chain"
+          },
+          "expectedResult": "A connected edge chain is selected.",
+          "checkpoint": {
+            "expected": "A connected edge chain is selected."
+          },
+          "validationChecks": [
+            "Selected set is connected",
+            "Unrelated branches are excluded"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Select+ > Chain"
+        },
+        {
+          "id": "step-03",
+          "title": "Loop selection",
+          "learn": "Loop selection",
+          "instructions": "Select an edge and expand to the corresponding loop.",
+          "inputs": {
+            "mode": "loop"
+          },
+          "expectedResult": "A closed or topology-consistent loop is selected.",
+          "checkpoint": {
+            "expected": "A closed or topology-consistent loop is selected."
+          },
+          "validationChecks": [
+            "Loop selection follows the intended perimeter"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Select+ > Loop"
+        },
+        {
+          "id": "step-04",
+          "title": "Ring selection",
+          "learn": "Ring selection",
+          "instructions": "Select a seed edge and expand across the corresponding ring.",
+          "inputs": {
+            "mode": "ring"
+          },
+          "expectedResult": "The corresponding edge ring becomes selected.",
+          "checkpoint": {
+            "expected": "The corresponding edge ring becomes selected."
+          },
+          "validationChecks": [
+            "Ring follows the intended topology",
+            "Selection does not spill into unrelated edges"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Select+ > Ring"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.05.select-similar",
+      "title": "ToolTest 5 - Select Similar",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Expand a seed selection to geometrically/topologically similar entities and check that dissimilar entities remain excluded.",
+      "tags": [
+        "select similar",
+        "selection"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create mixed geometry",
+          "learn": "Create mixed geometry",
+          "instructions": "Create repeated faces/edges plus visibly different geometry.",
+          "inputs": {
+            "geometry": "mixed similar and dissimilar entities"
+          },
+          "expectedResult": "A model suitable for similarity testing.",
+          "checkpoint": {
+            "expected": "A model suitable for similarity testing."
+          },
+          "validationChecks": [
+            "At least two similar entities and one dissimilar entity exist"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model"
+        },
+        {
+          "id": "step-02",
+          "title": "Pick the seed",
+          "learn": "Pick the seed",
+          "instructions": "Select one representative entity.",
+          "inputs": {
+            "seed": "representative face or edge"
+          },
+          "expectedResult": "One entity is selected.",
+          "checkpoint": {
+            "expected": "One entity is selected."
+          },
+          "validationChecks": [
+            "Only seed selected initially"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Viewport selection"
+        },
+        {
+          "id": "step-03",
+          "title": "Run Select Similar",
+          "learn": "Run Select Similar",
+          "instructions": "Expand the seed selection using Select Similar.",
+          "inputs": {
+            "mode": "similar"
+          },
+          "expectedResult": "Entities matching the command similarity criteria are added.",
+          "checkpoint": {
+            "expected": "Entities matching the command similarity criteria are added."
+          },
+          "validationChecks": [
+            "Expected repeated entities are selected",
+            "Clearly dissimilar entities remain excluded"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Select+ > Similar"
+        },
+        {
+          "id": "step-04",
+          "title": "Use expanded set downstream",
+          "learn": "Use expanded set downstream",
+          "instructions": "Apply a harmless downstream edit to verify the selected set is consumable.",
+          "inputs": {
+            "operation": "supported edit"
+          },
+          "expectedResult": "The downstream command receives the expanded selection.",
+          "checkpoint": {
+            "expected": "The downstream command receives the expanded selection."
+          },
+          "validationChecks": [
+            "Selection is accepted by downstream command"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct edit / feature command"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.06.scale-body",
+      "title": "ToolTest 6 - Scale Body",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Scale a selected body non-uniformly and uniformly, then validate its transformed dimensions and editability.",
+      "tags": [
+        "scale body",
+        "uniform scale",
+        "non-uniform scale"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create measured body",
+          "learn": "Create measured body",
+          "instructions": "Create a body with known unequal X/Y/Z dimensions.",
+          "inputs": {
+            "dimensions": [
+              40,
+              30,
+              20
+            ]
+          },
+          "expectedResult": "A measurable reference body.",
+          "checkpoint": {
+            "expected": "A measurable reference body."
+          },
+          "validationChecks": [
+            "Initial dimensions recorded"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Model > Box"
+        },
+        {
+          "id": "step-02",
+          "title": "Non-uniform scale",
+          "learn": "Non-uniform scale",
+          "instructions": "Scale the body differently along each axis.",
+          "inputs": {
+            "scale": [
+              1.25,
+              0.8,
+              1.5
+            ]
+          },
+          "expectedResult": "The body changes independently along X, Y and Z.",
+          "checkpoint": {
+            "expected": "The body changes independently along X, Y and Z."
+          },
+          "validationChecks": [
+            "Result dimensions reflect the per-axis factors",
+            "Body remains valid"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Scale"
+        },
+        {
+          "id": "step-03",
+          "title": "Uniform scale",
+          "learn": "Uniform scale",
+          "instructions": "Apply a uniform scale to the reference body.",
+          "inputs": {
+            "uniformScale": 1.5
+          },
+          "expectedResult": "Every linear dimension increases by the same factor.",
+          "checkpoint": {
+            "expected": "Every linear dimension increases by the same factor."
+          },
+          "validationChecks": [
+            "All three dimensions use the same factor",
+            "Body remains valid"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Direct > Scale"
+        },
+        {
+          "id": "step-04",
+          "title": "Edit scale",
+          "learn": "Edit scale",
+          "instructions": "Change one scale factor and regenerate.",
+          "inputs": {
+            "edit": "one scale factor"
+          },
+          "expectedResult": "The scaled result updates without recreation.",
+          "checkpoint": {
+            "expected": "The scaled result updates without recreation."
+          },
+          "validationChecks": [
+            "Scale operation remains editable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Timeline > Scale"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.14.sketch-fillet-trim-offset",
+      "title": "ToolTest 14 - Sketch Fillet, Trim and Offset",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Use the live sketch editing tools on connected geometry and validate corner creation, trimming and connected-chain offset behavior.",
+      "tags": [
+        "sketch fillet",
+        "trim",
+        "offset",
+        "chain"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create connected sketch geometry",
+          "learn": "Create connected sketch geometry",
+          "instructions": "Draw intersecting lines plus a connected line/arc chain.",
+          "inputs": {
+            "plane": "XY"
+          },
+          "expectedResult": "Editable sketch geometry suitable for all three tools.",
+          "checkpoint": {
+            "expected": "Editable sketch geometry suitable for all three tools."
+          },
+          "validationChecks": [
+            "Lines intersect",
+            "Connected chain exists"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Sketch"
+        },
+        {
+          "id": "step-02",
+          "title": "Sketch fillet",
+          "learn": "Sketch fillet",
+          "instructions": "Set a radius and select two meeting lines or their corner.",
+          "inputs": {
+            "radius": 5
+          },
+          "expectedResult": "The sharp corner is replaced by a tangent fillet arc.",
+          "checkpoint": {
+            "expected": "The sharp corner is replaced by a tangent fillet arc."
+          },
+          "validationChecks": [
+            "Fillet arc exists",
+            "Original corner is removed/retrimmed appropriately"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Sketch > Fillet"
+        },
+        {
+          "id": "step-03",
+          "title": "Trim",
+          "learn": "Trim",
+          "instructions": "Click the unwanted segment between intersections.",
+          "inputs": {
+            "operation": "trim"
+          },
+          "expectedResult": "The clicked portion is removed while intended remaining entities stay.",
+          "checkpoint": {
+            "expected": "The clicked portion is removed while intended remaining entities stay."
+          },
+          "validationChecks": [
+            "Only intended segment removed",
+            "Sketch remains editable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Sketch > Trim"
+        },
+        {
+          "id": "step-04",
+          "title": "Offset connected chain",
+          "learn": "Offset connected chain",
+          "instructions": "Set offset distance and click a curve on the desired side.",
+          "inputs": {
+            "distance": 3
+          },
+          "expectedResult": "The whole connected loop or chain is offset to the chosen side.",
+          "checkpoint": {
+            "expected": "The whole connected loop or chain is offset to the chosen side."
+          },
+          "validationChecks": [
+            "Connected chain offsets together",
+            "Offset distance is represented",
+            "No offset failure for the chosen radius/distance"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Sketch > Offset"
+        },
+        {
+          "id": "step-05",
+          "title": "Edit inputs and inspect stability",
+          "learn": "Edit inputs and inspect stability",
+          "instructions": "Repeat with another valid radius and offset distance.",
+          "inputs": {
+            "filletRadius": 3,
+            "offsetDistance": 2
+          },
+          "expectedResult": "Sketch operations remain usable with changed values.",
+          "checkpoint": {
+            "expected": "Sketch operations remain usable with changed values."
+          },
+          "validationChecks": [
+            "No unintended disconnected geometry",
+            "Result remains editable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Sketch"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.25.joint-origins",
+      "title": "ToolTest 25 - Joint Origins",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Display and use joint-origin geometry as explicit assembly connection references.",
+      "tags": [
+        "assembly",
+        "joint origin",
+        "joint"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Prepare two components",
+          "learn": "Prepare two components",
+          "instructions": "Create or insert two separate components.",
+          "inputs": {
+            "components": 2
+          },
+          "expectedResult": "Two independent components are available.",
+          "checkpoint": {
+            "expected": "Two independent components are available."
+          },
+          "validationChecks": [
+            "Both components selectable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly"
+        },
+        {
+          "id": "step-02",
+          "title": "Show joint origins",
+          "learn": "Show joint origins",
+          "instructions": "Enable joint-origin display.",
+          "inputs": {
+            "display": "on"
+          },
+          "expectedResult": "Joint-origin markers become available for assembly work.",
+          "checkpoint": {
+            "expected": "Joint-origin markers become available for assembly work."
+          },
+          "validationChecks": [
+            "Joint-origin display toggles on"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > Show / hide joint origins"
+        },
+        {
+          "id": "step-03",
+          "title": "Choose origin on each component",
+          "learn": "Choose origin on each component",
+          "instructions": "Choose suitable axis/point references on both components.",
+          "inputs": {
+            "referenceA": "face/edge axis or point",
+            "referenceB": "face/edge axis or point"
+          },
+          "expectedResult": "Two connection frames are clearly defined.",
+          "checkpoint": {
+            "expected": "Two connection frames are clearly defined."
+          },
+          "validationChecks": [
+            "Origin A belongs to component A",
+            "Origin B belongs to component B"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > Joint origin"
+        },
+        {
+          "id": "step-04",
+          "title": "Use origins in a joint",
+          "learn": "Use origins in a joint",
+          "instructions": "Connect the two joint origins.",
+          "inputs": {
+            "jointType": "rigid for simple validation"
+          },
+          "expectedResult": "The components are connected through the chosen origins.",
+          "checkpoint": {
+            "expected": "The components are connected through the chosen origins."
+          },
+          "validationChecks": [
+            "Joint feature is created",
+            "Selected origins define the connection"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > Joint"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.26.as-built-joint",
+      "title": "ToolTest 26 - As-Built Joint",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Create a joint between components that are already positioned, keeping their current placement as the joint zero position.",
+      "tags": [
+        "as-built joint",
+        "assembly",
+        "joint zero"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Position two components",
+          "learn": "Position two components",
+          "instructions": "Place two components in their intended assembled positions before creating the joint.",
+          "inputs": {
+            "placement": "already assembled position"
+          },
+          "expectedResult": "Both parts are in the desired starting pose.",
+          "checkpoint": {
+            "expected": "Both parts are in the desired starting pose."
+          },
+          "validationChecks": [
+            "Relative placement visually verified"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > Move component"
+        },
+        {
+          "id": "step-02",
+          "title": "Start As-built joint",
+          "learn": "Start As-built joint",
+          "instructions": "Pick the two positioned components and the connection axis/point.",
+          "inputs": {
+            "components": 2,
+            "reference": "picked axis/point"
+          },
+          "expectedResult": "The As-built Joint dialog is ready without repositioning the parts.",
+          "checkpoint": {
+            "expected": "The As-built Joint dialog is ready without repositioning the parts."
+          },
+          "validationChecks": [
+            "Correct two components identified"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > As-built joint"
+        },
+        {
+          "id": "step-03",
+          "title": "Create the joint",
+          "learn": "Create the joint",
+          "instructions": "Choose the required joint type and commit.",
+          "inputs": {
+            "jointType": "revolute or rigid reference case"
+          },
+          "expectedResult": "A joint is created with the current placement as its zero position.",
+          "checkpoint": {
+            "expected": "A joint is created with the current placement as its zero position."
+          },
+          "validationChecks": [
+            "Nothing moves at creation",
+            "Joint feature is created"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > As-built joint"
+        },
+        {
+          "id": "step-04",
+          "title": "Inspect the zero position",
+          "learn": "Inspect the zero position",
+          "instructions": "Inspect or exercise the joint from its starting configuration.",
+          "inputs": {
+            "test": "return to zero"
+          },
+          "expectedResult": "Zero returns to the original as-built placement.",
+          "checkpoint": {
+            "expected": "Zero returns to the original as-built placement."
+          },
+          "validationChecks": [
+            "Original placement is the zero reference"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly / Motion"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.27.joint-limits",
+      "title": "ToolTest 27 - Joint Limits",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Apply motion limits to supported joints and verify movement stops at the configured bounds.",
+      "tags": [
+        "joint limits",
+        "revolute",
+        "slider",
+        "assembly"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Create a movable joint",
+          "learn": "Create a movable joint",
+          "instructions": "Create a revolute or slider joint between two components.",
+          "inputs": {
+            "jointType": "revolute or slider"
+          },
+          "expectedResult": "A joint with one obvious motion degree of freedom.",
+          "checkpoint": {
+            "expected": "A joint with one obvious motion degree of freedom."
+          },
+          "validationChecks": [
+            "Joint moves in intended degree of freedom"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > Joint"
+        },
+        {
+          "id": "step-02",
+          "title": "Set lower and upper limits",
+          "learn": "Set lower and upper limits",
+          "instructions": "Enable limits and enter a lower and upper range.",
+          "inputs": {
+            "exampleRevoluteDegrees": [
+              -30,
+              60
+            ],
+            "exampleSliderMm": [
+              0,
+              25
+            ]
+          },
+          "expectedResult": "The joint has bounded travel.",
+          "checkpoint": {
+            "expected": "The joint has bounded travel."
+          },
+          "validationChecks": [
+            "Lower and upper limits are stored on the joint"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Joint > Limits"
+        },
+        {
+          "id": "step-03",
+          "title": "Exercise the joint to lower bound",
+          "learn": "Exercise the joint to lower bound",
+          "instructions": "Move toward the lower bound.",
+          "inputs": {
+            "target": "lower limit"
+          },
+          "expectedResult": "Motion stops at the configured lower bound.",
+          "checkpoint": {
+            "expected": "Motion stops at the configured lower bound."
+          },
+          "validationChecks": [
+            "Joint does not move past lower limit"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > drag / motion"
+        },
+        {
+          "id": "step-04",
+          "title": "Exercise the joint to upper bound",
+          "learn": "Exercise the joint to upper bound",
+          "instructions": "Move toward the upper bound.",
+          "inputs": {
+            "target": "upper limit"
+          },
+          "expectedResult": "Motion stops at the configured upper bound.",
+          "checkpoint": {
+            "expected": "Motion stops at the configured upper bound."
+          },
+          "validationChecks": [
+            "Joint does not move past upper limit"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Assembly > drag / motion"
+        },
+        {
+          "id": "step-05",
+          "title": "Edit limits",
+          "learn": "Edit limits",
+          "instructions": "Change one limit and retest.",
+          "inputs": {
+            "edit": "upper or lower limit"
+          },
+          "expectedResult": "Permitted travel updates to the new range.",
+          "checkpoint": {
+            "expected": "Permitted travel updates to the new range."
+          },
+          "validationChecks": [
+            "Joint remains editable",
+            "New bound controls motion"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Timeline / Joint properties"
+        }
+      ]
+    },
+    {
+      "id": "tooltest.40.command-palette-radial",
+      "title": "ToolTest 40 - Command Palette and Radial Menu",
+      "category": "Tool Validation",
+      "level": "Intermediate",
+      "estimatedMinutes": 30,
+      "objective": "Find tools quickly through Ctrl+K and the context-sensitive radial menu, including radial-menu customization.",
+      "tags": [
+        "command palette",
+        "Ctrl+K",
+        "radial menu",
+        "M",
+        "tool search"
+      ],
+      "steps": [
+        {
+          "id": "step-01",
+          "title": "Open command search",
+          "learn": "Open command search",
+          "instructions": "Open Aakar command search.",
+          "inputs": {
+            "shortcut": "Ctrl+K"
+          },
+          "expectedResult": "The command-search/palette interface opens.",
+          "checkpoint": {
+            "expected": "The command-search/palette interface opens."
+          },
+          "validationChecks": [
+            "Search interface becomes available"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Ctrl+K"
+        },
+        {
+          "id": "step-02",
+          "title": "Find a Wave tool",
+          "learn": "Find a Wave tool",
+          "instructions": "Search for Gumball, Offset face or another registered Wave tool.",
+          "inputs": {
+            "query": "Gumball"
+          },
+          "expectedResult": "Matching registered commands are shown.",
+          "checkpoint": {
+            "expected": "Matching registered commands are shown."
+          },
+          "validationChecks": [
+            "Requested command is discoverable"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Ctrl+K search"
+        },
+        {
+          "id": "step-03",
+          "title": "Launch from search",
+          "learn": "Launch from search",
+          "instructions": "Run the selected command from search.",
+          "inputs": {
+            "command": "Gumball"
+          },
+          "expectedResult": "The selected command executes from the palette.",
+          "checkpoint": {
+            "expected": "The selected command executes from the palette."
+          },
+          "validationChecks": [
+            "Command executes without switching to an empty ribbon tab"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Ctrl+K search"
+        },
+        {
+          "id": "step-04",
+          "title": "Open radial menu",
+          "learn": "Open radial menu",
+          "instructions": "Open the context-sensitive 8-way quick menu.",
+          "inputs": {
+            "shortcut": "M"
+          },
+          "expectedResult": "The radial menu appears around its invocation point.",
+          "checkpoint": {
+            "expected": "The radial menu appears around its invocation point."
+          },
+          "validationChecks": [
+            "Eight-way radial interface is visible"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Radial menu"
+        },
+        {
+          "id": "step-05",
+          "title": "Run a radial command",
+          "learn": "Run a radial command",
+          "instructions": "Choose one radial slice appropriate to the current selection.",
+          "inputs": {
+            "selection": "context appropriate"
+          },
+          "expectedResult": "The chosen quick command executes.",
+          "checkpoint": {
+            "expected": "The chosen quick command executes."
+          },
+          "validationChecks": [
+            "Selected slice invokes its mapped tool"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Radial menu"
+        },
+        {
+          "id": "step-06",
+          "title": "Customize radial slices",
+          "learn": "Customize radial slices",
+          "instructions": "Open customization and change one slice mapping.",
+          "inputs": {
+            "customize": "replace one slice command"
+          },
+          "expectedResult": "The selected slice uses the new mapping on the next open.",
+          "checkpoint": {
+            "expected": "The selected slice uses the new mapping on the next open."
+          },
+          "validationChecks": [
+            "Custom configuration is retained during the session",
+            "Updated slice launches mapped tool"
+          ],
+          "recovery": "Press Ctrl+Z, restore the reference selection, and repeat the step with the listed inputs.",
+          "toolPath": "Radial menu > set up slices"
+        }
+      ]
+    }
+  ]
+}

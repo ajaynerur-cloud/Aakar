@@ -1,0 +1,209 @@
+{
+ "schema": "aakar.tutorial.pack",
+ "schemaVersion": "2.0",
+ "minimumAakarVersion": "8.58.0",
+ "units": "mm",
+ "executionPolicy": "declarative-only",
+ "assemblyIncluded": false,
+ "packId": "aakar.form858.mass-sketches",
+ "title": "AakarFORM 8.58 · Mass select sketches, all or one by one",
+ "category": "AakarFORM",
+ "courses": [
+  {
+   "id": "form858.mass-sketches",
+   "title": "Select many sketches: all at once or one by one",
+   "category": "AakarFORM",
+   "level": "Beginner",
+   "estimatedMinutes": 8,
+   "objective": "Select every sketch shape in one click, only the circles, only shapes of the same size or plane — or step through them with Keep / Skip.",
+   "tags": [
+    "sketch",
+    "selection"
+   ],
+   "steps": [
+    {
+     "title": "Make several sketches",
+     "instructions": [
+      "Four circles (two sizes) and a square are built, each in its own sketch."
+     ],
+     "why": "A set to select from.",
+     "checkpoint": {
+      "expected": "Five sketch shapes."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "AakarFORM",
+     "tool": "sketch",
+     "build": [
+      {
+       "sketch": {
+        "key": "c0",
+        "name": "Circle 1",
+        "plane": "XY",
+        "offset": 40,
+        "ents": [
+         {
+          "t": "circle",
+          "c": [
+           -20,
+           0
+          ],
+          "r": 4
+         }
+        ]
+       }
+      },
+      {
+       "sketch": {
+        "key": "c1",
+        "name": "Circle 2",
+        "plane": "XY",
+        "offset": 40,
+        "ents": [
+         {
+          "t": "circle",
+          "c": [
+           0,
+           10
+          ],
+          "r": 4
+         }
+        ]
+       }
+      },
+      {
+       "sketch": {
+        "key": "c2",
+        "name": "Circle 3",
+        "plane": "XY",
+        "offset": 40,
+        "ents": [
+         {
+          "t": "circle",
+          "c": [
+           20,
+           0
+          ],
+          "r": 6
+         }
+        ]
+       }
+      },
+      {
+       "sketch": {
+        "key": "c3",
+        "name": "Circle 4",
+        "plane": "XY",
+        "offset": 40,
+        "ents": [
+         {
+          "t": "circle",
+          "c": [
+           0,
+           -10
+          ],
+          "r": 6
+         }
+        ]
+       }
+      },
+      {
+       "sketch": {
+        "key": "r1",
+        "name": "Square",
+        "plane": "XY",
+        "offset": 40,
+        "ents": [
+         {
+          "t": "rect",
+          "c": [
+           30,
+           30
+          ],
+          "w": 10,
+          "h": 10
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "title": "Select one, then All",
+     "instructions": [
+      "Click one shape: the bar shows All (5) and 1 by 1.",
+      "Click All (5): every sketch shape is selected."
+     ],
+     "why": "All is one click from any selected shape.",
+     "checkpoint": {
+      "expected": "5 shapes selected."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "",
+     "build": [
+      {
+       "note": "Select one, then All"
+      }
+     ]
+    },
+    {
+     "title": "Only some",
+     "instructions": [
+      "Click More… (Select many) and choose All circles (4) or Same size as this (2). Use Add / Remove to refine."
+     ],
+     "why": "The choices come from the shapes in your model.",
+     "checkpoint": {
+      "expected": "Only circles selected."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "",
+     "build": [
+      {
+       "note": "Only some"
+      }
+     ]
+    },
+    {
+     "title": "One by one",
+     "instructions": [
+      "Press ‘1 by 1’ next to All circles.",
+      "In the step panel: Keep ✓ (Enter) keeps and moves on, Skip ▶ (→) moves on, ◀ goes back; Space toggles.",
+      "Press Done: everything kept is selected."
+     ],
+     "why": "You decide per shape; Esc cancels and restores the old selection.",
+     "checkpoint": {
+      "expected": "The kept circles are selected."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "",
+     "build": [
+      {
+       "note": "One by one"
+      }
+     ]
+    },
+    {
+     "title": "Use the selection",
+     "instructions": [
+      "Pull them together, or Delete, or Move… — all selected shapes follow."
+     ],
+     "why": "A multi-selection works with every shape tool.",
+     "checkpoint": {
+      "expected": "The action applied to all selected shapes."
+     },
+     "recovery": "Press Ctrl+Z, then repeat this step.",
+     "tab": "form",
+     "toolPath": "",
+     "build": [
+      {
+       "note": "Use the selection"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
