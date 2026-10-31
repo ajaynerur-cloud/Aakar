@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "App version (e.g. 8.62.0). Leave blank to use package.json version."
+        description: "Override version (leave blank to read it from app/index.html)"
         required: false
         default: ""
 
@@ -18,7 +18,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        shell: bash          # avoids PowerShell splitting "-c.extraMetadata..." args
+        shell: bash
 
     steps:
       - name: Checkout
@@ -32,27 +32,32 @@ jobs:
       - name: Pre-flight checks
         run: |
           set -e
-          for f in package.json main.js preload.js app/index.html; do
+          for f in package.json main.js preload.js app/index.html tools/read-version.js; do
             if [ ! -f "$f" ]; then echo "::error::Missing required file: $f"; exit 1; fi
           done
           for f in prompt.html prompt-preload.js build/icon.ico; do
             if [ ! -f "$f" ]; then echo "::warning::Optional file not found: $f"; fi
           done
           if grep -q "Aakar_8.15.0.html" main.js; then
-            echo "::error::main.js still points to app/Aakar_8.15.0.html (deleted). Change it to app/index.html"; exit 1
+            echo "::error::main.js still points to app/Aakar_8.15.0.html. Change it to app/index.html"; exit 1
           fi
 
       - name: Install dependencies
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
-      - name: Set version
+      - name: Set version from app/index.html
         run: |
+          set -e
           VER="${{ github.event.inputs.version }}"
           if [ -n "$VER" ]; then
             npm version "$VER" --no-git-tag-version --allow-same-version
+            echo "APP_VERSION=$VER" >> "$GITHUB_ENV"
+            echo "Using manual override: $VER"
+          else
+            node tools/read-version.js app/index.html
           fi
-          echo "APP_VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+          echo "package.json version is now: $(node -p "require('./package.json').version")"
 
       - name: Remove icon settings if icon missing
         run: |
@@ -66,13 +71,16 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npx electron-builder --win nsis portable --x64 --publish never
 
-      - name: List output
-        run: ls -la dist
+      - name: Verify EXE version matches index.html
+        run: |
+          ls -la dist
+          if ! ls dist/*"${APP_VERSION}"*.exe >/dev/null 2>&1; then
+            echo "::error::No EXE named with version ${APP_VERSION} found in dist/"; exit 1
+          fi
 
       - name: Upload EXEs
         uses: actions/upload-artifact@v4
         with:
           name: Aakar-${{ env.APP_VERSION }}-windows
-          path: |
-            dist/*.exe
+          path: dist/*.exe
           if-no-files-found: error
