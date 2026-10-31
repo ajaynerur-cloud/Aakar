@@ -1,7 +1,7 @@
 {
   "name": "aakar",
   "productName": "Aakar",
-  "version": "8.15.1",
+  "version": "8.62.0",
   "description": "Aakar - parametric, NURBS, SubD, BIM, analysis, drawings and render (desktop)",
   "author": "Aakar",
   "license": "UNLICENSED",
@@ -38,18 +38,8 @@
       "icon": "build/icon.ico",
       "executableName": "Aakar",
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
       ]
     },
     "nsis": {
