@@ -3,7 +3,7 @@
 <head><script id="aakar-wheel-pre">window.__aakarWheelPreHook=1;window.addEventListener('wheel',function(e){var f=window.__aakarWheelPre;if(f)f(e);},{passive:false,capture:true});</script><script id="aakar-w1-seed">(function(){try{var K='prism.v7.layout',o=JSON.parse(localStorage.getItem(K)||'{}')||{};if(o.w1layout)return;o.collapsed=o.collapsed||{};['Sketch+ examples','Examples','Kernel','Macros','Mesh','Export 3D'].forEach(function(t){if(o.collapsed[t]===undefined)o.collapsed[t]=true;});o.w1layout=1;localStorage.setItem(K,JSON.stringify(o));}catch(e){}})();(function(){try{var K='prism.v7.layout',o=JSON.parse(localStorage.getItem(K)||'{}')||{};if(o.w2layout)return;o.collapsed=o.collapsed||{};if(o.collapsed['Curves & curvature']===undefined)o.collapsed['Curves & curvature']=true;o.w2layout=1;localStorage.setItem(K,JSON.stringify(o));}catch(e){}})();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Aakar 8.63.1 — Parametric · NURBS · SubD · Analysis · Drawings · Render</title>
+<title>Aakar 8.63.2 — Parametric · NURBS · SubD · Analysis · Drawings · Render</title>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkFha2FyIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWYyNzM2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMGQxMTE4Ii8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9ImwiIHgxPSIwIiB5MT0iMCIgeDI9IjAiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmZmM0OGEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmZjlhNGQiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iciIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iI2ZmOGEzZCIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2UyNjUxYSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHg9IjgiIHk9IjgiIHdpZHRoPSIyNDAiIGhlaWdodD0iMjQwIiByeD0iNTYiIGZpbGw9InVybCgjYmcpIiBzdHJva2U9IiNmZjhhM2QiIHN0cm9rZS13aWR0aD0iNSIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyOCAxMzApIHNjYWxlKC43NCkgdHJhbnNsYXRlKC0xMjggLTEyOCkiPjxwb2x5Z29uIHBvaW50cz0iMTEyLDI4IDE0NiwyOCA4OCwyMjggMzAsMjI4IiBmaWxsPSJ1cmwoI2wpIi8+PHBvbHlnb24gcG9pbnRzPSIxMTIsMjggMTQ2LDI4IDIyNiwyMjggMTY4LDIyOCIgZmlsbD0idXJsKCNyKSIvPjxwb2x5Z29uIHBvaW50cz0iMTEyLDI4IDE0NiwyOCAxMjguOCw4OCIgZmlsbD0iI2I4NTAwZiIvPjxwb2x5Z29uIHBvaW50cz0iMTEwLjYsMTUwIDE0Ni4yLDE1MCAxNTYuMiwxODYgMTAwLjIsMTg2IiBmaWxsPSIjZmZmMWUzIi8+PC9nPjwvc3ZnPg==">
 <style>
 :root{--bg:#12161f;--panel:#1a202c;--panel2:#212938;--line:#2c3547;--txt:#dfe6f2;--mut:#8a97ad;--acc:#ff8a3d;--acc2:#3db8ff;--ok:#42d392;--bad:#ff5d6c;--warn:#ffc94d;--r:8px;font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
@@ -253,7 +253,7 @@ body.sketching #filterbar,body.sketching #viewnav{display:none}
 <body><div id="aakarSplash"><svg viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="aal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient><linearGradient id="aar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient></defs><polygon points="112,28 146,28 88,228 30,228" fill="url(#aal)"/><polygon points="112,28 146,28 226,228 168,228" fill="url(#aar)"/><polygon points="112,28 146,28 128.8,88" fill="#b8500f"/><polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/></svg><b>Aakar</b><small>FORM · SHAPE · CAD</small></div>
 <header id="top">
   <div class="row1">
-    <div class="brand" title="Aakar"><svg viewBox="0 0 256 256" aria-label="Aakar logo"><defs><linearGradient id="aal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient><linearGradient id="aar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient></defs><polygon points="112,28 146,28 88,228 30,228" fill="url(#aal)"/><polygon points="112,28 146,28 226,228 168,228" fill="url(#aar)"/><polygon points="112,28 146,28 128.8,88" fill="#b8500f"/><polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/></svg><span>Aakar <b>8.63.1</b></span></div>
+    <div class="brand" title="Aakar"><svg viewBox="0 0 256 256" aria-label="Aakar logo"><defs><linearGradient id="aal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient><linearGradient id="aar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient></defs><polygon points="112,28 146,28 88,228 30,228" fill="url(#aal)"/><polygon points="112,28 146,28 226,228 168,228" fill="url(#aar)"/><polygon points="112,28 146,28 128.8,88" fill="#b8500f"/><polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/></svg><span>Aakar <b>8.63.2</b></span></div>
     <nav id="ribbon"><button data-tab="model" class="on">Model</button><button data-tab="surface">Surface</button><button data-tab="subd">SubD</button><button data-tab="bim" style="display:none" aria-hidden="true">BIM</button><button data-tab="analysis">Analysis</button><button data-tab="drawing">Drawing</button><button data-tab="cam">CAM</button><button data-tab="learn">Tutorials</button></nav>
     <div class="tb-right"><button class="pill" id="btnLeft" title="Feature / body panel">☰</button><button class="pill" id="btnRight" title="Inspector panel">⚙</button></div>
   </div>
@@ -3355,7 +3355,7 @@ body.sketching #filterbar,body.sketching #viewnav{display:none}
     thicken(f, st, h) {
       const it = h.itemOf(st, f.params.target, 'surface'), t = +f.params.thickness;
       if (!t) throw new Error('Thickness must be non-zero');
-      h.putBodies(st, f.id, f.name, thicken(it.srf, f.params.flip ? -t : t, f.params.density || 8), f.id);
+      h.putBodies(st, f.id, f.name, ((typeof CAD !== 'undefined' && CAD.nurbs && CAD.nurbs.thicken) || thicken)(it.srf, f.params.flip ? -t : t, f.params.density || 8), f.id);   // 8.62.1 fix: trim-aware thicken
       if (!f.params.keep) st.items.delete(it.key);
       return st;
     }
@@ -11487,7 +11487,7 @@ function faceEdgeItems(loops) {
 
   // ---------------------------------------------------------------- branding
   try {
-    const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.1</b>';
+    const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.2</b>';
     document.title = 'Aakar 5 — Parametric · NURBS · SubD · BIM · Analysis · Drawings';
     P.status('Aakar 5 add-on loaded — new tools in Surface ▸ Surface+ / Surface edit / Analyse and SubD ▸ SubD+. Press ▶ Demo for a complex example.');
   } catch (e) { /* headless */ }
@@ -12729,7 +12729,7 @@ precision mediump float; void main(){}`;
   P.setTab(cur);
   Object.keys(L.palettes).forEach(renderPalette);
   bodyCls(); applyCards(); enhance(); renderDocks();
-  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.1</b>'; } catch (e) { /* ignore */ }
+  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.2</b>'; } catch (e) { /* ignore */ }
   P.status('Aakar 7 — drag a group header to the left / right edge to dock it, back to the ribbon to undock, or onto the 3D view to float · ▾ collapses · ⌃ minimises the ribbon · ☷ Layout · ▶ Vase demo');
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -12928,7 +12928,7 @@ precision mediump float; void main(){}`;
   setTimeout(() => window.dispatchEvent(new Event('resize')), 30);
   CAD.v8 = CAD.v8 || {};
   CAD.v8.windows = { W, open, close, switchTo, save, rename, popOut, blankDoc, render };
-  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.1</b>'; } catch (e) { /* ignore */ }
+  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.2</b>'; } catch (e) { /* ignore */ }
   document.title = W.active.name + ' — Aakar 8';
   P.status('Aakar 8 — every project opens in its own window (tabs under the ribbon, ✕ closes, ↗ pops out) · drag tool groups to the left / right edge to dock them · Render tab: materials, .skm, lights');
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -13615,7 +13615,7 @@ precision mediump float; void main(){}`;
   const cur = st.tab; TABS.forEach(t => { try { P.setTab(t); harvest(); } catch (e) { /* ignore */ } }); P.setTab(cur); harvest();
   bodyCls(); applyTB(); renderTL(); if (UI.dims) openDims();
   CAD.v81 = { renderTL, setRoll, moveFeature, openDims, renderDims, labels, exportDAE, importDAE, parseDAE, exportOBJ, toolbarMenu, historyMenu, UI, applyTB };
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.1</b>'; document.title = document.title; } catch (e) { /* ignore */ }
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.2</b>'; document.title = document.title; } catch (e) { /* ignore */ }
   P.status('Aakar 8.1 — sketch splines (fit / NURBS / Bézier / conic / ellipse) · revolve open profiles · NURBS tab · timeline & history · detailed dimensions · ▤ Toolbars · SketchUp / Plasticity exchange · .skm');
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -14219,7 +14219,7 @@ precision mediump float; void main(){}`;
     ['x9guide', 'Handbook', guide, 'Download the printable tutorial handbook', IC.book]
   ]);
   CAD.x9.ui = { open, buildAll, COURSES, guide, A };
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.1</b>'; document.title = document.title; } catch (e) { /* ignore */ }
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.2</b>'; document.title = document.title; } catch (e) { /* ignore */ }
   P.status('Aakar 8.15.1 — new CAM tab (3-axis CAM, simulation, G-code) · new Tutorials tab (Examples, Handbook, Import tutorial, Library)');
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -15390,7 +15390,7 @@ precision mediump float; void main(){}`;
   ]);
   CAD.x10.ui = { openPal, runCmd, harvest, asmPanel, mateCmd, measPanel, startMeasure, secPanel, sec, secUpdate, parPanel, compareWith, compareMenu, comPanel, addComment, conPanel, autosave, savePanel, recover, api, insertJSON, bom, components, faceGeom, dbAll, endPick };
   renderPins();
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.1</b>'; document.title = document.title; } catch (e) { /* ignore */ }
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.2</b>'; document.title = document.title; } catch (e) { /* ignore */ }
   P.status('Aakar 8.4 — NURBS & SubD fillets (variable radius) · assemblies & mates · measure & section · parameters · auto-save · compare · comments · Ctrl+K command search · script console');
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -16013,7 +16013,7 @@ precision mediump float; void main(){}`;
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && panelEl && panelEl.classList.contains('on') && !recording && !typing(e.target)) panelEl.classList.remove('on'); });
 
   CAD.x85 = { selectAll, selectNone, invert, boxSelect, effective, setSelection, saveAs, openControls, toggleMode, cfg: () => cfg, rebuildKeys, PRESETS };
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.1</b>'; document.title = document.title; } catch (e) { /* ignore */ }
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>8.63.2</b>'; document.title = document.title; } catch (e) { /* ignore */ }
   P.status('Aakar 8.5: Ctrl+A selects all · ▢ Select (Q) = drag to box-select · ⚙ Controls = mouse buttons and shortcuts · Save as');
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -19426,14 +19426,14 @@ precision mediump float; void main(){}`;
   NB.mesh = function (S, density) { return S && S.trim && S.trim.ops && S.trim.ops.length ? trimmedMesh(S, density) : mesh0(S, density); };
   NB.area = function (S) { if (!(S && S.trim && S.trim.ops && S.trim.ops.length)) return area0(S); const m = trimmedMesh(S, 10); let a = 0; m.T.forEach((t) => { a += len(cross(sub(m.P[t[1]], m.P[t[0]]), sub(m.P[t[2]], m.P[t[0]]))) / 2; }); return a; };
   /** thicken a trimmed surface: top and bottom skins joined along every boundary edge */
-  function thickenTrimmed(S, t) {
-    const m = trimmedMesh(S, 8), top = m.P, bot = m.P.map((p, i) => madd(p, m.N[i], t)), polys = [];
+  function thickenTrimmed(S, t, density) {
+    const m = trimmedMesh(S, density || 8), top = m.P, bot = m.P.map((p, i) => madd(p, m.N[i], t)), polys = [];
     m.T.forEach((tr) => { polys.push({ pts: [top[tr[0]], top[tr[1]], top[tr[2]]], plane: null }); polys.push({ pts: [bot[tr[2]], bot[tr[1]], bot[tr[0]]], plane: null }); });
     const E = new Map(); m.T.forEach((tr) => { for (let k = 0; k < 3; k++) { const a = tr[k], b = tr[(k + 1) % 3]; E.set(a + ',' + b, 1); } });
     E.forEach((_, key) => { const [a, b] = key.split(',').map(Number); if (!E.has(b + ',' + a)) { polys.push({ pts: [top[b], top[a], bot[a]], plane: null }); polys.push({ pts: [top[b], bot[a], bot[b]], plane: null }); } });
     const out = SOL.soupToSolids(polys); if (!out.length) throw new Error('Thicken failed — thickness may exceed the surface curvature radius'); return out;
   }
-  NB.thicken = function (S, t, density) { return S && S.trim && S.trim.ops && S.trim.ops.length ? thickenTrimmed(S, t) : thick0(S, t, density); };
+  NB.thicken = function (S, t, density) { return S && S.trim && S.trim.ops && S.trim.ops.length ? thickenTrimmed(S, t, density) : thick0(S, t, density); };
   // Solidify does not know trims: refuse instead of returning the untrimmed shape
   (function guardSolidify() { const o = CAD.featExt.srfSolid; if (!o || o.__nb) return; CAD.featExt.srfSolid = function (f, st2, h) { const it = h.itemOf(st2, f.params.target, 'surface'); if (it.srf && it.srf.trim && it.srf.trim.ops && it.srf.trim.ops.length) throw new Error('Solidify does not support trimmed surfaces — use Thicken, or Untrim first'); return o.call(this, f, st2, h); }; CAD.featExt.srfSolid.__nb = true; })();
 
@@ -28099,7 +28099,7 @@ struct BOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
  function openSearch(){close();try{if(window.CAD&&CAD.x10&&CAD.x10.ui){CAD.x10.ui.openPal();return;}}catch(e){}document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true}));}
  function boot(){try{
   document.body.classList.add('x855');if(S.focus)document.body.classList.add('x855-focus');
-  document.title='Aakar 8.63.1 — Parametric · NURBS · SubD · BIM · Analysis · Drawings · Render';const br=$('.brand span');if(br)br.innerHTML = 'Aakar <b>8.63.1</b>';
+  document.title='Aakar 8.63.2 — Parametric · NURBS · SubD · BIM · Analysis · Drawings · Render';const br=$('.brand span');if(br)br.innerHTML = 'Aakar <b>8.63.2</b>';
   const row=$('#top .row1');if(!row||$('#x855bar'))return;
   const I={file:'<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z M14 3v4h4"/></svg>',tools:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg>',search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg>',ws:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16 M3 9h6"/></svg>'};
   const bar=document.createElement('div');bar.id='x855bar';
@@ -29022,7 +29022,7 @@ body.sk-dock #wsCtx .s button.on{background:rgba(31,199,180,.2);color:#3fe0cd;fo
     var pop = buildPicker(); buildButton(pop); buildCube();
     try { var rb = document.getElementById('ribbon'); ['cam', 'learn'].forEach(function (t) { var b = rb && rb.querySelector('[data-tab="' + t + '"]'); if (b) rb.appendChild(b); }); } catch (e) { /* ignore */ } // CAM + Tutorials sit after Render
     try { buildWs(); } catch (e) { /* keep the classic ribbon */ }
-    var ver = function () { try { var bs = document.querySelector('.brand span'); if (bs) bs.innerHTML = 'Aakar <b>8.63.1</b>'; document.title = document.title.replace(/Aakar \d+(\.\d+)*/, 'Aakar 8.63.1'); } catch (e) { /* ignore */ } };
+    var ver = function () { try { var bs = document.querySelector('.brand span'); if (bs) bs.innerHTML = 'Aakar <b>8.63.2</b>'; document.title = document.title.replace(/Aakar \d+(\.\d+)*/, 'Aakar 8.63.2'); } catch (e) { /* ignore */ } };
     ver(); setTimeout(ver, 1500); setTimeout(ver, 4000);
     var saved = get();
     apply(saved || 'classic');
@@ -29303,7 +29303,7 @@ body.sk-dock #wsCtx .s button.on{background:rgba(31,199,180,.2);color:#3fe0cd;fo
     },
     tab: function (v) { P().setTab(v); },
     note: function () { /* narration only */ },
-    refimg: function (v) { if (!window.AakarRefImg) throw new Error('Reference images need Aakar 8.63.1 or later'); window.AakarRefImg.tutorialOp(v); },
+    refimg: function (v) { if (!window.AakarRefImg) throw new Error('Reference images need Aakar 8.63.2 or later'); window.AakarRefImg.tutorialOp(v); },
     param: function (v) { var A = CAD.x10 && CAD.x10.ui && CAD.x10.ui.api; if (!A) throw new Error('Global parameters are not available in this build'); A.param(v.name, String(v.expr)); },
     link: function (v) { var A = CAD.x10 && CAD.x10.ui && CAD.x10.ui.api; if (!A) throw new Error('Global parameters are not available in this build'); var f = P().st.doc.features.find(function (x) { return x.id === X.ids[v.ref]; }); if (!f) throw new Error('Feature "' + v.ref + '" not found'); A.link(f, v.key, String(v.expr)); var e = featErr(f); if (e) throw new Error(f.name + ': ' + e); },
     shell: function (v) { var b = bodyOf(v.body), faces = v.face ? [CAD.feat.faceRef(b.solid, selectFace(b, v.face))] : []; commit(v.key, { type: 'shell', name: v.name, params: { body: b.key, faces: faces, thickness: v.thickness } }); },
@@ -29414,7 +29414,7 @@ body.sk-dock #wsCtx .s button.on{background:rgba(31,199,180,.2);color:#3fe0cd;fo
   var LVL_ORDER = { Beginner: 1, Intermediate: 2, Advanced: 3, Expert: 4, Master: 5 };
   function thumbOf(c) { return uthumbs[c.id] || c.thumb || null; }
   var ICON = { Surface: '◠', SubD: '◍', Parts: '⬢', '3D Sketch': '⌇', Mixed: '◆', Vases: '⚱' };
-  function openLib() { closePlayer(); $('aakTL').classList.add('open'); renderLib(); }
+  function openLib() { closePlayer(); try { var sc = document.getElementById('lxScale'); if (sc) sc.classList.remove('on'); } catch (e0) { /* 8.62.1 fix: Scale calculator must not cover the library */ } $('aakTL').classList.add('open'); renderLib(); }
   function closeLib() { $('aakTL').classList.remove('open'); }
   function renderLib() {
     var L = allCourses(), cats = ['All']; L.forEach(function (x) { if (cats.indexOf(x.cat) < 0) cats.push(x.cat); }); cats.sort(function (a, b) { var r = function (c) { return c === 'All' ? 0 : c === 'Start here' ? 1 : 2; }; return r(a) - r(b); });
@@ -41365,7 +41365,7 @@ const AKC = (function () {
 </script>
 
 <script id="aakar-refimg">
-/* Aakar 8.63.1 · Reference images (Plasticity-style)
+/* Aakar 8.63.2 · Reference images (Plasticity-style)
  * Import pictures into the 3D view, place them on any plane, re-orient (rotate · tilt · flip), make them
  * see-through, zoom them in / out, move them by dragging, calibrate their real size, and draw (sketch) on them.
  * Images are stored with the document (doc.settings.refImages), so they are saved, undone and redone with it.
