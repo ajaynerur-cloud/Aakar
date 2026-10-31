@@ -1,0 +1,387 @@
+{
+ "schema": "aakar.tutorial.pack",
+ "schemaVersion": "2.0",
+ "minimumAakarVersion": "8.63.0",
+ "units": "mm",
+ "executionPolicy": "declarative-only",
+ "assemblyIncluded": false,
+ "packId": "aakar.refimages",
+ "title": "Reference images — trace from a picture",
+ "category": "Sketching",
+ "courses": [
+  {
+   "id": "refimg.1-trace-bottle",
+   "title": "Reference images · import, re-orient, see-through, zoom and draw a bottle",
+   "category": "Sketching",
+   "level": "Beginner",
+   "estimatedMinutes": 15,
+   "objective": "Import a picture, put it on a plane, rotate / mirror / tilt it, make it see-through, zoom it to true size, move it with the mouse, then draw over it and revolve a solid bottle.",
+   "tags": [
+    "reference image",
+    "picture",
+    "photo",
+    "trace",
+    "import",
+    "opacity",
+    "rotate",
+    "mirror",
+    "zoom",
+    "calibrate",
+    "plasticity",
+    "beginner"
+   ],
+   "steps": [
+    {
+     "title": "What a reference image is (read this first)",
+     "learn": "A REFERENCE IMAGE is a picture you place inside the 3D view, like tracing paper: a photo, a sketch or a drawing of the thing you want to make. It is NOT part of the model; it only helps you draw the right shape and size.",
+     "instructions": [
+      "Read this page. Nothing needs to be clicked yet.",
+      "Designers use reference images all the time: a side photo of a bottle, a drawing of a bracket, a car blueprint.",
+      "In Aakar you can: import a picture, put it on any plane (Top, Front, Right …), turn and mirror it, make it see-through, zoom it bigger or smaller, and then draw your sketch over it.",
+      "Where to find it: Model tab → group “Ref images” → Ref image (the panel) or Import pic (opens a file at once).",
+      "Shortcuts: drop a picture file onto the 3D view, or copy a picture and press Ctrl+V in the 3D view.",
+      "Press Next step ▶ when ready."
+     ],
+     "why": "Drawing over a real picture is the fastest way to get believable proportions, even if you cannot draw well by hand.",
+     "checkpoint": {
+      "expected": "You know where the Ref images group is, and that a reference image is only a guide."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "refimg",
+     "tab": "model",
+     "toolPath": "Model › Ref images › Ref image",
+     "build": [
+      {
+       "note": "Narration only"
+      }
+     ]
+    },
+    {
+     "title": "Bring in a picture (the sample bottle)",
+     "learn": "IMPORT = bring a file into Aakar. The picture is placed on a PLANE: a flat, endless sheet in 3D. FRONT plane = the sheet you look at from the front (X to the right, Z up).",
+     "instructions": [
+      "Model tab → Ref images → Ref image. The “Reference images” panel opens on the right.",
+      "Click Sample. A side view of a bottle, 120 × 200 mm, appears standing on the Front plane.",
+      "With your own pictures you would click “+ Import…” (or drop the file on the 3D view, or press Ctrl+V).",
+      "“New pictures go on” chooses the plane for the next import: “Plane facing the view” picks Top, Front or Right, whichever faces you most.",
+      "Or press ▶ Build this step."
+     ],
+     "why": "A picture on a real plane stays put when you turn the view, so you can check your model against it from any angle.",
+     "checkpoint": {
+      "expected": "The bottle picture stands upright on the ground grid, seen from the front. “Sample · bottle” is listed in the panel."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "refimg",
+     "tab": "model",
+     "toolPath": "Model › Ref images › Ref image",
+     "build": [
+      {
+       "refimg": {
+        "clear": true,
+        "sample": true
+       }
+      }
+     ],
+     "view": "front"
+    },
+    {
+     "title": "Make it see-through and grey",
+     "learn": "OPACITY (see-through) = how solid the picture looks. 100% hides what is behind it, 30% lets you see your sketch lines and the model clearly through it.",
+     "instructions": [
+      "In the panel, section Look: drag “See-through” down to about 35%.",
+      "Tick Grey: the colours go away, so your orange and blue sketch lines stand out.",
+      "Untick “Always in front of the model” for now: the model then hides the parts of the picture behind it, like in real life.",
+      "Or press ▶ Build this step."
+     ],
+     "why": "A faint, grey picture is easy to trace over; a bright, coloured one fights with your lines.",
+     "checkpoint": {
+      "expected": "The bottle picture is pale grey and you can see the grid through it."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "refimg",
+     "tab": "model",
+     "toolPath": "Model › Ref images › Ref image",
+     "build": [
+      {
+       "refimg": {
+        "opacity": 0.35,
+        "gray": true
+       }
+      }
+     ],
+     "view": "front"
+    },
+    {
+     "title": "Re-orient: rotate, mirror, tilt",
+     "learn": "RE-ORIENT = turn the picture so it lines up with your model. ROTATE turns it flat on its plane. MIRROR swaps left and right. TILT leans it forward/back (↕) or sideways (↔) off the plane.",
+     "instructions": [
+      "Section Re-orient: click ⟳90 once. The bottle lies on its side.",
+      "Click ↔ Mirror. The picture is flipped left-to-right.",
+      "Try the Tilt ↕ slider: the picture leans like an easel. Put it back to 0.",
+      "Plane buttons (Top, Front, Right, Back, Left, Bottom, View) move the picture onto another plane in one click. View = facing the camera exactly as it is now.",
+      "Or press ▶ Build this step (rotate 90° + mirror)."
+     ],
+     "why": "Photos are rarely straight. Rotating by a few degrees until a known edge is horizontal is the first thing to do with any real picture.",
+     "checkpoint": {
+      "expected": "The bottle lies on its side and is mirrored."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "refimg",
+     "tab": "model",
+     "toolPath": "Model › Ref images › Ref image",
+     "build": [
+      {
+       "refimg": {
+        "rot": 90,
+        "flipH": true
+       }
+      }
+     ],
+     "view": "front"
+    },
+    {
+     "title": "Straighten it again (Reset)",
+     "learn": "RESET puts rotation, tilt and mirror back to zero, but keeps the size, position and see-through.",
+     "instructions": [
+      "Click Reset in the Flip row.",
+      "The bottle stands upright again, not mirrored.",
+      "Or press ▶ Build this step."
+     ],
+     "why": "You can always experiment: one click brings the picture back to straight.",
+     "checkpoint": {
+      "expected": "The bottle stands upright, the right way round."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "refimg",
+     "tab": "model",
+     "toolPath": "Model › Ref images › Ref image",
+     "build": [
+      {
+       "refimg": {
+        "rot": 0,
+        "tx": 0,
+        "ty": 0,
+        "flipH": false,
+        "flipV": false
+       }
+      }
+     ],
+     "view": "front"
+    },
+    {
+     "title": "Zoom the picture in and out, then give it its true size",
+     "learn": "ZOOM changes the SIZE of the picture (not the camera). TRUE SIZE means 1 mm on the picture = 1 mm in Aakar, so what you trace has the right dimensions. CALIBRATE = tell Aakar the real distance between two points you can see on the picture.",
+     "instructions": [
+      "Section Size & zoom: click 2×. The picture doubles. Click ½× to go back.",
+      "− Out / + In change the size by 10% each click.",
+      "True size, way 1: type the real width in Width (the height follows, the shape never stretches). The sample is 120 mm wide.",
+      "True size, way 2: click ↔ Calibrate from 2 points, click the left and right ends of the Ø72 line on the bottle, type 72 in “real” and click Apply.",
+      "Position: X · Y · Z is the centre of the picture. “Stand on Z = 0” puts its lower edge on the ground.",
+      "Or press ▶ Build this step (width 120 mm, centre 0, 0, 93)."
+     ],
+     "why": "Tracing a picture that is the wrong size gives a model of the wrong size. Calibrating once against a known dimension fixes it.",
+     "checkpoint": {
+      "expected": "The picture is 120 × 200 mm. The bottom of the bottle sits on the red X axis (Z = 0) and the centre line is on the blue Z axis."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "refimg",
+     "tab": "model",
+     "toolPath": "Model › Ref images › Ref image",
+     "build": [
+      {
+       "refimg": {
+        "width": 120,
+        "o": [
+         0,
+         0,
+         93
+        ]
+       }
+      }
+     ],
+     "view": "front"
+    },
+    {
+     "title": "Move it with the mouse (Adjust in view)",
+     "learn": "ADJUST IN VIEW lets you grab the picture in the 3D view itself. Dragging empty space still turns the view as usual.",
+     "instructions": [
+      "Click ✜ Adjust in view. An orange frame with handles appears around the picture.",
+      "Drag the picture = move it on its plane.",
+      "Shift + drag = rotate it around its centre (hold Alt as well to snap in 15° steps).",
+      "Ctrl + drag = make it bigger or smaller.",
+      "Mouse wheel over the picture = zoom the picture around the mouse. Shift + wheel = more or less see-through.",
+      "Press Esc (or click ✓ Done adjusting) when finished. Ctrl+Z undoes any move.",
+      "Press ▶ Build this step to switch the mode on, play, then press Ctrl+Z if you moved it and press Esc."
+     ],
+     "why": "Lining a picture up by hand is quicker than typing numbers when you only need it roughly in place.",
+     "checkpoint": {
+      "expected": "The orange frame shows around the picture and dragging it moves it."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "refimg",
+     "tab": "model",
+     "toolPath": "Model › Ref images › Ref image",
+     "build": [
+      {
+       "refimg": {
+        "edit": true
+       }
+      }
+     ],
+     "view": "front"
+    },
+    {
+     "title": "Draw on the picture: trace the half profile",
+     "learn": "DRAW ON THIS PICTURE opens a SKETCH on exactly the picture’s plane, with the picture showing underneath. A round bottle only needs HALF of its outline (the PROFILE): Revolve spins it round the centre line.",
+     "instructions": [
+      "Press Esc to leave Adjust mode if it is still on.",
+      "Click ✎ Draw on this picture. The 2D sketch opens with the bottle under the grid.",
+      "Choose the Line tool and click along the RIGHT half of the bottle: start on the dashed red centre line at the bottom, go right along the base, up the side, in at the shoulder, up the neck, along the top, and back down the centre line to the start.",
+      "Points: (0,0) (34,0) (36,4) (36,110) (30,135) (16,150) (14,172) (16,174) (16,186) (0,186).",
+      "Click Finish. “Bottle profile (traced)” appears in the feature list.",
+      "Or press ▶ Build this step: Aakar draws the same outline for you."
+     ],
+     "why": "Tracing only the half you need keeps the sketch small and lets Revolve guarantee a perfectly round bottle.",
+     "checkpoint": {
+      "expected": "A closed outline of the right half of the bottle lies exactly on the picture."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "sketch",
+     "tab": "model",
+     "toolPath": "Ref images panel › ✎ Draw on this picture",
+     "build": [
+      {
+       "sketch": {
+        "key": "pf",
+        "name": "Bottle profile (traced)",
+        "plane": "XZ",
+        "offset": 0,
+        "ents": [
+         {
+          "t": "poly",
+          "pts": [
+           [
+            0,
+            0
+           ],
+           [
+            34,
+            0
+           ],
+           [
+            36,
+            4
+           ],
+           [
+            36,
+            110
+           ],
+           [
+            30,
+            135
+           ],
+           [
+            16,
+            150
+           ],
+           [
+            14,
+            172
+           ],
+           [
+            16,
+            174
+           ],
+           [
+            16,
+            186
+           ],
+           [
+            0,
+            186
+           ]
+          ],
+          "closed": true
+         }
+        ]
+       }
+      }
+     ],
+     "view": "front"
+    },
+    {
+     "title": "Revolve it into a solid bottle",
+     "learn": "REVOLVE spins a profile 360° around an axis, like a potter’s wheel.",
+     "instructions": [
+      "Model tab → Create → Revolve.",
+      "Sketch: “Bottle profile (traced)”. Axis: the sketch’s vertical (Y) axis, the centre line. Angle: 360.",
+      "Click OK. A solid bottle appears, the same size as the picture.",
+      "Or press ▶ Build this step."
+     ],
+     "why": "Picture → trace → revolve is the classic way to model bottles, vases, knobs and turned parts from a photo.",
+     "checkpoint": {
+      "expected": "One solid bottle, 72 mm across and 186 mm tall."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "revolve",
+     "tab": "model",
+     "toolPath": "Model › Create › Revolve",
+     "build": [
+      {
+       "feature": {
+        "key": "bottle",
+        "type": "revolve",
+        "name": "Bottle body",
+        "params": {
+         "sketch": "$pf",
+         "region": "all",
+         "axis": "Y",
+         "angle": 360,
+         "openMode": "auto",
+         "op": "new",
+         "target": "auto"
+        }
+       }
+      }
+     ],
+     "view": "iso",
+     "expect": {
+      "bodies": 1
+     }
+    },
+    {
+     "title": "Check the model against the picture",
+     "learn": "ALWAYS IN FRONT draws the picture over the model, so you can compare edges. Hide (eye icon) turns the picture off without deleting it.",
+     "instructions": [
+      "In the panel tick “Always in front of the model” and set See-through to 50%.",
+      "Click the Front view button: the outline of the solid should sit exactly on the drawing.",
+      "Click ◎ Look at it to aim the camera straight at any picture.",
+      "Click the eye icon to hide the picture, again to show it. The trash (✕) deletes it.",
+      "Save the project: reference images are saved with it.",
+      "Or press ▶ Build this step."
+     ],
+     "why": "Checking against the reference at the end catches tracing mistakes before you add details.",
+     "checkpoint": {
+      "expected": "From the front, the bottle and the picture match line for line."
+     },
+     "recovery": "Nothing is broken. Press Ctrl+Z (hold the Ctrl key and tap Z) to undo, then press ▶ Build this step again. Aakar always builds exactly the values listed under “Aakar will build”.",
+     "tool": "refimg",
+     "tab": "model",
+     "toolPath": "Model › Ref images › Ref image",
+     "build": [
+      {
+       "refimg": {
+        "onTop": true,
+        "opacity": 0.5
+       }
+      }
+     ],
+     "view": "front",
+     "expect": {
+      "bodies": 1
+     }
+    }
+   ]
+  }
+ ]
+}
