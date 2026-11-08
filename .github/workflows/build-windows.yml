@@ -148,8 +148,10 @@ jobs:
 
       - name: Verify output
         run: |
-          if ! ls dist/*.exe dist/*.zip >/dev/null 2>&1; then echo "::error::nothing was produced in dist/"; exit 1; fi
-          ls -la dist/*.exe dist/*.zip 2>/dev/null || true
+          shopt -s nullglob
+          files=(dist/*.exe dist/*.zip)
+          if [ ${#files[@]} -eq 0 ]; then echo "::error::nothing was produced in dist/"; exit 1; fi
+          ls -la "${files[@]}"
 
       - name: Upload EXEs
         uses: actions/upload-artifact@v4
