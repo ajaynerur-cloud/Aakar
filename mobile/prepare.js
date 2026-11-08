@@ -46,6 +46,14 @@ fs.writeFileSync(gr, g);
 const mf = path.join(__dirname, 'android/app/src/main/AndroidManifest.xml'); let mx = fs.readFileSync(mf, 'utf8');
 if (!/android:largeHeap/.test(mx)) mx = mx.replace(/<application\b/, '<application android:largeHeap="true"'); fs.writeFileSync(mf, mx);
 
+// 5b) Gradle download: the wrapper's default 10 s network timeout failed on GitHub runners. Use the zip the workflow pre-downloaded (GRADLE_ZIP) or a longer timeout.
+const wp = path.join(__dirname, 'android/gradle/wrapper/gradle-wrapper.properties'); let w = fs.readFileSync(wp, 'utf8');
+w = w.replace(/-all\.zip/, '-bin.zip').replace(/networkTimeout=\d+/, 'networkTimeout=300000'); if (!/networkTimeout/.test(w)) w += '\nnetworkTimeout=300000\n';
+if (process.env.GRADLE_ZIP && fs.existsSync(process.env.GRADLE_ZIP)) w = w.replace(/distributionUrl=.*/, 'distributionUrl=file\\:' + process.env.GRADLE_ZIP.replace(/\\/g, '/'));
+fs.writeFileSync(wp, w);
+const gp = path.join(__dirname, 'android/gradle.properties'); let gx = fs.readFileSync(gp, 'utf8');
+if (!/connectionTimeout/.test(gx)) gx += '\norg.gradle.internal.http.connectionTimeout=120000\norg.gradle.internal.http.socketTimeout=120000\norg.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8\n'; fs.writeFileSync(gp, gx);
+
 // 6) launcher icon (uses the repo icon for every density)
 const icon = path.join(root, 'assets', 'aakar-icon.png');
 if (fs.existsSync(icon)) {
