@@ -57,6 +57,32 @@ jobs:
         run: |
           for i in 1 2 3; do npm install --no-audit --no-fund && break; echo "retry $i"; sleep $((i*15)); done
 
+      # services.gradle.org often times out from GitHub runners (the wrapper only waits 10 s). Download Gradle ourselves with retries + mirrors, cache it, and point the wrapper at the file.
+      - name: Cache Gradle distribution
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/gradle-8.2.1-bin.zip
+          key: gradle-dist-8.2.1
+
+      - name: Download Gradle 8.2.1 (retry + mirrors)
+        run: |
+          Z="$RUNNER_TEMP/gradle-8.2.1-bin.zip"
+          if [ -s "$Z" ] && unzip -tq "$Z" >/dev/null 2>&1; then echo "cached"; else
+            rm -f "$Z"
+            for u in https://services.gradle.org/distributions/gradle-8.2.1-bin.zip \
+                     https://downloads.gradle.org/distributions/gradle-8.2.1-bin.zip \
+                     https://mirrors.cloud.tencent.com/gradle/gradle-8.2.1-bin.zip \
+                     https://mirrors.aliyun.com/gradle/gradle-8.2.1-bin.zip; do
+              for i in 1 2 3; do
+                echo "try $i: $u"
+                curl -fL --connect-timeout 30 --max-time 600 --retry 3 --retry-all-errors -o "$Z" "$u" && unzip -tq "$Z" >/dev/null 2>&1 && break 2
+                rm -f "$Z"; sleep $((i*10))
+              done
+            done
+          fi
+          test -s "$Z" || { echo "::error::could not download Gradle from any source. Re-run the job."; exit 1; }
+          echo "GRADLE_ZIP=$Z" >> "$GITHUB_ENV"
+
       - name: Generate the Android project from app/index.html
         working-directory: mobile
         env:
@@ -68,7 +94,7 @@ jobs:
         working-directory: mobile/android
         run: |
           chmod +x gradlew
-          for i in 1 2 3; do ./gradlew --no-daemon assembleDebug && ok=1 && break; echo "gradle failed (try $i; usually a download timeout)"; sleep $((i*30)); done
+          for i in 1 2 3; do ./gradlew --no-daemon --stacktrace assembleDebug && ok=1 && break; echo "gradle failed (try $i; usually a download timeout)"; sleep $((i*30)); done
           [ "${ok:-0}" = "1" ] || exit 1
 
       # Optional: a signed release APK when you add these repository secrets:
