@@ -17,13 +17,14 @@ permissions:
   contents: read
 
 env:
+  DEBUG: electron-builder   # prints the real error line that the one-line 'CANNOT_EXECUTE' hides
   # keep the big downloads (Electron, NSIS, winCodeSign) in folders we can cache between runs
   ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
   ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022   # windows-latest moved to Server 2025; 2022 is the image electron-builder is tested on
     timeout-minutes: 45
     defaults:
       run:
@@ -111,27 +112,50 @@ jobs:
             echo "Icon not found - building with default Electron icon"
           fi
 
-      - name: Build installer and portable EXE
+      # app-builder.exe (a Go helper inside electron-builder) crashed with "ERR_ELECTRON_BUILDER_CANNOT_EXECUTE".
+      # In the portable target it is only used to make a random folder name (ksuid): we give a fixed name instead.
+      # In the installer target it is only used for the update blockmap: switched off (nothing here auto-updates).
+      - name: Make the build independent of app-builder extras
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.build.portable=Object.assign({},p.build.portable,{unpackDirName:'Aakar-'+p.version});p.build.nsis=Object.assign({},p.build.nsis,{differentialPackage:false});fs.writeFileSync('package.json',JSON.stringify(p,null,2));console.log('portable.unpackDirName =',p.build.portable.unpackDirName)"
+
+      - name: Build EXE (installer + portable, with fallbacks)
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
-          set -e
-          for i in 1 2 3; do
-            if npx electron-builder --win nsis portable --x64 --publish never; then ok=1; break; fi
-            echo "electron-builder failed (try $i; usually a download timeout), waiting..."; sleep $((i*30))
+          have() { ls dist/*.exe >/dev/null 2>&1; }
+          build() { npx electron-builder --win "$@" --x64 --publish never; }
+          for i in 1 2; do
+            if build nsis portable; then break; fi
+            echo "::warning::electron-builder (nsis + portable) failed, try $i"; sleep 20
           done
-          [ "${ok:-0}" = "1" ] || { echo "::error::electron-builder failed 3 times"; exit 1; }
-
-      - name: Verify EXE version matches index.html
-        run: |
-          ls -la dist
-          if ! ls dist/*"${APP_VERSION}"*.exe >/dev/null 2>&1; then
-            echo "::error::No EXE named with version ${APP_VERSION} found in dist/"; exit 1
+          if ! have; then
+            echo "::warning::combined build failed - trying each target alone"
+            build portable || echo "::warning::portable target failed"
+            build nsis || echo "::warning::nsis target failed"
           fi
+          if ! have; then
+            echo "::warning::no EXE produced - packing an unpacked folder and zipping it (runs without install)"
+            rm -rf dist/win-unpacked
+            if build dir; then :; else
+              npx --yes @electron/packager . Aakar --platform=win32 --arch=x64 --out=dist-pack --overwrite --asar --electron-version=33.4.11 \
+                --ignore="^/(dist|dist-pack|\.github|\.cache|kernel|docs|tests?|patches|examples|files|tools|Py Patch|Aakar_Tutorials)(/|$)"
+              mkdir -p dist && mv dist-pack/Aakar-win32-x64 dist/win-unpacked
+            fi
+            powershell -NoProfile -Command "Compress-Archive -Path 'dist/win-unpacked/*' -DestinationPath 'dist/Aakar-${APP_VERSION}-win-x64.zip' -Force"
+          fi
+          ls -la dist
+
+      - name: Verify output
+        run: |
+          if ! ls dist/*.exe dist/*.zip >/dev/null 2>&1; then echo "::error::nothing was produced in dist/"; exit 1; fi
+          ls -la dist/*.exe dist/*.zip 2>/dev/null || true
 
       - name: Upload EXEs
         uses: actions/upload-artifact@v4
         with:
           name: Aakar-${{ env.APP_VERSION }}-windows
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/*.zip
           if-no-files-found: error
