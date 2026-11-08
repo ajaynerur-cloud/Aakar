@@ -1,0 +1,14 @@
+{
+  "name": "aakar-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor wrapper that turns app/index.html into an Android APK (phones and tablets, touch and pen)",
+  "scripts": {
+    "prepare:android": "node prepare.js"
+  },
+  "dependencies": {
+    "@capacitor/android": "6.2.0",
+    "@capacitor/cli": "6.2.0",
+    "@capacitor/core": "6.2.0"
+  }
+}
