@@ -25,6 +25,48 @@ async function serveAsset(request, dir = OCCT_DIR) {
   } catch (e) { return new Response('not found', { status: 404 }); }
 }
 
+
+// ---------------------------------------------------------------- workspace folder (start page): list / read / write .aakar files under one chosen folder
+let WS_ROOT = '', WS_WATCHER = null;
+const WS_EXT = /\.(aakar|aakar\.json|prism\.json|prism)$/i;
+function wsInside(rel) { if (!WS_ROOT || typeof rel !== 'string') return null; const f = path.resolve(WS_ROOT, rel); return (f === WS_ROOT || f.startsWith(WS_ROOT + path.sep)) ? f : null; }
+function wsWalk(dir, base, sub, out, depth) {
+  let ents; try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+  for (const d of ents) {
+    if (out.length >= 5000) return;
+    if (d.name.startsWith('.') || d.name === 'node_modules') continue;
+    const full = path.join(dir, d.name);
+    if (d.isDirectory()) { if (sub && depth < 6) wsWalk(full, base, sub, out, depth + 1); }
+    else if (d.isFile() && WS_EXT.test(d.name)) { try { const st = fs.statSync(full); out.push({ rel: path.relative(base, full).split(path.sep).join('/'), name: d.name, mtime: st.mtimeMs, size: st.size }); } catch (e) { /* skip */ } }
+  }
+}
+function wsWatch(on, sender) {
+  if (WS_WATCHER) { try { WS_WATCHER.close(); } catch (e) { /* ignore */ } WS_WATCHER = null; }
+  if (!on || !WS_ROOT) return;
+  let timer = null;
+  try { WS_WATCHER = fs.watch(WS_ROOT, { recursive: true }, () => { clearTimeout(timer); timer = setTimeout(() => { try { if (!sender.isDestroyed()) sender.send('aakar:ws-changed'); } catch (e) { /* ignore */ } }, 300); }); WS_WATCHER.on('error', () => {}); } catch (e) { WS_WATCHER = null; }
+}
+ipcMain.handle('aakar:ws-pick', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const r = await dialog.showOpenDialog(win, { title: 'Choose your Aakar workspace folder', properties: ['openDirectory', 'createDirectory'] });
+  return r.canceled || !r.filePaths.length ? null : r.filePaths[0];
+});
+ipcMain.handle('aakar:ws-set', (event, dir, opt) => {
+  try { const p = path.resolve(String(dir || '')); if (!fs.statSync(p).isDirectory()) return { ok: false, error: 'Not a folder' }; WS_ROOT = p; wsWatch(!!(opt && opt.watch), event.sender); return { ok: true }; }
+  catch (e) { return { ok: false, error: 'Folder not found' }; }
+});
+ipcMain.handle('aakar:ws-list', (event, opt) => { const out = []; if (WS_ROOT) wsWalk(WS_ROOT, WS_ROOT, !(opt && opt.sub === false), out, 0); return out; });
+ipcMain.handle('aakar:ws-read', (event, rel) => { const f = wsInside(rel); if (!f || !WS_EXT.test(f)) throw new Error('not allowed'); return fs.readFileSync(f); });
+ipcMain.handle('aakar:ws-write', (event, rel, data, overwrite) => {
+  try {
+    let f = wsInside(rel); if (!f || !WS_EXT.test(f)) return { ok: false, error: 'not allowed' };
+    if (!overwrite) { const ext = path.extname(f), stem = f.slice(0, f.length - ext.length); let n = 2; while (fs.existsSync(f)) f = stem + ' (' + (n++) + ')' + ext; }
+    fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, Buffer.from(data));
+    return { ok: true, rel: path.relative(WS_ROOT, f).split(path.sep).join('/') };
+  } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
+});
+ipcMain.handle('aakar:ws-reveal', () => { if (WS_ROOT) shell.openPath(WS_ROOT); });
+
 function createMainWindow() {
   const win = new BrowserWindow({ width: 1600, height: 960, minWidth: 900, minHeight: 600, backgroundColor: BG, show: false, autoHideMenuBar: true, title: 'Aakar', icon: path.join(__dirname, 'build', 'icon.ico'), webPreferences: WEB_PREFS });
   win.once('ready-to-show', () => { win.maximize(); win.show(); });
