@@ -67,9 +67,24 @@ ipcMain.handle('aakar:ws-write', (event, rel, data, overwrite) => {
 });
 ipcMain.handle('aakar:ws-reveal', () => { if (WS_ROOT) shell.openPath(WS_ROOT); });
 
+// window buttons for the page (full-screen strip): leave full screen, minimise, maximise / restore, close
+ipcMain.handle('aakar:win', (event, act) => {
+  const w = BrowserWindow.fromWebContents(event.sender); if (!w) return false;
+  if (act === 'fs-off') { try { if (w.isFullScreen()) w.setFullScreen(false); event.sender.executeJavaScript('document.fullscreenElement && document.exitFullscreen && document.exitFullscreen()').catch(() => {}); } catch (e) { /* ignore */ } }
+  else if (act === 'fs-on') w.setFullScreen(true);
+  else if (act === 'min') w.minimize();
+  else if (act === 'max') { if (w.isMaximized()) w.unmaximize(); else w.maximize(); }
+  else if (act === 'close') w.close();
+  return true;
+});
+
 function createMainWindow() {
-  const win = new BrowserWindow({ width: 1600, height: 960, minWidth: 900, minHeight: 600, backgroundColor: BG, show: false, autoHideMenuBar: true, title: 'Aakar', icon: path.join(__dirname, 'build', 'icon.ico'), webPreferences: WEB_PREFS });
-  win.once('ready-to-show', () => { win.maximize(); win.show(); });
+  const win = new BrowserWindow({ width: 1600, height: 960, minWidth: 900, minHeight: 600, backgroundColor: BG, show: false, frame: true, fullscreen: false, fullscreenable: true, autoHideMenuBar: true, title: 'Aakar', icon: path.join(__dirname, 'build', 'icon.ico'), webPreferences: WEB_PREFS });
+  win.once('ready-to-show', () => { try { win.setFullScreen(false); } catch (e) { /* ignore */ } win.maximize(); win.show(); });
+  // tell the page when full screen starts / ends, so it can show an always-reachable Exit / Minimise / Close strip
+  const fsTell = (v) => { try { win.webContents.send('aakar:fs', v); } catch (e) { /* ignore */ } };
+  win.on('enter-full-screen', () => fsTell(true)); win.on('leave-full-screen', () => fsTell(false));
+  win.webContents.on('enter-html-full-screen', () => fsTell(true)); win.webContents.on('leave-html-full-screen', () => fsTell(false));
   win.loadFile(APP_HTML);
   return win;
 }
@@ -103,6 +118,7 @@ app.on('web-contents-created', (_e, contents) => {
   contents.on('before-input-event', (e, input) => {
     if (input.type !== 'keyDown') return;
     if (input.key === 'F12') { contents.toggleDevTools(); e.preventDefault(); }
+    else if (input.key === 'Escape' && (() => { const w = BrowserWindow.fromWebContents(contents); return w && w.isFullScreen(); })()) { const w = BrowserWindow.fromWebContents(contents); w.setFullScreen(false); }
     else if (input.key === 'F11') { const w = BrowserWindow.fromWebContents(contents); if (w) w.setFullScreen(!w.isFullScreen()); e.preventDefault(); }
     else if (input.control && input.shift && (input.key === 'R' || input.key === 'r')) { contents.reloadIgnoringCache(); e.preventDefault(); }
   });

@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('aakarDesktop', {
   isDesktop: true,
   prompt: (message, value) => ipcRenderer.sendSync('aakar:prompt', message, value),
   // workspace folder for the start page (main.js restricts every call to the chosen folder)
+  win: { act: (a) => ipcRenderer.invoke('aakar:win', a), onFs: (cb) => { ipcRenderer.on('aakar:fs', (e, v) => { try { cb(!!v); } catch (x) { /* ignore */ } }); } },
   ws: {
     pick: () => ipcRenderer.invoke('aakar:ws-pick'),
     set: (dir, opt) => ipcRenderer.invoke('aakar:ws-set', dir, opt),
