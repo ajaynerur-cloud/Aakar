@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aakar Trace Decoder</title>
+<style>
+:root{--bg:#f4f1ec;--panel:#fffdf9;--ink:#1d2430;--mut:#6a7384;--line:#ddd6ca;--acc:#d9480f;--acc2:#0b7285;--ok:#2b8a3e;--bad:#c92a2a;--code:#f0ebe2;--chip:#ece6da}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10151d;--panel:#171e29;--ink:#e6ebf3;--mut:#8f9bb0;--line:#2a3445;--acc:#ff8a3d;--acc2:#4cc9e0;--ok:#69db7c;--bad:#ff8787;--code:#0d121a;--chip:#222c3b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10151d;--panel:#171e29;--ink:#e6ebf3;--mut:#8f9bb0;--line:#2a3445;--acc:#ff8a3d;--acc2:#4cc9e0;--ok:#69db7c;--bad:#ff8787;--code:#0d121a;--chip:#222c3b;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-size:22px;margin:0;letter-spacing:.2px}
+h1 small{font-weight:400;color:var(--mut);font-size:13px;margin-left:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.drop{border:2px dashed var(--line);text-align:center;padding:26px 16px;cursor:pointer;transition:.15s}
+.drop.on,.drop:hover{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 7%,var(--panel))}
+.drop b{font-size:15px}.drop p{margin:4px 0 0;color:var(--mut)}
+button,.btn{font:inherit;color:var(--ink);background:var(--chip);border:1px solid var(--line);border-radius:7px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--acc)}button.go{background:var(--acc);color:#fff;border-color:transparent;font-weight:600}
+input[type=search]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:5px 10px;min-width:0;flex:1 1 200px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.meta div{min-width:0}.meta span{display:block;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.meta b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:99px;padding:2px 11px;font-size:12.5px;cursor:pointer;user-select:none}
+.chip.on{background:var(--acc);color:#fff;border-color:transparent}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;color:var(--mut)}
+.tools i{font-style:normal;color:var(--acc2);font-weight:600}
+.tablebox{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:760px}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);text-align:left;border-bottom:1px solid var(--line);padding:6px 8px;position:sticky;top:0;background:var(--panel)}
+td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.ev{cursor:pointer}tr.ev:hover td{background:color-mix(in srgb,var(--acc) 6%,var(--panel))}
+td.t{white-space:nowrap;color:var(--mut);font-variant-numeric:tabular-nums}
+.k{display:inline-block;border-radius:5px;padding:0 7px;font-size:12px;background:var(--chip)}
+.k.click{color:var(--acc2)}.k.tool{background:var(--acc);color:#fff}.k.error,.k.console\.error{background:var(--bad);color:#fff}.k.model{color:var(--ok)}
+code,.mono{font:12.5px/1.5 ui-monospace,Menlo,Consolas,monospace}
+.ptr{color:var(--mut)}.ptr b{color:var(--ink);font-weight:600}
+tr.det td{background:var(--bg);padding:10px 14px}
+.chain{display:flex;flex-direction:column;gap:8px}
+.link{border-left:3px solid var(--acc2);padding:2px 0 2px 10px}
+.link.caller,.link.stack{border-color:var(--acc)}
+.link .role{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut)}
+pre{margin:6px 0 0;background:var(--code);border:1px solid var(--line);border-radius:7px;padding:8px 10px;overflow:auto;max-height:230px;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre}
+pre .hit{background:color-mix(in srgb,var(--acc) 28%,transparent);display:block}
+.hot{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px 14px}
+.hot div{display:flex;justify-content:space-between;gap:8px;padding:2px 8px;border-radius:6px;cursor:pointer}.hot div:hover{background:var(--chip)}
+.hot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+h2{font-size:15px;margin:0 0 8px}
+.hint{color:var(--mut);font-size:13px}
+@media(max-width:560px){h1 small{display:block;margin:2px 0 0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Aakar Trace Decoder <small>opens .akrec files saved by the Aakar issue recorder</small></h1>
+
+  <label class="card drop" id="drop">
+    <b>Drop a .akrec trace here, or click to choose one</b>
+    <p>Everything is decoded in this page. Nothing is uploaded.</p>
+    <input type="file" id="file" accept=".akrec,application/octet-stream" hidden>
+  </label>
+
+  <div id="out" hidden class="wrap" style="gap:16px">
+    <div class="card"><div class="meta" id="meta"></div></div>
+
+    <div class="card">
+      <h2>Tools the user selected, in order</h2>
+      <div class="tools" id="tools"></div>
+    </div>
+
+    <div class="card">
+      <h2>Where the code lives <span class="hint">(events per module — click one to filter)</span></h2>
+      <div class="hot" id="hot"></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <div class="chips" id="chips"></div>
+        <input type="search" id="q" placeholder="Search text, module or function" aria-label="Search">
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <label class="btn" for="src">Load the Aakar source (index.html) to show code at each pointer</label>
+        <input type="file" id="src" accept=".html,text/html" hidden>
+        <span class="hint" id="srcState">No source loaded. Pointers still show module, function and line.</span>
+        <span style="flex:1"></span>
+        <button id="jsonBtn">Export JSON</button><button id="csvBtn">Export CSV</button>
+      </div>
+      <div class="tablebox"><table><thead><tr><th>Time</th><th>Kind</th><th>What happened</th><th>Code pointer</th></tr></thead><tbody id="rows"></tbody></table></div>
+      <p class="hint" id="count"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(i){return document.getElementById(i)};
+var T=null, srcLines=null, activeKinds={}, modFilter='';
+
+/* ---------- binary reader for AKRC v1 ---------- */
+function crc32(b,n){var t=crc32.t;if(!t){t=crc32.t=[];for(var i=0;i<256;i++){var c=i;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[i]=c>>>0}}var c2=0xFFFFFFFF;for(var j=0;j<n;j++)c2=t[(c2^b[j])&255]^(c2>>>8);return(c2^0xFFFFFFFF)>>>0}
+function decode(buf){
+  var b=new Uint8Array(buf),p=0,dec=new TextDecoder();
+  if(b.length<14||b[0]!==65||b[1]!==75||b[2]!==82||b[3]!==67)throw new Error('This is not an Aakar trace (.akrec) file.');
+  if(b[4]!==1)throw new Error('Trace format version '+b[4]+' is newer than this decoder.');
+  var body=b.length-4,stored=(b[body]|b[body+1]<<8|b[body+2]<<16|b[body+3]<<24)>>>0,crcOk=crc32(b,body)===stored;
+  p=5;
+  function uv(){var n=0,m=1,x;do{if(p>=body)throw new Error('Trace is cut short.');x=b[p++];n+=(x&127)*m;m*=128}while(x&128);return n}
+  function sv(){var n=uv();return n%2?-(n+1)/2:n/2}
+  function hs(){var l=uv(),s=dec.decode(b.subarray(p,p+l));p+=l;return s}
+  var t={crcOk:crcOk,bytes:b.length};
+  t.created=uv();t.version=hs();t.sig=hs();t.ua=hs();
+  var n=uv(),S=[];for(var i=0;i<n;i++)S.push(hs());
+  var ne=uv(),time=0;t.events=[];
+  for(i=0;i<ne;i++){
+    time+=uv();var e={t:time,k:S[uv()],a:S[uv()],tool:S[uv()],pane:S[uv()]};
+    var fl=b[p++];
+    if(fl&1){e.x=sv();e.y=sv()}
+    if(fl&4)e.ms=uv();
+    e.ptr=[];
+    if(fl&2){var pc=uv();for(var j=0;j<pc;j++){var o={r:S[uv()],m:S[uv()],f:S[uv()],l:uv(),c:uv(),d:uv(),s:S[uv()],w:S[uv()]};e.ptr.push(o)}}
+    t.events.push(e);
+  }
+  var nn=uv();t.notes=[];for(i=0;i<nn;i++){t.notes.push({t:uv(),text:S[uv()]})}
+  return t;
+}
+
+/* ---------- view ---------- */
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function fmt(ms){return(ms/1000).toFixed(1)+' s'}
+function first(e){var p=e.ptr&&e.ptr[0];return p}
+function ptrText(p){return(p.m||'?')+' · '+(p.f||'(anonymous)')+' · line '+p.l}
+function render(){
+  var t=T;
+  var d=new Date(t.created);
+  $('meta').innerHTML=[
+    ['Recorded',isNaN(d)||!t.created?'?':d.toLocaleString()],
+    ['Aakar version',t.version||'?'],
+    ['Source signature',t.sig||'?'],
+    ['Events',t.events.length],
+    ['Duration',t.events.length?fmt(t.events[t.events.length-1].t):'0 s'],
+    ['File check',t.crcOk?'<span class="ok">intact (CRC ok)</span>':'<span class="bad">damaged (CRC mismatch)</span>'],
+    ['File size',t.bytes+' bytes'],
+    ['Browser',esc((t.ua||'').slice(0,60))]
+  ].map(function(x){return'<div><span>'+x[0]+'</span><b title="'+esc(String(x[1]).replace(/<[^>]+>/g,''))+'">'+x[1]+'</b></div>'}).join('');
+  var seq=[];t.events.forEach(function(e){if(e.k==='tool'&&seq[seq.length-1]!==e.tool)seq.push(e.tool)});
+  $('tools').innerHTML=seq.length?seq.map(function(x,i){return(i?'<span>→</span>':'')+'<i>'+esc(x)+'</i>'}).join(' '):'<span>No tool selection was recorded.</span>';
+  var cnt={};t.events.forEach(function(e){var p=first(e);if(p&&p.m)cnt[p.m]=(cnt[p.m]||0)+1});
+  var hs=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]}).slice(0,18);
+  $('hot').innerHTML=hs.length?hs.map(function(m){return'<div data-m="'+esc(m)+'"><span class="mono">'+esc(m)+'</span><b>'+cnt[m]+'</b></div>'}).join(''):'<span class="hint">No code pointers in this trace.</span>';
+  var kinds={};t.events.forEach(function(e){kinds[e.k]=(kinds[e.k]||0)+1});
+  activeKinds={};Object.keys(kinds).forEach(function(k){activeKinds[k]=!/^(note|shot|stop|start)$/.test(k)||k==='note'});
+  $('chips').innerHTML=Object.keys(kinds).map(function(k){return'<span class="chip'+(activeKinds[k]?' on':'')+'" data-k="'+esc(k)+'">'+esc(k)+' '+kinds[k]+'</span>'}).join('');
+  rows();
+  $('out').hidden=false;
+}
+function match(e,q){
+  if(!activeKinds[e.k])return false;
+  if(modFilter){var ok=(e.ptr||[]).some(function(p){return p.m===modFilter});if(!ok)return false}
+  if(!q)return true;
+  var hay=(e.k+' '+e.a+' '+e.tool+' '+(e.ptr||[]).map(function(p){return p.m+' '+p.f+' '+p.w}).join(' ')).toLowerCase();
+  return hay.indexOf(q)>=0;
+}
+function rows(){
+  var q=$('q').value.trim().toLowerCase(),h='',n=0;
+  T.events.forEach(function(e,i){
+    if(!match(e,q))return;n++;
+    var p=first(e);
+    h+='<tr class="ev" data-i="'+i+'"><td class="t">'+fmt(e.t)+'</td><td><span class="k '+esc(e.k)+'">'+esc(e.k)+'</span></td><td>'+esc(e.a)+(e.tool&&e.k!=='tool'?' <span class="ptr">· '+esc(e.tool)+'</span>':'')+(e.x!=null?' <span class="ptr">@ '+e.x+', '+e.y+'</span>':'')+(e.pane?' <span class="ptr">('+esc(e.pane)+')</span>':'')+'</td><td class="mono ptr">'+(p?'<b>'+esc(p.m)+'</b> · '+esc(p.f||'(anonymous)')+' · line '+p.l+(e.ptr.length>1?' <span>+'+(e.ptr.length-1)+' more</span>':''):'—')+'</td></tr>';
+  });
+  $('rows').innerHTML=h;
+  $('count').textContent=n+' of '+T.events.length+' events shown. Click a row to see how it is linked to the code.';
+}
+function snippet(l){
+  if(!srcLines||!l)return'';
+  var a=Math.max(1,l-4),b=Math.min(srcLines.length,l+4),o=[];
+  for(var i=a;i<=b;i++){var s=srcLines[i-1];if(s.length>170)s=s.slice(0,170)+' …';o.push('<span'+(i===l?' class="hit"':'')+'>'+String(i).padStart(6)+'  '+esc(s)+'</span>')}
+  return'<pre>'+o.join('')+'</pre>';
+}
+function detail(e){
+  if(!e.ptr.length)return'<div class="hint">No code pointer was captured for this event.</div>';
+  var h='<div class="chain">';
+  e.ptr.forEach(function(p,i){
+    var label={listener:'Handler attached to',caller:'Called from',stack:'Error stack frame',feature:'Created feature'}[p.r]||p.r;
+    h+='<div class="link '+esc(p.r)+'"><div class="role">'+(i+1)+'. '+esc(label)+(p.w&&p.r==='listener'?' <code>&lt;'+esc(p.w)+'&gt;</code>':'')+'</div>';
+    if(p.r==='feature'){h+='<div><b>'+esc(p.f)+'</b>'+(p.w?' — '+esc(p.w):'')+'</div></div>';return}
+    h+='<div class="mono">module <b>'+esc(p.m||'?')+'</b> → function <b>'+esc(p.f||'(anonymous)')+'</b>'+(p.d?' <span class="ptr">(starts at line '+p.d+')</span>':'')+' → line <b>'+p.l+'</b>, column '+p.c+'</div>';
+    if(p.s)h+='<div class="mono ptr">handler: '+esc(p.s)+'</div>';
+    h+=snippet(p.l)+'</div>';
+  });
+  return h+'</div>';
+}
+/* ---------- events ---------- */
+function load(file){
+  var fr=new FileReader();
+  fr.onload=function(){try{T=decode(fr.result);modFilter='';render()}catch(err){alert(err.message)}};
+  fr.readAsArrayBuffer(file);
+}
+$('file').addEventListener('change',function(e){if(e.target.files[0])load(e.target.files[0])});
+var dz=$('drop');
+['dragenter','dragover'].forEach(function(n){dz.addEventListener(n,function(e){e.preventDefault();dz.classList.add('on')})});
+['dragleave','drop'].forEach(function(n){dz.addEventListener(n,function(e){e.preventDefault();dz.classList.remove('on')})});
+dz.addEventListener('drop',function(e){var f=e.dataTransfer.files[0];if(f)load(f)});
+$('chips').addEventListener('click',function(e){var k=e.target.dataset&&e.target.dataset.k;if(!k)return;activeKinds[k]=!activeKinds[k];e.target.classList.toggle('on',activeKinds[k]);rows()});
+$('hot').addEventListener('click',function(e){var d=e.target.closest('[data-m]');if(!d)return;modFilter=modFilter===d.dataset.m?'':d.dataset.m;[].forEach.call($('hot').children,function(c){c.style.background=c.dataset.m===modFilter?'var(--chip)':''});rows()});
+$('q').addEventListener('input',rows);
+$('rows').addEventListener('click',function(e){
+  var tr=e.target.closest('tr.ev');if(!tr)return;
+  var nx=tr.nextElementSibling;
+  if(nx&&nx.classList.contains('det')){nx.remove();return}
+  var d=document.createElement('tr');d.className='det';d.innerHTML='<td colspan="4">'+detail(T.events[+tr.dataset.i])+'</td>';tr.after(d);
+});
+$('src').addEventListener('change',function(e){
+  var f=e.target.files[0];if(!f)return;
+  var fr=new FileReader();
+  fr.onload=function(){
+    srcLines=String(fr.result).split('\n');
+    var sig=T&&T.sig||'',m=/^(.*)\|(\d+)$/.exec(sig),ok='';
+    if(m){var diff=Math.abs(srcLines.length-(+m[2]));ok=diff<=2?'<span class="ok">matches the trace ('+esc(m[1])+')</span>':'<span class="bad">different build: the trace was recorded on '+esc(sig)+', this file has '+srcLines.length+' lines. Line numbers may be off.</span>'}
+    $('srcState').innerHTML='Loaded '+esc(f.name)+', '+srcLines.length+' lines. '+ok;
+    document.querySelectorAll('tr.det').forEach(function(r){r.remove()});
+  };
+  fr.readAsText(f);
+});
+function dl(name,text,mime){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:mime}));a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},800)}
+$('jsonBtn').addEventListener('click',function(){if(T)dl('aakar_trace_decoded.json',JSON.stringify(T,null,1),'application/json')});
+$('csvBtn').addEventListener('click',function(){
+  if(!T)return;var q=function(s){return'"'+String(s==null?'':s).replace(/"/g,'""')+'"'};
+  var rows=[['time_s','kind','what','tool','module','function','function_start_line','line','column','role','attached_to']];
+  T.events.forEach(function(e){if(!e.ptr.length)rows.push([(e.t/1000).toFixed(2),e.k,e.a,e.tool,'','','','','','','']);e.ptr.forEach(function(p){rows.push([(e.t/1000).toFixed(2),e.k,e.a,e.tool,p.m,p.f,p.d,p.l,p.c,p.r,p.w])})});
+  dl('aakar_trace_decoded.csv',rows.map(function(r){return r.map(q).join(',')}).join('\n'),'text/csv');
+});
+window.AKDEC={decode:decode};
+})();
+</script>
+</body>
+</html>
