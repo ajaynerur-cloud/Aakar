@@ -57586,7 +57586,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     var t = D.by[D.cur] || D.tools[0]; if (!t) return; D.cur = t.id; var v = D.vals[t.id], groups = {}, u = unit();
     D.tools.forEach(function (x) { (groups[x.group] = groups[x.group] || []).push(x); });
     var nav = Object.keys(groups).map(function (g) { return '<h6>' + esc(g) + '</h6>' + groups[g].map(function (x) { return '<button data-t="' + x.id + '"' + (x.id === t.id ? ' class="on"' : '') + '>' + esc(x.name) + '</button>'; }).join(''); }).join('');
-    root.innerHTML = '<header><h1>Designers · ' + esc(t.name) + '</h1><span class="note">' + esc(t.blurb || '') + '</span><span class="sp"></span><label class="note">Units (whole app) <select data-a="unit" style="width:auto">' + ['mm', 'cm', 'm', 'in', 'ft'].map(function (x) { return '<option value="' + x + '"' + (unit() === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label><button class="btn" data-a="reset">Reset</button><button class="btn" data-a="x">✕ Close</button></header>' +
+    root.innerHTML = '<header><h1>Designers · ' + esc(t.name) + '</h1><span class="note">' + esc(t.blurb || '') + '</span><span class="sp"></span><label class="note">Units (whole app) <select data-a="unit" style="width:auto">' + ['mm', 'cm', 'm', 'in', 'ft'].map(function (x) { return '<option value="' + x + '"' + (unit() === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label><button class="btn" data-a="setx" title="Download every setting and entered value of this designer as a labelled file (JSON)">⬇ Settings</button><button class="btn" data-a="setl" title="Load a settings file saved with the Settings button">⬆ Load</button><button class="btn" data-a="reset">Reset</button><button class="btn" data-a="x">✕ Close</button></header>' +
       '<div class="wrap"><nav>' + nav + '</nav><div class="inp"><table><tbody>' + inputRows(t, v) + '</tbody></table><div class="note" style="margin-top:8px">' + esc(t.note || '') + '</div></div><div class="main" id="dsgMain"></div></div>';
     S.keepTab = keepTab; paint();
   }
@@ -57639,6 +57639,18 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     if (b.dataset.x && t.act) { t.act(b.dataset.x, o, D.vals[t.id], D); return; }
     var a = b.dataset.a; if (!a) return;
     if (a === 'x') { stopAnim(); D.close(); return; }
+    if (a === 'setx') {
+      var vv = D.vals[t.id], sec = '', rows0 = [], VK = ['sel', 'datum', 'mirror', 'edges', 'wood', 'cdatum', 'cmirror'];
+      (t.fields || []).forEach(function (f) { if (f.h) { sec = f.h; return; } if (!f.k) return; var vl = vv[f.k], lab = vl; if (f.t === 'sel') { var oo = (typeof f.o === 'function' ? f.o() : f.o).filter(function (q) { return String(q[0]) === String(vl); })[0]; lab = oo ? oo[1] : vl; } rows0.push({ section: sec, key: f.k, label: f.l, value: vl, shown: f.t === 'chk' ? (vl ? 'yes' : 'no') : lab, unit: f.t === 'len' ? 'mm (stored)' : (f.u || ''), visible: !(f.show && !f.show(vv)) }); });
+      var view = {}; if (t.id === 'stair' && window.AAKAR_GS) VK.forEach(function (k) { view[k] = window.AAKAR_GS[k]; });
+      var pack = { format: 'aakar-designer-settings', version: 1, saved: new Date().toISOString(), tool: t.id, toolName: t.name, displayUnit: unit(), values: JSON.parse(JSON.stringify(vv)), fields: rows0, view: view };
+      CAD.io.download('aakar-' + t.id + '-settings-' + pack.saved.slice(0, 10) + '.json', new Blob([JSON.stringify(pack, null, 2)], { type: 'application/json' })); return;
+    }
+    if (a === 'setl') {
+      var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+      inp.onchange = function () { var fl = inp.files && inp.files[0]; if (!fl) return; fl.text().then(function (tx) { var pk; try { pk = JSON.parse(tx); } catch (e1) { alert('This is not a settings file.'); return; } if (!pk || pk.format !== 'aakar-designer-settings' || !D.by[pk.tool]) { alert('This is not an Aakar designer settings file.'); return; } stopAnim(); D.cur = pk.tool; Object.keys(pk.values || {}).forEach(function (k) { D.vals[pk.tool][k] = pk.values[k]; }); if (pk.view && window.AAKAR_GS) Object.keys(pk.view).forEach(function (k) { window.AAKAR_GS[k] = pk.view[k]; }); S.tab = null; render(); }); };
+      inp.click(); return;
+    }
     if (a === 'reset') { (t.fields || []).forEach(function (f) { if (f.k) D.vals[t.id][f.k] = f.v; }); render(); return; }
     if (a === 'build') { D.build(o.build, t.id === 'stair' ? ({ stair: 'Cut stair', stairH: 'Grooved stair', ladder: 'Ladder', ladderH: 'Grooved ladder' })[D.vals.stair.type] + (({ inline: ' · in-line landing', L: ' · L-shape', Lw: ' · L-shape winders', U: ' · U-shape' })[D.vals.stair.lay] || '') : t.name); setTimeout(function () { D.close(); try { P.fitView && P.fitView(); } catch (e9) { /* ok */ } }, 60); return; }
     if (a === 'svg' && o.items) { save(t.id + '.svg', (o.viewSvg || (o.views[0] && o.views[0].svg)).replace('<svg ', '<svg style="background:#fff" ').replace(/(<svg[^>]*>)/, '$1<style>.o{stroke:#222;fill:none}.c{stroke:#d9640f;fill:none}.d{stroke:#2a62c9;fill:none}.g{stroke:#aaa;fill:none}.k{stroke:#169b5a;fill:none}.fl{fill:rgba(255,138,61,.16)}.fb{fill:rgba(122,167,255,.16)}.t{fill:#222;stroke:none;font-family:Arial,sans-serif}.hl{fill:#d9640f}</style>'), 'image/svg+xml'); return; }
@@ -57672,7 +57684,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
   (function () {
     var L = fmtL, deg = 180 / Math.PI;
     var isS = function (v) { return v.type === 'stair' || v.type === 'stairH'; }, isH = function (v) { return v.type === 'stairH' || v.type === 'ladderH'; };
-    var GS = { sel: 0, datum: 'blank', mirror: false, edges: false, wood: 'pine', wopa: 1, meas: false, mz: {}, zoom: {}, sig: '', cdatum: 'foot', cmirror: false };
+    var GS = window.AAKAR_GS = { sel: 0, datum: 'blank', mirror: false, edges: false, wood: 'pine', wopa: 1, meas: false, mz: {}, zoom: {}, sig: '', cdatum: 'foot', cmirror: false };
 
     D.uo = '';
     root.addEventListener('change', function (e) { var el = e.target; if (el && el.dataset && el.dataset.a === 'unit') { if (G.AakarPrefs && G.AakarPrefs.set) G.AakarPrefs.set('unit', el.value); else { D.uo = el.value; render(true); } } });
