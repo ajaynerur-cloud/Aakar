@@ -7106,10 +7106,22 @@ body.aaktouch #aakNavPill{display:flex}
           for (let i = 0; i < 12; i++) { const q = toS(add(S.b, pr)); if (q[0] > 30 && q[0] < cw - 30 && q[1] > 30 && q[1] < ch - 70) break; pr = mul(pr, 0.7); }
           if (toS(add(S.b, pr))[1] < 30 || toS(add(S.b, pr))[1] > ch - 70) pr = mul(unit([pr[0], -pr[1]]), len(pr)); S.e2 = add(S.b, pr); void bs;
         }
+        /** clicking one line of a shape selects only that line: a pattern of it gives loose open lines that can never be extruded. Take the whole connected shape unless the user switches that off. */
+        function expandWhole() {
+          if (S.whole === false) return 0; const ids = new Set(selSrc().map((e) => e.id)), add = [];
+          try { K.shapes(sk, 24).forEach((sh) => { const have = sh.ents.filter((i) => ids.has(i)); if (have.length && have.length < sh.ents.length) sh.ents.forEach((i) => { if (!ids.has(i)) add.push(i); }); }); } catch (eS) { /* keep the selection */ }
+          add.forEach((i) => st.sel.push({ kind: 'ent', id: i })); return add.length;
+        }
         function start(mode) {
-          const b = box(); if (!b) return false;
+          if (!S.on) S.orig = st.sel.slice(); const nAdd = expandWhole(); if (nAdd) toast('Pattern uses the whole connected shape (' + nAdd + ' more line' + (nAdd > 1 ? 's' : '') + ' added) so the copies stay closed and extrude. Untick "Whole shapes" to repeat only what you clicked.');
+          const b = box(); if (!b) return false; S.pk = null;
           S.b = b.c.slice(); S.bb = b; S.sf = 'c'; S.sfPick = false; S.n = Math.max(2, Math.min(100, V.n | 0 || 4)); S.mode = mode; S.nr = 1; S.rs = 0; S.pathId = null; S.ppoly = null; S.sEnd = null; S.every = 0; S.rev = false; S.pick = mode === 'path'; S.tot = true; S.n2 = 1; S.ang = 360; S.drag = null;
           const step = Math.max(b.w, b.h, 1) * 1.6, room = Math.max(10, (cv.clientWidth * 0.55) / view.s), bs0 = toS(b.c), dirx = bs0[0] > cv.clientWidth * 0.55 ? -1 : 1; S.e = [b.c[0] + dirx * Math.min(step * (S.n - 1), room), b.c[1]];
+          try {   /* never start with the handle hidden under a floating panel or off the canvas */
+            const rc = cv.getBoundingClientRect(), free = (w) => { const q = toS(w); if (q[0] < 24 || q[1] < 24 || q[0] > cv.clientWidth - 24 || q[1] > cv.clientHeight - 24) return false; return document.elementFromPoint(rc.left + q[0], rc.top + q[1]) === cv; };
+            if (!free(S.e)) { const o = toS(b.c); let done = false; for (const f of [0.5, 0.35, 0.22, 0.14]) { for (const d of [[1, 0], [-1, 0], [0, -1], [0, 1], [1, -1], [-1, -1], [1, 1], [-1, 1]]) { const L = Math.hypot(d[0], d[1]), w = toW([o[0] + d[0] / L * f * cv.clientWidth, o[1] + d[1] / L * f * cv.clientHeight]); if (free(w)) { S.e = w; done = true; break; } } if (done) break; }
+              if (!done) toast('The handle is hidden behind a panel: close or move the panels over the sketch, or use Pick start / Pick end', true); }
+          } catch (eF) { /* keep the default */ }
           S.c = Math.hypot(b.c[0], b.c[1]) > b.r * 0.6 ? [0, 0] : [b.c[0] - b.r * 3, b.c[1]];
           defE2(); S.on = true; host().classList.add('pg-on'); show(); draw();
           if (!S.hinted) { S.hinted = true; toast('Drag the orange handle to set direction and spacing. Copies update live. Press Place (or Enter) to make them.'); }
@@ -7142,6 +7154,14 @@ body.aaktouch #aakNavPill{display:flex}
           bar.innerHTML = '<span class="ch" data-m="lin">Linear</span><span class="ch" data-m="cir">Circular</span><span class="ch" data-m="path">Path</span><span class="sep"></span><small>Start from</small><select class="sf" title="Where the pattern starts: a point on the shape or one you pick"><option value="c">Centre</option><option value="tl">Top left</option><option value="t">Top</option><option value="tr">Top right</option><option value="l">Left</option><option value="r">Right</option><option value="bl">Bottom left</option><option value="b">Bottom</option><option value="br">Bottom right</option><option value="pick">Pick a point…</option></select><span class="sep"></span><small>Copies</small><button type="button" class="st" data-n="-1" aria-label="Fewer copies">−</button><input type="text" class="n" inputmode="numeric" title="Type the number of copies"><button type="button" class="st" data-n="1" aria-label="More copies">+</button><span class="sep"></span>' +
             '<span class="fl"><small>Rows</small><button type="button" class="st" data-r="-1" aria-label="Fewer rows">\u2212</button><input type="text" class="n2" inputmode="numeric" title="Type the number of rows"><button type="button" class="st" data-r="1" aria-label="More rows">+</button><small class="ll"></small> <input type="text" class="len" data-uk="mm"> <small>mm</small> <small>∠</small> <input type="text" class="dir"> <small>°</small> <label><input type="checkbox" class="tot"> Total</label></span>' +
             '<span class="fc"><small>Angle</small> <input type="text" class="ang"> <small>°</small> <small>Rings</small> <input type="text" class="nr" inputmode="numeric" style="width:34px"> <small>gap</small> <input type="text" class="rs" data-uk="mm" placeholder="auto" style="width:50px"> <small>mm</small></span><span class="fp"><button type="button" class="x pk">Pick path</button><label><input type="checkbox" class="po"> Turn with path</label><button type="button" class="x rv" title="Walk the other way along the path">\u21c4</button><small>every</small> <input type="text" class="ev" data-uk="mm" placeholder="auto"> <small>mm</small></span><span class="sep"></span><button type="button" class="ok">Place</button><button type="button" class="x" title="Cancel (Esc)">✕</button>';
+          { const x2 = document.createElement('span'); x2.className = 'fx2'; x2.style.cssText = 'display:flex;align-items:center;gap:5px';
+            x2.innerHTML = '<span class="sep"></span><button type="button" class="ch" data-pk="s" title="Click the point the pattern starts from (snaps to points, ends, middles, centres)">⌖ Start</button><button type="button" class="ch" data-pk="e" title="Click the point the pattern runs to">⌖ End</button><button type="button" class="ch" data-pk="line" title="Use a line: copies are spaced from its first end to its second">⌖ Line</button><button type="button" class="ch" data-pk="c" title="Click the centre of the circular pattern">⌖ Centre</button><label class="wsl" title="Repeat the whole connected shape, not just the line you clicked, so copies stay closed and can be extruded" style="display:flex;align-items:center;gap:3px"><input type="checkbox" class="wsh" checked><small>Whole shapes</small></label><span class="spn" style="display:flex;align-items:center;gap:4px"><small>Step X</small><input type="text" class="sxi" data-uk="mm" style="width:58px"><small>Y</small><input type="text" class="syi" data-uk="mm" style="width:58px"></span>';
+            bar.appendChild(x2);
+            x2.querySelectorAll('[data-pk]').forEach((b) => { b.onclick = (ev) => { ev.stopPropagation(); const k = b.dataset.pk; S.pk = S.pk === k ? null : k; S.sfPick = false; toast(S.pk === 's' ? 'Click the START point: it snaps to points, ends, middles and centres' : S.pk === 'e' ? 'Click the END point' : S.pk === 'line' ? 'Click a straight line to use as the pattern vector' : S.pk === 'c' ? 'Click the centre of the circular pattern' : 'Pick cancelled'); show(); draw(); }; });
+            x2.querySelector('.wsh').onchange = (ev) => { ev.stopPropagation(); S.whole = ev.target.checked; if (S.whole) { expandWhole(); } else if (S.orig) { st.sel = S.orig.slice(); } const bb2 = box(); if (bb2) { S.bb = bb2; } draw(); show(); };
+            const stepIn = () => { const a = num(x2.querySelector('.sxi').value, NaN), c2 = num(x2.querySelector('.syi').value, NaN), v = vec(); if (!isFinite(a) && !isFinite(c2)) return; const ux = isFinite(a) ? a : v[0], uy = isFinite(c2) ? c2 : v[1], k = S.tot ? Math.max(1, S.n - 1) : 1; if (Math.hypot(ux, uy) > 1e-9) { S.e = [S.b[0] + ux * k, S.b[1] + uy * k]; draw(); } };
+            x2.querySelectorAll('.sxi,.syi').forEach((i) => { i.addEventListener('input', stepIn); i.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); i.blur(); } }); i.addEventListener('focus', () => i.select()); });
+          }
           host().appendChild(bar);
           ['pointerdown', 'mousedown', 'dblclick', 'contextmenu', 'wheel'].forEach((ev) => bar.addEventListener(ev, (e) => e.stopPropagation()));
           bar.addEventListener('keyup', (e) => e.stopPropagation());
@@ -7191,6 +7211,7 @@ body.aaktouch #aakNavPill{display:flex}
         }
         function show() {
           const d = ensureBar(); d.style.display = 'flex'; const lin = S.mode === 'lin', foc = document.activeElement;
+          { const x2 = d.querySelector('.fx2'); if (x2) { x2.style.display = S.mode === 'path' ? 'none' : 'flex'; x2.querySelectorAll('[data-pk]').forEach((b) => { const k = b.dataset.pk; b.style.display = (S.mode === 'cir' ? k === 'c' : (k === 's' || k === 'e' || k === 'line')) ? '' : 'none'; b.classList.toggle('on', S.pk === k); }); const wc = x2.querySelector('.wsh'); if (wc) wc.checked = S.whole !== false; const sx = x2.querySelector('.sxi'), sy = x2.querySelector('.syi'), sp = x2.querySelector('.spn'); if (sp) sp.style.display = lin ? 'flex' : 'none'; if (lin && sx && sy) { const v = vec(); if (document.activeElement !== sx) sx.value = fx(v[0]); if (document.activeElement !== sy) sy.value = fx(v[1]); } } }
           d.querySelectorAll('[data-m]').forEach((b) => b.classList.toggle('on', b.dataset.m === S.mode)); { const sf = d.querySelector('.sf'); if (sf) { sf.value = S.sf || 'c'; sf.style.display = S.mode === 'path' ? 'none' : ''; if (sf.previousElementSibling) sf.previousElementSibling.style.display = S.mode === 'path' ? 'none' : ''; } }
           { const n1 = d.querySelector('.n'), n2 = d.querySelector('.n2'); if (document.activeElement !== n1) n1.value = S.n; if (document.activeElement !== n2) n2.value = S.n2; } d.querySelector('.fl').style.display = lin ? 'flex' : 'none'; d.querySelector('.fc').style.display = S.mode === 'cir' ? 'flex' : 'none'; d.querySelector('.fp').style.display = S.mode === 'path' ? 'flex' : 'none'; d.querySelector('.po').checked = S.orient; if (document.activeElement !== d.querySelector('.nr')) d.querySelector('.nr').value = S.nr; if (document.activeElement !== d.querySelector('.rs')) d.querySelector('.rs').value = S.rs > 0 ? fx(S.rs) : ''; if (document.activeElement !== d.querySelector('.ev')) d.querySelector('.ev').value = S.every > 0 ? fx(S.every) : ''; d.querySelector('.pk').textContent = S.pathId ? 'Change path' : 'Pick path';
           const cur = sub(S.e, S.b), L = S.tot ? len(cur) : len(vec()), a = ((deg(Math.atan2(cur[1], cur[0])) % 360) + 360) % 360;
@@ -7201,7 +7222,7 @@ body.aaktouch #aakNavPill{display:flex}
         function handles() {
           if (!S.on) return []; const bs = toS(S.b);
           if (S.mode === 'path') { const pl = pathPlan(); if (!pl || !(pl.sp > 1e-9)) return []; return [{ id: 'e', p: toS(pl.at(S.n - 1).p) }]; }
-          if (S.mode === 'lin') return S.n2 > 1 ? [{ id: 'e', p: toS(S.e) }, { id: 'f', p: toS(S.e2) }] : [{ id: 'e', p: toS(S.e) }];
+          if (S.mode === 'lin') return S.n2 > 1 ? [{ id: 'e', p: toS(S.e) }, { id: 'f', p: toS(S.e2) }, { id: 's', p: bs }] : [{ id: 'e', p: toS(S.e) }, { id: 's', p: bs }];
           const cs = toS(S.c), R = Math.max(30, Math.hypot(bs[0] - cs[0], bs[1] - cs[1])) + 34, a = Math.atan2(S.b[1] - S.c[1], S.b[0] - S.c[0]) + rad(S.ang);
           return [{ id: 'a', p: [cs[0] + R * Math.cos(a), cs[1] - R * Math.sin(a)], R, cs }, { id: 'c', p: cs }];
         }
@@ -7212,6 +7233,7 @@ body.aaktouch #aakNavPill{display:flex}
           if (S.mode === 'path') { const pl = pathPlan(); if (pl && d === 'e') { const q = polyNear(pl.pd, toW([x, y])); let s = q.s; const st5 = pl.pd.L * 0.012; if (!ev.altKey && !pl.pd.closed) { if (s < st5) s = 0; if (s > pl.pd.L - st5) s = pl.pd.L; } S.sEnd = s; S.every = 0; } show(); return; }
           if (d === 'e') { let w = snapW(x, y, ev); const v = sub(w, S.b), L = len(v), a = Math.atan2(v[1], v[0]), st15 = rad(15), sa = Math.round(a / st15) * st15; if (!ev.altKey && L > 1e-9 && Math.abs(a - sa) < rad(3.5) && !(st.snap && st.snap.kind && st.snap.kind !== 'free')) w = [S.b[0] + L * Math.cos(sa), S.b[1] + L * Math.sin(sa)]; S.e = w; }
           else if (d === 'f') { let w = snapW(x, y, ev); const v = sub(w, S.b), L = len(v), pr = [-(S.e[1] - S.b[1]), S.e[0] - S.b[0]], pl = len(pr); if (!ev.altKey && L > 1e-9 && pl > 1e-9 && Math.abs(crs(v, pr)) / (L * pl) < 0.06 && dot(v, pr) !== 0 && !(st.snap && st.snap.kind && st.snap.kind !== 'free')) { const u = unit(pr), s2 = dot(v, u); w = add(S.b, mul(u, s2)); } S.e2 = w; }
+          else if (d === 's') { S.b = snapW(x, y, ev); S.sf = 'pick'; }
           else if (d === 'c') S.c = snapW(x, y, ev);
           else if (d === 'a') { const w = toW([x, y]), t = Math.atan2(w[1] - S.c[1], w[0] - S.c[0]); let dl = t - S.raw; while (dl > Math.PI) dl -= 2 * Math.PI; while (dl < -Math.PI) dl += 2 * Math.PI; S.raw = t; let a = S.ang + deg(dl); a = Math.max(-360, Math.min(360, a)); if (!ev.altKey) { const r5 = Math.round(a / 5) * 5; if (Math.abs(a - r5) < 2.5) a = r5; if (Math.abs(a) > 355) a = a < 0 ? -360 : 360; } S.ang = a; }
           show();
@@ -7221,6 +7243,12 @@ body.aaktouch #aakNavPill{display:flex}
           cv.addEventListener('pointerdown', (e) => {
             if (!S.on || e.button !== 0 || e.altKey && false) return; const [x, y] = loc2(e), tol = e.pointerType === 'touch' ? 26 : 15; let hit = null, bd = 1e9;
             if (S.sfPick) { S.sfPick = false; S.sf = 'pick'; setStart(snapW(x, y, e)); e.stopImmediatePropagation(); e.preventDefault(); return; }
+            if (S.pk) {
+              const k = S.pk; S.pk = null; e.stopImmediatePropagation(); e.preventDefault();
+              if (k === 'line') { let h = null; try { h = pick(x, y, { geomOnly: true }); } catch (eP) { h = null; } const en = h && h.kind === 'ent' ? I.E.get(h.id) : null; if (!en || en.type !== 'line') { toast('Click a straight line: the copies are spaced along it, from its first end to its second', true); S.pk = 'line'; return; } S.b = P(en.p1).slice(); S.e = P(en.p2).slice(); S.tot = true; S.sf = 'pick'; toast('Pattern vector taken from the line'); }
+              else { const w = snapW(x, y, e); if (k === 's') { S.b = w; S.sf = 'pick'; } else if (k === 'e') S.e = w; else if (k === 'c') S.c = w; }
+              show(); draw(); return;
+            }
             if (S.mode === 'path' && S.pick) { if (pickPath(x, y)) { e.stopImmediatePropagation(); e.preventDefault(); } return; }
             handles().forEach((h) => { const d = Math.hypot(h.p[0] - x, h.p[1] - y); if (d < tol && d < bd) { bd = d; hit = h; } });
             if (!hit) return; S.drag = hit.id; if (hit.id === 'a') { const w = toW([x, y]); S.raw = Math.atan2(w[1] - S.c[1], w[0] - S.c[0]); }
@@ -12307,7 +12335,7 @@ function faceEdgeItems(loops) {
   addGroup('model', 'Create', [['extrude', 'Extrude', () => extrudeCmd()], ['revolve', 'Revolve', () => revolveCmd()], ['sweep', 'Sweep', () => sweepCmd()], ['threadsk', 'Thread from shape', () => aakThreadShape(), 'Helix and sweep from a shape: pick the tooth shape and the axis, and see the thread live'], ['loft', 'Loft', () => loftCmd(), 'Loft: blend 2 or more sections (sketch, face, edge, curve or point), with optional rails'], ['loftRail', 'Loft rail', () => loftRailCmd(), 'Loft rail: a guide curve (line, arc or spline) between a face / edge / corner and another curve, to use as a rail in Loft', '<path d="M3 19C8 19 5 5 12 5S16 17 21 3"/>'], ['box', 'Box', () => createPrim('box')], ['cyl', 'Cylinder', () => createPrim('cyl')], ['sph', 'Sphere', () => createPrim('sph')], ['cone', 'Cone', () => createPrim('cone')], ['tor', 'Torus', () => createPrim('tor')], ['wedge', 'Wedge', () => createPrim('wedge')], ['hex', 'Polygon', () => createPrim('hex')]]);
   addGroup('model', 'Modify', [['shell', 'Hollow (Shell)', () => shellCmd(), 'Make the part hollow with a wall thickness you choose'], ['fillet', 'Round edges', () => edgeFeature('fillet'), 'Fillet: soften sharp edges with a curve'], ['fillet2', 'Smooth round (G2)', () => edgeFeature('filletG2'), 'Curvature-continuous round: you set the chord width; the blend leaves each face with no visible seam'], ['chamfer', 'Bevel edges', () => edgeFeature('chamfer'), 'Chamfer: cut a flat slope on sharp edges'], ['planar', 'Flatten faces', () => bodyFeature('planarize'), 'Planarize'], ['heal', 'Repair', () => bodyFeature('heal'), 'Heal: fix small gaps and bad faces']]);
   addGroup('model', 'Combine', [['uni', 'Union', () => combine('union')], ['sub', 'Subtract', () => combine('subtract')], ['int', 'Intersect', () => combine('intersect')]]);
-  addGroup('model', 'Pattern', [['mirror', 'Mirror', () => mirrorBody()], ['lpat', 'Linear', () => linearPattern()], ['cpat', 'Circular', () => circularPattern()], ['dup', 'Duplicate', () => duplicate(), 'Make an offset copy of the selected body right away'], ['bcopy', 'Copy', () => window.AAKAR_BODYOPS && window.AAKAR_BODYOPS.copy(), 'Copy the selected body (Ctrl+C)', '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'], ['bpaste', 'Paste', () => window.AAKAR_BODYOPS && window.AAKAR_BODYOPS.paste(), 'Paste the copied body (Ctrl+V) — each paste lands one step further along X', '<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5V3h6v2"/>'], ['bhide', 'Hide', () => window.AAKAR_BODYOPS && window.AAKAR_BODYOPS.hide(), 'Hide the selected body or bodies, whatever they are made from (Ctrl+Shift+H)', '<path d="M3 12s4-7 9-7 9 7 9 7-4 7-9 7-9-7-9-7z"/><path d="M4 4l16 16"/>'], ['bshow', 'Show all', () => window.AAKAR_BODYOPS && window.AAKAR_BODYOPS.showAll(), 'Bring every hidden body back', '<path d="M3 12s4-7 9-7 9 7 9 7-4 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="3"/>'], ['del', 'Delete', () => deleteSel()]]);
+  addGroup('model', 'Pattern', [['mirror', 'Mirror', () => mirrorBody()], ['lpat', 'Linear', () => linearPattern()], ['lpat2', 'Linear (2 points)', () => { try { CAD.x10.ui.patTwoPoint(); } catch (e) { toast('Linear (2 points): ' + e.message, true); } }, 'Click a point on the part, then the point the copy steps to (or the last copy)'], ['cpat', 'Circular', () => circularPattern()], ['dup', 'Duplicate', () => duplicate(), 'Make an offset copy of the selected body right away'], ['bcopy', 'Copy', () => window.AAKAR_BODYOPS && window.AAKAR_BODYOPS.copy(), 'Copy the selected body (Ctrl+C)', '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'], ['bpaste', 'Paste', () => window.AAKAR_BODYOPS && window.AAKAR_BODYOPS.paste(), 'Paste the copied body (Ctrl+V) — each paste lands one step further along X', '<rect x="6" y="5" width="12" height="16" rx="2"/><path d="M9 5V3h6v2"/>'], ['bhide', 'Hide', () => window.AAKAR_BODYOPS && window.AAKAR_BODYOPS.hide(), 'Hide the selected body or bodies, whatever they are made from (Ctrl+Shift+H)', '<path d="M3 12s4-7 9-7 9 7 9 7-4 7-9 7-9-7-9-7z"/><path d="M4 4l16 16"/>'], ['bshow', 'Show all', () => window.AAKAR_BODYOPS && window.AAKAR_BODYOPS.showAll(), 'Bring every hidden body back', '<path d="M3 12s4-7 9-7 9 7 9 7-4 7-9 7-9-7-9-7z"/><circle cx="12" cy="12" r="3"/>'], ['del', 'Delete', () => deleteSel()]]);
   [['undo', 'Undo', () => undo()], ['redo', 'Redo', () => redo()], ['help', 'Help', () => showHelp()]].forEach(it => mkBtn(it, $('#tbEdit')));
 
   // ---------------------------------------------------------------- primitives & previews
@@ -13279,7 +13307,13 @@ function profLabel(r, i) { try { let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e1
     const ui = FUI[type]({ params: params0 }, stt);
     const v = await dialog(title, ui.fields, { preview: (vals) => showPreview({ type, params: ui.apply(vals) }), onClose: clearPreview, note: ui.note, onOpen: (c) => { const u = ui.onOpen ? ui.onOpen(c) : null; let g = null; try { g = AKGZ.attach(type, c, params0, stt, ui); } catch (eg) { console.warn('gizmo', eg); } return () => { try { if (g) g(); } catch (e0) { /* ok */ } if (typeof u === 'function') { try { u(); } catch (e1) { console.error(e1); } } }; } });
     if (!v) return null;
-    return commitFeature({ type, params: ui.apply(v) });
+    const made = commitFeature({ type, params: ui.apply(v) });
+    if (type === 'linearPattern' && made && window.__lpExtra && window.__lpExtra.length) {   /* "Also repeat" parts picked in the dialog get the same pattern */
+      const ex = window.__lpExtra.slice(); window.__lpExtra = []; let k = 0;
+      ex.forEach((key) => { if (key === made.params.body) return; try { commitFeature({ type, params: Object.assign({}, made.params, { body: key }) }, true); k++; } catch (eX) { console.warn(eX); } });
+      if (k) status('Linear pattern made for ' + (k + 1) + ' parts');
+    }
+    return made;
   }
   async function profileFeature(type, title, extra) {
     const stt = F.regen(st.doc);
@@ -14403,7 +14437,8 @@ function profLabel(r, i) { try { let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e1
     const used = consumedSketches(), L = [], P = [], cons = consumedShapes();
     st.state.sketches.forEach(sk => {
       const selected = st.selFeature === sk.id;
-      if (((st.doc.meta || {}).vis || {})[sk.id] === false && !selected) return;   /* 8.86: hidden sketch */
+      const G3 = window.AAKAR_SK3D || (window.AAKAR_SK3D = { sketches: true, construction: true }), editingNow = !!(st.sketching && st.skFeatureId === sk.id);
+      if (!editingNow && (((st.doc.meta || {}).vis || {})[sk.id] === false || G3.sketches === false)) return;   /* hidden sketch: stays hidden even while it is selected */
       const cs = cons.get(sk.id); if (used.has(sk.id) && !selected && (cs === 'ALL' || !cs)) return;
       let skipEnt = null, drawnPts = null;
       try { const vh = (((st.doc.meta || {}).shpHide || {})[sk.id]) || {}, SH = K.shapes(sk.data, 24); if (SH.length >= 2 || SH.some((s) => s.hidden || vh[s.key])) { skipEnt = new Set(); SH.forEach((s) => { const gone = s.hidden || vh[s.key] || (!selected && cs && cs !== 'ALL' && (cs.has(s.key) || (s.members || []).some((k) => cs.has(k)))); if (gone) s.ents.forEach((id) => skipEnt.add(id)); }); drawnPts = new Set(); } } catch (eS) { skipEnt = null; }
@@ -14412,6 +14447,7 @@ function profLabel(r, i) { try { let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e1
       sk.data.ents.forEach(e => {
         if (e.ref) return;
         if (skipEnt && skipEnt.has(e.id)) return;
+        if (e.constr && G3.construction === false && !editingNow) return;
         if (drawnPts) [e.p1, e.p2, e.c, ...(e.pts || [])].forEach((q) => { if (q) drawnPts.add(q); });
         const pts = K.discretize(sk.data, e, 48, I).map(q => F.to3(sk.plane, q));
         if (e.type === 'circle') pts.push(pts[0]);
@@ -32248,6 +32284,13 @@ body.x855 #x86fab{display:none!important}
   }
   Object.assign(CAD.x10.ui, { jointCmd, jointPanel });
   P.addGroup('all', 'Workflow', [['toolorder', 'Tool order', () => { const T = window.AAKAR_TOOLORDER; T.set(T.get() === 'az' ? 'default' : 'az'); }, 'Order of the tools inside every menu: switch between task order and A–Z', '<path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3"/>']]);
+  P.addGroup('all', 'Workflow', [
+    ['sk3dvis', 'Sketches on/off', () => { const G = window.AAKAR_SK3D || (window.AAKAR_SK3D = { sketches: true, construction: true }); G.sketches = !G.sketches; P.redraw(); toast(G.sketches ? 'Sketches shown in the 3D view' : 'All sketches hidden in the 3D view (they are still in the model)'); }, 'Show or hide every sketch in the 3D view at once', '<path d="M3 17l5-9 5 6 3-4 5 7z"/>'],
+    ['sk3dcon', 'Construction lines on/off', () => { const G = window.AAKAR_SK3D || (window.AAKAR_SK3D = { sketches: true, construction: true }); G.construction = !G.construction; P.redraw(); toast(G.construction ? 'Construction (dashed amber) lines shown' : 'Construction lines hidden in the 3D view'); }, 'Show or hide the dashed construction / reference lines of all sketches', '<path d="M3 12h4M10 12h4M17 12h4"/>']]);
+  /* the floating bar that appears when sketch shapes are selected: when it is docked as a narrow column, its buttons were squeezed to 20px and their labels piled up on each other */
+  (function () { if (document.getElementById('ak-frm-skb-fix')) return; const s = document.createElement('style'); s.id = 'ak-frm-skb-fix';
+    s.textContent = '#frmCtx.docked:has(.skb){flex-wrap:nowrap;max-width:172px}#frmCtx.docked .row.skb{flex-direction:column;flex-wrap:nowrap;align-items:stretch;gap:2px;width:100%}#frmCtx.docked .row.skb>button,#frmCtx.docked .row.skb .grp>button{width:100%;min-width:0;flex-direction:row;justify-content:flex-start;gap:8px;white-space:nowrap;padding:6px 8px}#frmCtx.docked .row.skb .vsep{width:auto;height:1px;margin:3px 2px}#frmCtx.docked .row.skb .grp{width:100%;flex-direction:column}#frmCtx.docked .row.skb .dd{left:100%;bottom:auto;top:0;margin-left:6px}';
+    document.head.appendChild(s); })();
   /* ======================================================= LIVE ASSEMBLY */
   const LV = { pn: null, wz: null, h: null, drag: null, anim: {}, sig: '', poll: 0 };
   const fixedMap = () => { const mt = P.meta(); mt.asm = mt.asm || {}; mt.asm.fixed = mt.asm.fixed || {}; return mt.asm.fixed; };
@@ -32390,6 +32433,22 @@ body.x855 #x86fab{display:none!important}
     ['livejoint', 'Add joint', () => liveJoint(), 'Add a joint: click the part that stays, then the part that moves. Round faces are found for you; choose rotate, slide, ball, screw, gear, fixed or surface', IK.IC.mate],
     ['liveground', 'Fix a part', () => liveGround(), 'Click a part to fix it in space. Everything else moves around it', IK.IC.mate]
   ]);
+  /* ---- 3D linear pattern: click a point on the part, then the point it should step to */
+  function patTwoPoint() {
+    const snapV = (h) => { const s = h.body.solid; let best = null, bd = Infinity; s.V.forEach((q) => { const d = v3.dist(q, h.p); if (d < bd) { bd = d; best = q; } }); const bb = s.bbox(), dg = Math.hypot(bb.max[0] - bb.min[0], bb.max[1] - bb.min[1], bb.max[2] - bb.min[2]); return best && bd < 0.06 * dg ? best.slice() : h.p.slice(); };
+    IK.pickMode('PATTERN 1/2 — click the START point on the part to repeat (corners snap)', { click: (e) => {
+      const h = IK.faceAt(e.x, e.y); if (!h || !h.body) throw new Error('Click on the part you want to repeat'); const A = snapV(h), body = h.body; IK.endPick(); P.redraw();
+      IK.pickMode('PATTERN 2/2 — click the point the first copy should step to (any part or face)', { click: (e2) => {
+        const h2 = IK.faceAt(e2.x, e2.y); if (!h2) throw new Error('Click a face or corner'); const B = snapV(h2); IK.endPick(); const d = v3.sub(B, A);
+        if (v3.len(d) < 1e-6) return toast('Start and end are the same point', true);
+        P.dialog('Linear pattern — ' + (Math.round(v3.len(d) * 100) / 100) + ' mm between copies', [{ key: 'n', label: 'Count (incl. original)', value: 3 }, { key: 'tot', label: 'The two points are the FIRST and LAST copy (not the step)', type: 'checkbox', value: false }]).then((v) => {
+          if (!v) return; const n = Math.max(2, Math.round(+v.n) || 3), k = v.tot ? 1 / (n - 1) : 1;
+          const f = P.commitFeature({ type: 'linearPattern', params: { body: body.key, n, dx: +(d[0] * k).toFixed(6), dy: +(d[1] * k).toFixed(6), dz: +(d[2] * k).toFixed(6) } }, true); status('Linear pattern: ' + n + ' copies, ' + (Math.round(v3.len(d) * k * 100) / 100) + ' mm apart'); void f;
+        });
+      } });
+    } });
+  }
+  CAD.x10.ui.patTwoPoint = patTwoPoint;
   (function () { const oc = P.commitFeature; P.commitFeature = function (f, q) { const r = oc.apply(this, arguments); try { if (f && f.type === 'x10Insert') setTimeout(() => { try { const w = CAD.v8 && CAD.v8.windows && CAD.v8.windows.W.active, mt = P.meta(); mt.asm = mt.asm || {}; if (w && w.asm && partsNow().length >= 2 && !mt.asm.liveShown) { mt.asm.liveShown = true; livePanel(); status('Live assembly: tick ⚓ Fixed on the part that stays, then Add joint.'); } } catch (e) { /* ignore */ } }, 60); else if (f && f.type === 'x10Mate') setTimeout(() => { try { if (!(LV.pn && LV.pn.isOn())) { livePanel(); status('Joint added — it is listed in Live assembly: use its slider, Spin or Handle to move it.'); } else liveRender(); } catch (e) { /* ignore */ } }, 80); } catch (e) { /* ignore */ } return r; }; })();
   (function () { const oc = P.commitFeature; P.commitFeature = function (f, q) { const r = oc.apply(this, arguments); try { if (f && f.type === 'x10Insert') setTimeout(() => { try { const mt = P.meta(); mt.asm = mt.asm || {}; mt.asm.fixed = mt.asm.fixed || {}; const cs = AS.components().filter((c) => c.bodies.length); if (cs.length === 1 && !Object.keys(mt.asm.fixed).length && !mt.asm.autoGround) { mt.asm.fixed[cs[0].src] = true; mt.asm.autoGround = true; status(srcName(cs[0].src) + ' is fixed in place (first part). Use Float the static part in a joint panel to free it.'); } } catch (e) { /* ignore */ } }, 0); } catch (e) { /* ignore */ } return r; }; })();
   P.addGroup('assembly', 'Quick joints', [
@@ -55968,8 +56027,49 @@ body.aaktouch .aakhit{position:relative}body.aaktouch .aakhit::after{content:"";
       box.style.cssText = 'grid-column:1/-1;border:1px solid #2f4b78;background:#0d1a30;border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center;font:12px system-ui,sans-serif;color:#cfe0ff';
       box.innerHTML = '<span><b>Exact spacing</b> (mm)</span><input id="lpExactIn" type="text" inputmode="decimal" title="Distance between neighbouring copies. Type a value to resize the step; the direction is kept." style="padding:5px 8px;border-radius:8px;border:1px solid #3a4a6a;background:#101827;color:#fff">'
         + '<span>Each copy moves by</span><span id="lpExactVec" style="font-family:ui-monospace,monospace"></span>'
-        + '<span>First to last copy</span><span id="lpExactTot" style="font-family:ui-monospace,monospace"></span>';
+        + '<span>First to last copy</span><span id="lpExactTot" style="font-family:ui-monospace,monospace"></span>'
+        + '<span><b>Pick in 3D</b></span><span style="display:flex;flex-wrap:wrap;gap:5px"><button type="button" class="btn sm" data-lp="edge" title="Click an edge: the copies run along it, spaced by its length">⌖ Edge</button><button type="button" class="btn sm" data-lp="two" title="Click two points (corners, edge ends, middles, any face point): the copies step from the first to the second">⌖ 2 points</button><button type="button" class="btn sm" data-lp="dir" title="Click an edge: only its direction is used, the spacing you typed stays">⌖ Edge direction</button></span>'
+        + '<span><b>Also repeat</b></span><span style="display:flex;align-items:center;gap:6px"><button type="button" class="btn sm" data-lp="more" title="Click more parts to repeat them with the same direction and spacing. Enter or Esc finishes.">⌖ Add parts</button><span id="lpExtraN" style="font-size:11px;opacity:.8"></span><button type="button" class="btn sm" data-lp="clr" style="display:none">Clear</button></span>';
       f.appendChild(box);
+      window.__lpExtra = [];
+      const PX = () => window.PRISM, modal = () => document.getElementById('modal');
+      function pick3D(msg, onHit, multi) {
+        const P = PX(), cv = document.querySelector('#cv'), m = modal(); if (!P || !cv || !m) return;
+        m.style.visibility = 'hidden'; m.style.pointerEvents = 'none'; const hb = document.createElement('div'); hb.id = 'lpPickBar';
+        hb.style.cssText = 'position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:99999;background:#171d25;border:1px solid #ff8a3d;color:#ffd8bd;padding:8px 14px;border-radius:10px;font:13px system-ui,sans-serif;box-shadow:0 8px 24px #0008';
+        hb.textContent = msg + '  ·  Esc cancels' + (multi ? ' · Enter finishes' : ''); document.body.appendChild(hb);
+        const end = () => { document.removeEventListener('pointerdown', dn, true); document.removeEventListener('keydown', kd, true); hb.remove(); m.style.visibility = ''; m.style.pointerEvents = ''; P.redraw && P.redraw(); };
+        const kd = (e) => { if (e.key === 'Escape' || (multi && e.key === 'Enter')) { e.preventDefault(); e.stopImmediatePropagation(); end(); } };
+        const dn = (e) => {
+          if (e.button !== 0 || e.target !== cv) return; e.preventDefault(); e.stopImmediatePropagation();
+          const rc = cv.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top, f0 = P.st.filter; let h = null; try { P.st.filter = 'auto'; h = P.pickAt(x, y); } catch (er) { h = null; } finally { P.st.filter = f0; }
+          if (!h) { hb.textContent = 'Nothing there: click on the model. Esc cancels'; return; }
+          let done = false, ret; try { ret = onHit(h); done = ret !== false; } catch (er) { hb.textContent = (er.message || er) + ' · Esc cancels'; return; }
+          if ((!multi && done) || (multi && ret === true)) end();
+        };
+        document.addEventListener('pointerdown', dn, true); document.addEventListener('keydown', kd, true);
+      }
+      const ptOf = (h) => {
+        const s = h.body && h.body.solid; if (h.kind === 'vertex' && s) return s.V[h.vi].slice();
+        if (h.kind === 'edge' && s) { const sg = segOf(h); if (sg) { const [a, b] = sg, L = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]), da = Math.hypot(h.p[0] - a[0], h.p[1] - a[1], h.p[2] - a[2]), db = Math.hypot(h.p[0] - b[0], h.p[1] - b[1], h.p[2] - b[2]); if (da < 0.15 * L) return a.slice(); if (db < 0.15 * L) return b.slice(); if (Math.abs(da - db) < 0.08 * L) return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]; } return h.p.slice(); }
+        return h.p ? h.p.slice() : null;
+      };
+      const segOf = (h) => { const s = h.body.solid; let best = null, bd = 1e18; (h.le ? h.le.segs : []).forEach(([a, c]) => { const A = s.V[a], B = s.V[c], ab = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], l2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2] || 1e-12, t = Math.max(0, Math.min(1, ((h.p[0] - A[0]) * ab[0] + (h.p[1] - A[1]) * ab[1] + (h.p[2] - A[2]) * ab[2]) / l2)), q = [A[0] + ab[0] * t, A[1] + ab[1] * t, A[2] + ab[2] * t], d = Math.hypot(q[0] - h.p[0], q[1] - h.p[1], q[2] - h.p[2]); if (d < bd) { bd = d; best = [A, B]; } }); return best; };
+      const setVec = (v) => {
+        const fm2 = form(); const rs = [...fm2.querySelectorAll('[name=dirMode]')], vr = rs.find((r) => r.value === 'vec');
+        if (vr) { if (vr.type === 'radio' || vr.type === 'checkbox') vr.checked = true; else vr.value = 'vec'; fire(vr); }
+        setTimeout(() => { ['dx', 'dy', 'dz'].forEach((n, i) => { const e = fm2.querySelector('[name=' + n + ']'); if (e) { e.value = fm(v[i]); fire(e); } }); }, 80);
+      };
+      const curSpacing = () => { const e = box.querySelector('#lpExactIn'), v = parseFloat(String(e.value).replace(',', '.')); return isFinite(v) && v > 1e-9 ? v : 50; };
+      const upd = () => { const n = (window.__lpExtra || []).length; box.querySelector('#lpExtraN').textContent = n ? '+ ' + n + ' more part' + (n > 1 ? 's' : '') : ''; box.querySelector('[data-lp=clr]').style.display = n ? '' : 'none'; };
+      box.addEventListener('click', (ev) => {
+        const b = ev.target.closest('[data-lp]'); if (!b) return; ev.preventDefault(); const k = b.dataset.lp;
+        if (k === 'edge' || k === 'dir') pick3D(k === 'edge' ? 'Click the edge to run the copies along (spacing = its length)' : 'Click an edge: its direction is used, spacing stays', (h) => { if (h.kind !== 'edge') throw new Error('Click an edge, not a face or corner'); const sg = segOf(h); if (!sg) throw new Error('That edge cannot be used'); const [A, B] = sg, d = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], L = Math.hypot(d[0], d[1], d[2]); if (L < 1e-9) throw new Error('That edge has no length'); const s = k === 'edge' ? L : curSpacing(); setVec([d[0] / L * s, d[1] / L * s, d[2] / L * s]); });
+        else if (k === 'two') { let A = null; pick3D('Click the START point (corners, edge ends and middles snap)', (h) => { const q = ptOf(h); if (!q) throw new Error('Click a point on the model'); if (!A) { A = q; const hb = document.getElementById('lpPickBar'); if (hb) hb.textContent = 'Now click the point it steps to · Esc cancels'; return false; } const d = [q[0] - A[0], q[1] - A[1], q[2] - A[2]]; if (Math.hypot(d[0], d[1], d[2]) < 1e-9) throw new Error('Same point: click a different one'); setVec(d); return true; }, true); const hb0 = document.getElementById('lpPickBar'); if (hb0) hb0.dataset.two = 1; }
+        else if (k === 'more') pick3D('Click each part to repeat as well', (h) => { const key = h.body && h.body.key; if (!key) throw new Error('Click a part'); const base = (window.__lpBase || null); window.__lpExtra = window.__lpExtra || []; if (window.__lpExtra.indexOf(key) < 0) window.__lpExtra.push(key); upd(); return false; }, true);
+        else if (k === 'clr') { window.__lpExtra = []; upd(); }
+      });
+      upd();
       const inp = box.querySelector('#lpExactIn');
       inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
       inp.addEventListener('change', () => {
