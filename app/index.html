@@ -21984,7 +21984,7 @@ precision mediump float; void main(){}`;
   }
   var busy = false;
   function run() {
-    busy = false; state.runs++;
+    busy = false; state.runs++; lastRun = Date.now();
     var groups = new Map();
     document.querySelectorAll('body *').forEach(function (el) {
       if (!isChip(el)) return;
@@ -21995,7 +21995,8 @@ precision mediump float; void main(){}`;
     groups.forEach(function (n, p) { if (n >= 3) { fixRow(p); rows++; chips += n; } });
     state.rows = rows; state.chips = chips;
   }
-  function schedule() { if (busy) return; busy = true; (window.requestAnimationFrame || setTimeout)(run); }
+  var lastRun = 0;
+  function schedule() { if (busy) return; busy = true; setTimeout(run, Math.max(40, 1500 - (Date.now() - lastRun))); }
   new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
   window.addEventListener('resize', schedule);
   setInterval(function () { if (document.querySelector('[class*="modal"], [id*="modal"], [role="dialog"], .x81win, .x7win, #modal')) schedule(); }, 1500);
@@ -32023,6 +32024,12 @@ body.x855 #x86fab{display:none!important}
         let D = rot; if (type === 'screw') D = tMul(tMove(v3.scale(A.n, num(p.pitch, 1.5) * th / 360 * (p.hand === 'left' ? -1 : 1))), rot);
         X10.moveComp(st2, cB, D); return st2;
       }
+      case 'concentric': {
+        if (A.kind === 'point' || B.kind === 'point') throw new Error('Rotate + slide needs round (axis) faces');
+        alignAxes(); bringTogether(!!p.axial);
+        const th = num(p.angle, 0), s0 = num(p.pos, 0), rot = tRotAbout(rotAxis(A.n, th * Math.PI / 180), A.p);
+        X10.moveComp(st2, cB, tMul(tMove(v3.scale(A.n, s0)), rot)); return st2;
+      }
       case 'slider': {
         if (A.kind !== 'axis' && B.kind !== 'axis') throw new Error('A slider needs round (axis) faces — pick the bore / pin or rod faces');
         alignAxes(); bringTogether(false);
@@ -32053,7 +32060,8 @@ body.x855 #x86fab{display:none!important}
     const prev = CAD.featExt.x10Mate;
     CAD.featExt.x10Mate = function (f, st2, h) {
       const p = f.params;
-      if (p && NEW.has(p.type)) return solveNew(f, st2, h);
+      if (p && (NEW.has(p.type) || (p.live && p.type === 'concentric'))) return solveNew(f, st2, h);
+      if (p && p.live && p.type === 'coincident' && (+p.u || +p.v)) { const r0 = prev.call(this, f, st2, h); const Aw = refW(st2, p.compA, freshRef(st2, p.compA, p.a)), nn = v3.norm(Aw.n || [0, 0, 1]), e1 = v3.norm(v3.cross(nn, Math.abs(nn[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0])), e2 = v3.cross(nn, e1); X10.moveComp(st2, p.compB, tMove(v3.add(v3.scale(e1, +p.u || 0), v3.scale(e2, +p.v || 0)))); return r0 || st2; }
       if (p && p.a && p.b && (p.a.tid || p.b.tid)) f = Object.assign({}, f, { params: Object.assign({}, p, { a: freshRef(st2, p.compA, p.a), b: freshRef(st2, p.compB, p.b) }) });
       return prev.call(this, f, st2, h);
     };
@@ -32124,7 +32132,7 @@ body.x855 #x86fab{display:none!important}
     } catch (eM) { console.error(eM); }
     mateC = { list: list.slice(0, 400), hover: null, kinds, raf: 0, cut: cutN }; const loop = () => { if (!mateC) return; mateDraw(); mateC.raf = requestAnimationFrame(loop); }; loop();
   }
-  function mateOvStop() { if (mateC && mateC.raf) cancelAnimationFrame(mateC.raf); mateC = null; mateSvg.innerHTML = ''; mateSvg.style.display = 'none'; }
+  function mateOvStop() { if (mateC && mateC.raf) cancelAnimationFrame(mateC.raf); mateC = null; mateSvg.innerHTML = ''; mateSvg.__last = null; mateSvg.style.display = 'none'; }
   function mateNear(x, y) {
     if (!mateC) return null; const M = RR.matrices(); let best = null, bd = 18;
     mateC.list.forEach((c) => {
@@ -32143,7 +32151,7 @@ body.x855 #x86fab{display:none!important}
     const c = mateC.hover; if (c && mateC.mx != null) { const lab = c.kind === 'axis' ? 'Axis · \u00d8' + (c.r * 2).toFixed(1) + ' mm · ' + (c.body.name || '') : 'Flat face · ' + (c.body.name || ''); h += '<g><rect x="' + (mateC.mx + 14) + '" y="' + (mateC.my - 30) + '" width="' + (lab.length * 6.6 + 14) + '" height="20" rx="5" fill="#10161f" stroke="#ffe14d" stroke-opacity=".7"/><text x="' + (mateC.mx + 21) + '" y="' + (mateC.my - 16) + '" font-size="12" font-family="system-ui,sans-serif" fill="#ffe14d">' + lab.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</text></g>'; }
     h += '<g><rect x="10" y="10" width="330" height="26" rx="6" fill="#10161f" fill-opacity=".85"/><circle cx="24" cy="23" r="4" fill="#2dd4bf"/><text x="34" y="27" font-size="12" font-family="system-ui,sans-serif" fill="#cfe6ff">axes of round faces</text><rect x="168" y="17" width="12" height="12" rx="2" fill="rgba(255,138,61,.35)" stroke="#ff8a3d"/><text x="186" y="27" font-size="12" font-family="system-ui,sans-serif" fill="#cfe6ff">flat faces · click one</text></g>';
     if (mateC.cut) h += '<text x="18" y="52" font-size="11" font-family="system-ui,sans-serif" fill="#ffd27a">' + mateC.cut + ' small flat faces not marked — click any face directly to use it</text>';
-    mateSvg.innerHTML = h; mateSvg.style.display = '';
+    if (h !== mateSvg.__last) { mateSvg.innerHTML = h; mateSvg.__last = h; } mateSvg.style.display = '';
   }
   function mateMove(x, y) { if (!mateC) return; mateC.mx = x; mateC.my = y; mateC.hover = mateNear(x, y); }
   const mateRefAt = (x, y) => { const c = mateNear(x, y); return c ? { body: c.body, fi: c.fi, p: c.p.slice(), n: c.kind === 'plane' ? c.n : null } : null; };
@@ -32212,7 +32220,7 @@ body.x855 #x86fab{display:none!important}
     });
   }
   function jointMake(J, stt, noPanel) {
-    const base = { type: J.type, compA: stt.cA, compB: stt.cB, a: stt.a, b: stt.b, offset: 0, flip: false, align: false, axial: false, angleDeg: 90, ratio: 1, angle: 0, pos: 0, pitch: 1.5, lift: 10 };
+    const base = { type: J.type, compA: stt.cA, compB: stt.cB, a: stt.a, b: stt.b, offset: 0, flip: false, align: false, axial: false, angleDeg: 90, ratio: 1, angle: 0, pos: 0, pitch: 1.5, lift: 10, live: J.type === 'concentric' || J.type === 'coincident', u: 0, v: 0, rx: 0, ry: 0, rz: 0 };
     if (J.type === 'lock') { const s2 = st.state, TA = X10.compT(s2, stt.cA), TB = X10.compT(s2, stt.cB); base.rel = tMul(tInv(TA), TB); }
     const mt = P.meta(); mt.asm = mt.asm || {}; mt.asm.fixed = mt.asm.fixed || {}; P.pushUndo(); mt.asm.fixed[stt.cA] = true; delete mt.asm.fixed[stt.cB];
     const f = P.commitFeature({ type: 'x10Mate', params: base }, true); f.name = J.label + ': ' + srcName(stt.cB) + ' on ' + srcName(stt.cA);
@@ -32222,7 +32230,7 @@ body.x855 #x86fab{display:none!important}
     return f;
   }
   function jointRange(f, J) {
-    if (J.drive === 'pos') { const bs = [...st.state.bodies.values()].filter((b) => b.src === f.params.compB); let L = 100; bs.forEach((b) => { const x = b.solid.bbox(); L = Math.max(L, Math.hypot(x.max[0] - x.min[0], x.max[1] - x.min[1], x.max[2] - x.min[2])); }); L = Math.round(L * 1.5); return [-L, L, 1, 'mm']; }
+    if (J.drive === 'pos' || J.drive === 'u' || J.drive === 'v') { const bs = [...st.state.bodies.values()].filter((b) => b.src === f.params.compB); let L = 100; bs.forEach((b) => { const x = b.solid.bbox(); L = Math.max(L, Math.hypot(x.max[0] - x.min[0], x.max[1] - x.min[1], x.max[2] - x.min[2])); }); L = Math.round(L * 1.5); return [-L, L, 1, 'mm']; }
     return [-180, 180, 1, '\u00b0'];
   }
   function jointPanel(f, J) {
@@ -32294,7 +32302,10 @@ body.x855 #x86fab{display:none!important}
   /* ======================================================= LIVE ASSEMBLY */
   const LV = { pn: null, wz: null, h: null, drag: null, anim: {}, sig: '', poll: 0 };
   const fixedMap = () => { const mt = P.meta(); mt.asm = mt.asm || {}; mt.asm.fixed = mt.asm.fixed || {}; return mt.asm.fixed; };
-  const jtDrive = (t) => (t === 'hinge' || t === 'screw' || t === 'gear') ? 'angle' : t === 'slider' ? 'pos' : null;
+  const jtDrive = (t) => (t === 'hinge' || t === 'screw' || t === 'gear' || t === 'concentric') ? 'angle' : t === 'slider' ? 'pos' : t === 'ball' ? 'rx' : t === 'coincident' ? 'u' : null;
+  const jtExtra = (t) => t === 'concentric' ? [['pos', 'slide', 'mm']] : t === 'ball' ? [['ry', 'tilt y', '°'], ['rz', 'tilt z', '°']] : t === 'coincident' ? [['v', 'v', 'mm']] : [];
+  const jtName = (t, k) => ({ angle: t === 'screw' ? 'turn' : 'turn', pos: 'slide', rx: 'tilt x', u: 'u' }[k] || k);
+  const jtMm = (k) => k === 'pos' || k === 'u' || k === 'v';
   const jtLabel = { hinge: 'Rotate (pin)', slider: 'Slide', concentric: 'Rotate + slide', ball: 'Ball', screw: 'Screw', gear: 'Gear', lock: 'Fixed', coincident: 'Surface', distance: 'Offset', angle: 'Angle', parallel: 'Parallel', perpendicular: 'Perpendicular', rack: 'Rack', cam: 'Cam' };
   const liveJoints = () => st.doc.features.filter((f) => f.type === 'x10Mate');
   const partsNow = () => AS.components().filter((c) => c.bodies.length);
@@ -32302,41 +32313,60 @@ body.x855 #x86fab{display:none!important}
   const touchF = (f) => { F.invalidate(st.doc, idxF(f)); P.regenerate(true); };
   const rotAbout = (q, c, n, th) => { const v = v3.sub(q, c), cs = Math.cos(th), sn = Math.sin(th), k = v3.cross(n, v), d = v3.dot(n, v); return [c[0] + v[0] * cs + k[0] * sn + n[0] * d * (1 - cs), c[1] + v[1] * cs + k[1] * sn + n[1] * d * (1 - cs), c[2] + v[2] * cs + k[2] * sn + n[2] * d * (1 - cs)]; };
   function liveStop(id) { if (id == null) { Object.keys(LV.anim).forEach((k) => liveStop(k)); return; } if (LV.anim[id]) { cancelAnimationFrame(LV.anim[id]); delete LV.anim[id]; } }
+  function liveSyncRows(f) {
+    const pn = LV.pn; if (!pn) return; const p = f.params, ks = [jtDrive(p.type)].concat(jtExtra(p.type).map((x) => x[0]));
+    ks.forEach((k, i) => { const v = +p[k] || 0, r = pn.body.querySelector(i ? '[data-lr2="' + f.id + '"][data-ck="' + k + '"]' : '[data-lr="' + f.id + '"]'), n = pn.body.querySelector(i ? '[data-ln2="' + f.id + '"][data-ck="' + k + '"]' : '[data-ln="' + f.id + '"]'); if (r) r.value = v; if (n && document.activeElement !== n) n.value = Math.round(v * 10) / 10; });
+  }
+  function liveSpinX(f) {
+    liveStop(f.id); const p = f.params, tp = p.type, L = Math.max(15, jointRange(f, { drive: 'pos' })[1] / 6); let t0 = performance.now(), T = 0;
+    const step = (t) => {
+      const dt = Math.min(0.05, (t - t0) / 1000) * (LV.speed || 1); t0 = t; T += dt;
+      if (tp === 'concentric') { p.angle = (((+p.angle || 0) + 180 * dt + 180) % 360) - 180; p.pos = L * Math.sin(T * 1.2); }
+      else if (tp === 'ball') { p.rx = 30 * Math.sin(T * 2); p.ry = 30 * Math.cos(T * 2); p.rz = 0; }
+      else { p.u = L * Math.sin(T * 1.4); p.v = 0.6 * L * Math.sin(T * 2.1); }
+      touchF(f); liveSyncRows(f); LV.anim[f.id] = requestAnimationFrame(step);
+    };
+    LV.anim[f.id] = requestAnimationFrame(step);
+  }
   function liveSpin(f) {
+    if (f.params.type === 'concentric' || f.params.type === 'ball' || f.params.type === 'coincident') return liveSpinX(f);
     liveStop(f.id); const p = f.params, key = jtDrive(p.type); if (!key) return; const rg = jointRange(f, { drive: key }), lim = key === 'angle' ? 180 : rg[1] / 3; let t0 = performance.now(), v = +p[key] || 0, dir = 1;
     const step = (t) => {
       const dt = Math.min(0.05, (t - t0) / 1000); t0 = t;
-      if (key === 'angle') { v += 180 * dt; if (v > 180) v -= 360; } else { v += dir * 40 * dt; if (v > lim) { v = lim; dir = -1; } else if (v < -lim) { v = -lim; dir = 1; } }
+      const spd = LV.speed || 1; if (key === 'angle') { v += 180 * dt * spd; if (v > 180) v -= 360; } else { v += dir * 40 * dt * spd; if (v > lim) { v = lim; dir = -1; } else if (v < -lim) { v = -lim; dir = 1; } }
       p[key] = v; touchF(f); const r = LV.pn && LV.pn.body.querySelector('[data-lr="' + f.id + '"]'), n = LV.pn && LV.pn.body.querySelector('[data-ln="' + f.id + '"]'); if (r) r.value = v; if (n && document.activeElement !== n) n.value = Math.round(v * 10) / 10;
       LV.anim[f.id] = requestAnimationFrame(step);
     };
     LV.anim[f.id] = requestAnimationFrame(step);
   }
   function livePanel() {
-    LV.pn = IK.panel('ik-live', '⚓ <i>Live assembly</i>', { top: '70px', right: '10px' }, 350); LV.pn.onclose = () => { liveStop(); };
-    LV.pn.show(); liveRender(); clearInterval(LV.poll); LV.poll = setInterval(() => { if (!LV.pn || !LV.pn.isOn()) return; const sg = liveJoints().map((f) => f.id + f.params.type + f.params.compA + f.params.compB).join(',') + '|' + Object.keys(fixedMap()).filter((k) => fixedMap()[k]).join(',') + '|' + partsNow().length; if (sg !== LV.sig) liveRender(); }, 600);
+    LV.pn = IK.panel('ik-live', '⚓ <i>Live assembly</i>', { top: '70px', right: '10px' }, 350); LV.pn.onclose = () => { liveClear(); try { if (X.dragState.on) X.toggleDrag(false); } catch (eD) { /* ignore */ } document.body.classList.remove('ak-adv'); LV.adv = false; };
+    LV.pn.show(); try { if (!X.dragState.on && !LV.noDrag) X.toggleDrag(true); } catch (eD) { /* ignore */ } liveRender(); clearInterval(LV.poll); LV.poll = setInterval(() => { if (!LV.pn || !LV.pn.isOn()) return; const sg = liveJoints().map((f) => f.id + f.params.type + f.params.compA + f.params.compB).join(',') + '|' + Object.keys(fixedMap()).filter((k) => fixedMap()[k]).join(',') + '|' + partsNow().length; if (sg !== LV.sig) liveRender(); }, 600);
   }
   function liveRender() {
-    const pn = LV.pn; if (!pn || !pn.isOn()) return; const cs = partsNow(), fx = fixedMap(), js = liveJoints();
+    const pn = LV.pn; if (!pn || !pn.isOn()) return; if (!LV.adv) return studioRender(); const cs = partsNow(), fx = fixedMap(), js = liveJoints();
     LV.sig = js.map((f) => f.id + f.params.type + f.params.compA + f.params.compB).join(',') + '|' + Object.keys(fx).filter((k) => fx[k]).join(',') + '|' + cs.length;
-    let h = '<div class="row"><button class="btn sm primary" data-l="joint">＋ Add joint</button><button class="btn sm" data-l="ground">⚓ Fix a part…</button><button class="btn sm" data-l="drag">✋ Drag parts</button></div>';
+    let h = '<div class="row"><button class="btn sm" data-l="simple">◂ Simple view</button></div><div class="row"><button class="btn sm primary" data-l="joint">＋ Add joint</button><button class="btn sm" data-l="ground">⚓ Fix a part…</button><button class="btn sm" data-l="drag">✋ Drag parts</button></div>';
     h += '<h5>Parts (' + cs.length + ')</h5>' + (cs.length ? '<table>' + cs.map((c) => '<tr><td><label title="A fixed part never moves. Everything else moves around it."><input type="checkbox" data-fx="' + c.src + '"' + (fx[c.src] ? ' checked' : '') + '> ⚓ Fixed</label></td><td>' + esc(srcName(c.src)) + '</td><td class="note">' + js.filter((j) => j.params.compA === c.src || j.params.compB === c.src).length + ' joint(s)</td></tr>').join('') + '</table>' : '<p class="note">No parts yet. Use Make › Open sessions or Insert part.</p>');
     h += '<h5>Joints (' + js.length + ')</h5>';
     h += js.length ? js.map((f) => {
       const p = f.params, key = jtDrive(p.type), rg = key ? jointRange(f, { drive: key }) : null, cur = key ? (+p[key] || 0) : 0;
       return '<div class="lvj" style="border-top:1px solid rgba(255,255,255,.1);padding:4px 0"><div class="row"><b>' + esc(jtLabel[p.type] || p.type) + '</b> <span class="note">' + esc(srcName(p.compB)) + ' around / on ' + esc(srcName(p.compA)) + '</span></div>' +
-        (key ? '<div class="row"><input type="range" data-lr="' + f.id + '" min="' + rg[0] + '" max="' + rg[1] + '" step="1" value="' + cur + '" style="flex:1"><input type="number" data-ln="' + f.id + '" value="' + Math.round(cur * 10) / 10 + '" style="width:62px"> ' + rg[3] + '</div>' : '') +
-        '<div class="row">' + (key ? '<button class="btn sm" data-la="spin" data-f="' + f.id + '">▶ ' + (key === 'angle' ? 'Spin' : 'Slide') + '</button><button class="btn sm" data-la="stop" data-f="' + f.id + '">■</button>' : '') + '<button class="btn sm" data-la="handle" data-f="' + f.id + '">◎ Handle</button><button class="btn sm" data-la="edit" data-f="' + f.id + '">Edit</button><button class="btn sm" data-la="del" data-f="' + f.id + '">✕</button></div></div>';
+        (key ? '<div class="row"><span class="note" style="min-width:42px">' + jtName(p.type, key) + '</span><input type="range" data-lr="' + f.id + '" min="' + rg[0] + '" max="' + rg[1] + '" step="1" value="' + cur + '" style="flex:1"><input type="number" data-ln="' + f.id + '" value="' + Math.round(cur * 10) / 10 + '" style="width:62px"> ' + rg[3] + '</div>' : '') +
+        jtExtra(p.type).map(([k2, l2, u2]) => { const r2 = jtMm(k2) ? jointRange(f, { drive: 'pos' }) : [-180, 180, 1, '°'], c2 = +p[k2] || 0; return '<div class="row"><span class="note" style="min-width:42px">' + l2 + '</span><input type="range" data-lr2="' + f.id + '" data-ck="' + k2 + '" min="' + r2[0] + '" max="' + r2[1] + '" step="1" value="' + c2 + '" style="flex:1"><input type="number" data-ln2="' + f.id + '" data-ck="' + k2 + '" value="' + Math.round(c2 * 10) / 10 + '" style="width:62px"> ' + u2 + '</div>'; }).join('') +
+        '<div class="row">' + (key ? '<button class="btn sm" data-la="spin" data-f="' + f.id + '">▶ ' + (key === 'pos' || key === 'u' ? 'Slide' : key === 'rx' ? 'Swing' : 'Spin') + '</button><button class="btn sm" data-la="stop" data-f="' + f.id + '">■</button>' : '') + '<button class="btn sm" data-la="handle" data-f="' + f.id + '">◎ Handle</button><button class="btn sm" data-la="edit" data-f="' + f.id + '">Edit</button><button class="btn sm" data-la="del" data-f="' + f.id + '">✕</button></div></div>';
     }).join('') : '<p class="note">No joints yet. Press <b>Add joint</b>, click the part that stays, then the part that moves.</p>';
     h += '<h5>Behaviour</h5><div class="row"><label>Collisions <select data-lc><option value="off">Ignore</option><option value="report">Show in red</option><option value="stop">Stop the part</option></select></label></div><p class="note">Drag a part in 3D: free parts move anywhere, joined parts follow their joint. Fixed parts stay.</p>';
     pn.body.innerHTML = h;
     const q = (s) => pn.body.querySelector(s), qa = (s) => [...pn.body.querySelectorAll(s)], byId = (id) => liveJoints().find((f) => f.id === id);
     const lc = q('[data-lc]'); if (lc) { lc.value = X.dragMode(); lc.onchange = () => X.dragMode(lc.value); }
-    qa('[data-l]').forEach((b) => { b.onclick = () => { const a = b.dataset.l; if (a === 'joint') liveJoint(); else if (a === 'ground') liveGround(); else if (a === 'drag') { try { X.toggleDrag(); } catch (e) { toast('Drag is not available', true); } } }; });
+    qa('[data-l]').forEach((b) => { b.onclick = () => { const a = b.dataset.l; if (a === 'simple') { LV.adv = false; document.body.classList.remove('ak-adv'); liveRender(); } else if (a === 'joint') liveJoint(); else if (a === 'ground') liveGround(); else if (a === 'drag') { try { X.toggleDrag(); } catch (e) { toast('Drag is not available', true); } } }; });
     qa('[data-fx]').forEach((c) => { c.onchange = () => { P.pushUndo(); const fm = fixedMap(); if (c.checked) fm[c.dataset.fx] = true; else delete fm[c.dataset.fx]; P.regenerate(true); liveRender(); status(srcName(c.dataset.fx) + (c.checked ? ' is fixed' : ' can move')); }; });
     qa('[data-lr]').forEach((r) => { r.oninput = () => { const f = byId(r.dataset.lr); if (!f) return; liveStop(f.id); const key = jtDrive(f.params.type); f.params[key] = +r.value; touchF(f); const n = q('[data-ln="' + f.id + '"]'); if (n) n.value = r.value; }; });
     qa('[data-ln]').forEach((n) => { n.onchange = () => { const f = byId(n.dataset.ln); if (!f) return; liveStop(f.id); const key = jtDrive(f.params.type); f.params[key] = +n.value || 0; touchF(f); const r = q('[data-lr="' + f.id + '"]'); if (r) r.value = n.value; }; });
-    qa('[data-la]').forEach((b) => { b.onclick = () => { const f = byId(b.dataset.f), a = b.dataset.la; if (!f) return; if (a === 'spin') liveSpin(f); else if (a === 'stop') liveStop(f.id); else if (a === 'handle') liveHandle(f); else if (a === 'edit') { liveStop(f.id); P.editFeature(f); } else if (a === 'del') { liveStop(f.id); P.pushUndo(); const i = idxF(f); st.doc.features.splice(i, 1); F.invalidate(st.doc, Math.max(0, i)); P.regenerate(true); if (LV.h && LV.h.f === f) LV.h = null; liveRender(); } }; });
+    qa('[data-lr2]').forEach((r) => { r.oninput = () => { const f = byId(r.dataset.lr2); if (!f) return; liveStop(f.id); f.params[r.dataset.ck] = +r.value; touchF(f); const n = q('[data-ln2="' + f.id + '"][data-ck="' + r.dataset.ck + '"]'); if (n) n.value = r.value; }; });
+    qa('[data-ln2]').forEach((n) => { n.onchange = () => { const f = byId(n.dataset.ln2); if (!f) return; liveStop(f.id); f.params[n.dataset.ck] = +n.value || 0; touchF(f); const r = q('[data-lr2="' + f.id + '"][data-ck="' + n.dataset.ck + '"]'); if (r) r.value = n.value; }; });
+    qa('[data-la]').forEach((b) => { b.onclick = () => { const f = byId(b.dataset.f), a = b.dataset.la; if (!f) return; if (a === 'spin') { liveHandle(f); liveSpin(f); } else if (a === 'stop') liveStop(f.id); else if (a === 'handle') liveHandle(f); else if (a === 'edit') { liveStop(f.id); P.editFeature(f); } else if (a === 'del') { liveStop(f.id); P.pushUndo(); const i = idxF(f); st.doc.features.splice(i, 1); F.invalidate(st.doc, Math.max(0, i)); P.regenerate(true); if (LV.h && LV.h.f === f) LV.h = null; liveRender(); } }; });
   }
   function liveGround() {
     if (!partsNow().length) return toast('No parts yet', true); livePanel();
@@ -32354,7 +32384,7 @@ body.x855 #x86fab{display:none!important}
     } });
   }
   function liveWizard(w) {
-    try { livePanel(); } catch (e) { /* ignore */ }
+    try { livePanel(); document.getElementById('ik-live').classList.remove('min'); LV.pn.show(); liveRender(); } catch (e) { /* ignore */ }
     const AA = axesFor(w.A, 'axis'), BB = axesFor(w.B, 'axis'), pairs = []; AA.forEach((a) => BB.forEach((b) => pairs.push({ a, b, sc: Math.abs(a.r - b.r) / Math.max(a.r, b.r) })));
     pairs.sort((x, y) => x.sc - y.sc || Math.min(y.a.r, y.b.r) - Math.min(x.a.r, x.b.r));
     const PA = axesFor(w.A, 'plane'), PB = axesFor(w.B, 'plane'); w.pairs = pairs; w.planes = PA.length && PB.length ? [PA[0], PB[0]] : null; w.pi = 0; w.type = pairs.length ? 'hinge' : (w.planes ? 'coincident' : 'lock');
@@ -32385,27 +32415,74 @@ body.x855 #x86fab{display:none!important}
     pn.body.innerHTML = h; pn.show();
     pn.body.querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => { w.type = b.dataset.t; w.pi = Math.min(w.pi, Math.max(0, w.pairs.length - 1)); liveApply(w); }; });
     pn.body.querySelectorAll('[data-pp]').forEach((b) => { b.onclick = () => { w.pi = (w.pi + (+b.dataset.pp) + w.pairs.length) % w.pairs.length; liveApply(w); }; });
-    pn.body.querySelector('[data-done]').onclick = () => { pn.hide ? pn.hide() : pn.onclose && pn.onclose(); const el = document.getElementById('ik-livej'); if (el) el.style.display = 'none'; livePanel(); };
+    pn.body.querySelector('[data-done]').onclick = () => { pn.hide ? pn.hide() : pn.onclose && pn.onclose(); const el = document.getElementById('ik-livej'); if (el) el.style.display = 'none'; livePanel(); try { document.getElementById('ik-live').classList.remove('min'); } catch (eM) { /* ignore */ } };
     pn.body.querySelector('[data-cancel]').onclick = () => { if (w.f && st.doc.features.includes(w.f)) { const i = idxF(w.f); st.doc.features.splice(i, 1); F.invalidate(st.doc, Math.max(0, i)); P.regenerate(true); } LV.h = null; const el = document.getElementById('ik-livej'); if (el) el.style.display = 'none'; liveRender(); };
   }
   /* ---- 3D handle: an orange knob on the moving part. Drag it round (rotate) or along (slide). */
   const liveSvg = (function () { const NS = 'http://www.w3.org/2000/svg', s = document.createElementNS(NS, 'svg'); s.id = 'x10live'; s.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:99990;display:none'); (document.getElementById('viewport') || document.body).appendChild(s); return s; })();
   function handleGeom(f) {
-    const p = f.params, stt = st.state, ref = X.freshRef(stt, p.compA, p.a); if (!ref) return null; const A = X.refW(stt, p.compA, ref);
+    const p = f.params, stt = st.state, ref = X.freshRef(stt, p.compA, p.a); if (!ref) return null; const A = X.refW(stt, p.compA, ref); if (!A.n) A.n = [0, 0, 1];
     const bs = [...stt.bodies.values()].filter((b) => b.src === p.compB); if (!bs.length) return null; let best = null, bd = -1;
-    bs.forEach((b) => b.solid.V.forEach((q, i) => { const w = v3.sub(q, A.p), perp = v3.sub(w, v3.scale(A.n, v3.dot(w, A.n))), d = v3.len(perp); if (d > bd) { bd = d; best = { b, i, q }; } }));
+    const hv = LV.hv; if (hv && hv.id === f.id) { const b0 = bs.find((b) => b.key === hv.key); if (b0 && b0.solid.V[hv.i]) { const q0 = b0.solid.V[hv.i], w0 = v3.sub(q0, A.p); return { A, key: hv.key, i: hv.i, q: q0.slice(), rad: v3.len(v3.sub(w0, v3.scale(A.n, v3.dot(w0, A.n)))) }; } }
+    let ax0 = 0, na = 0; bs.forEach((b) => b.solid.V.forEach((q) => { ax0 += v3.dot(v3.sub(q, A.p), A.n); na++; })); ax0 /= Math.max(1, na);
+    const cand = []; bs.forEach((b) => b.solid.V.forEach((q, i) => { const w = v3.sub(q, A.p), ax = v3.dot(w, A.n), d = v3.len(v3.sub(w, v3.scale(A.n, ax))); cand.push({ b, i, q, d, ax }); if (d > bd) bd = d; }));
+    const sf = Math.abs(A.n[2]) >= 0.3 ? (A.n[2] >= 0 ? 1 : -1) : 1; cand.forEach((c) => { if (c.d >= bd * 0.99 && (!best || sf * c.ax > sf * best.ax)) best = c; });
+    if (best) LV.hv = { id: f.id, key: best.b.key, i: best.i };
     return best ? { A, key: best.b.key, i: best.i, q: best.q.slice(), rad: bd } : null;
   }
   const qOf = (g) => { const b = [...st.state.bodies.values()].find((x) => x.key === g.key); return b && b.solid.V[g.i] ? b.solid.V[g.i].slice() : g.q; };
   function liveHandle(f) { LV.h = { f, g: null }; if (!LV.raf) { const loop = () => { liveDraw(); LV.raf = LV.h ? requestAnimationFrame(loop) : 0; }; LV.raf = requestAnimationFrame(loop); } }
+  /** motion you can SEE, for every joint type: a fading trail, a live readout, and per type: a key stripe + still degree ring (turning), a ruler from the start (sliding), a swing line (ball), both gears marked (gear) */
+  function liveCues(H, g, q, key, pr) {
+    const f = H.f, p = f.params, tp = p.type, qw = qOf(g), now = performance.now(); let s = '';
+    const T = LV.tr && LV.tr.id === f.id ? LV.tr : (LV.tr = { id: f.id, hist: [], q0: qw.slice() });
+    const last = T.hist[T.hist.length - 1]; if (!last || v3.dist(last.w, qw) > 1e-4) { T.hist.push({ w: qw.slice(), t: now }); } while (T.hist.length && now - T.hist[0].t > 700) T.hist.shift(); if (T.hist.length > 40) T.hist.shift();
+    const hp = T.hist.map((h) => ({ z: pr(h.w), a: Math.max(0, 1 - (now - h.t) / 700) })).filter((h) => h.z[3] > 0);
+    for (let i = 1; i < hp.length; i++) { const a = hp[i].a; if (a <= 0.02) continue; s += '<line x1="' + hp[i - 1].z[0].toFixed(1) + '" y1="' + hp[i - 1].z[1].toFixed(1) + '" x2="' + hp[i].z[0].toFixed(1) + '" y2="' + hp[i].z[1].toFixed(1) + '" stroke="#ff8a3d" stroke-width="' + (5 + 14 * a).toFixed(1) + '" stroke-linecap="round" opacity="' + (0.7 * a).toFixed(2) + '"/>'; }
+    const L2 = (a, b, col, w, extra) => (a[3] > 0 && b[3] > 0 ? '<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="' + col + '" stroke-width="' + w + '" stroke-linecap="round"' + (extra || '') + '/>' : '');
+    const dotAt = (z, r) => (z[3] > 0 ? '<circle cx="' + z[0].toFixed(1) + '" cy="' + z[1].toFixed(1) + '" r="' + r + '" fill="#fff3e8" stroke="#ff8a3d" stroke-width="2"/>' : '');
+    /* a key stripe + still tick ring for a point turning about axis (P0,n) */
+    const stripe = (P0, n, qq, qHome, withRing) => {
+      const c = v3.madd(P0, n, v3.dot(v3.sub(qq, P0), n)), cs = pr(c), qs = pr(qq); let o = '';
+      if (withRing) { const c0 = v3.madd(P0, n, v3.dot(v3.sub(qHome, P0), n)), rad = Math.max(1e-6, v3.len(v3.sub(qHome, c0)));
+        for (let k = 0; k < 36; k++) { const p1 = rotAbout(qHome, P0, n, k * 10 * Math.PI / 180), dv = v3.norm(v3.sub(p1, c0)); o += L2(pr(p1), pr(v3.madd(p1, dv, (k % 3 === 0 ? 0.12 : 0.06) * rad)), '#9fb3d1', k % 3 === 0 ? 2 : 1, ' opacity=".75"'); } }
+      const vx = qs[0] - cs[0], vy = qs[1] - cs[1], pa = [cs[0] + vx * 0.42, cs[1] + vy * 0.42, 0, 1], pb = [cs[0] + vx * 0.96, cs[1] + vy * 0.96, 0, 1];
+      if (qs[3] > 0 && cs[3] > 0) { o += L2(pa, pb, '#fff3e8', 22, ' opacity=".95"') + L2(pa, pb, '#ff8a3d', 16); o += '<line x1="' + pa[0].toFixed(1) + '" y1="' + pa[1].toFixed(1) + '" x2="' + pb[0].toFixed(1) + '" y2="' + pb[1].toFixed(1) + '" stroke="#ff8a3d" stroke-width="30" stroke-linecap="round" opacity=".18"/>'; }
+      if (withRing) [120, 240].forEach((k) => { const p1 = rotAbout(qq, P0, n, k * Math.PI / 180), pc = pr(v3.madd(c, v3.sub(p1, c), 0.78)); if (pc[3] > 0) o += '<circle cx="' + pc[0].toFixed(1) + '" cy="' + pc[1].toFixed(1) + '" r="6" fill="#e9f1ff" stroke="#223a66" stroke-width="1.5"/>'; });
+      return o + dotAt(cs, 5);
+    };
+    const A = g.A, n = A.n || [0, 0, 1], rd = (v) => Math.round((+v || 0) * 10) / 10; let txt = '';
+    if (tp === 'gear') {
+      let Bw = null; try { const stt = st.state; Bw = X.refW(stt, p.compB, X.freshRef(stt, p.compB, p.b)); } catch (e) { /* ignore */ }
+      if (Bw && Bw.n) { if (!T.pkB) { const bs = [...st.state.bodies.values()].filter((b) => b.src === p.compB); let bd = -1; bs.forEach((b) => b.solid.V.forEach((v, i) => { const w = v3.sub(v, Bw.p), d = v3.len(v3.sub(w, v3.scale(Bw.n, v3.dot(w, Bw.n)))); if (d > bd) { bd = d; T.pkB = { key: b.key, i }; } })); }
+        const qb = qOf(T.pkB); if (!T.qb0) T.qb0 = qb.slice(); s += stripe(Bw.p, Bw.n, qb, T.qb0, false); }
+      if (!T.pkA) { const bs = [...st.state.bodies.values()].filter((b) => b.src === p.compA); let bd = -1; bs.forEach((b) => b.solid.V.forEach((v, i) => { const w = v3.sub(v, A.p), d = v3.len(v3.sub(w, v3.scale(n, v3.dot(w, n)))); if (d > bd) { bd = d; T.pkA = { key: b.key, i }; } })); }
+      if (T.pkA) { const qa = qOf(T.pkA); if (!T.qa0) T.qa0 = qa.slice(); s += stripe(A.p, n, qa, T.qa0, false); }
+      txt = rd(p.angle) + '° ↔ ' + rd(-(+p.angle || 0) * (+p.ratio || 1) * (p.internal ? -1 : 1)) + '°';
+    } else if (key === 'angle') {
+      s += stripe(A.p, n, qw, T.q0, true); txt = rd(p.angle) + '°'; if (tp === 'concentric') txt += ' · ' + rd(p.pos) + ' mm';
+      if (tp === 'screw') txt += ' · ' + rd((+p.pitch || 1.5) * (+p.angle || 0) / 360) + ' mm';
+    }
+    if (tp === 'slider' || tp === 'concentric' || tp === 'screw') {
+      const c0 = v3.madd(A.p, n, v3.dot(v3.sub(T.q0, A.p), n)), c1 = v3.madd(A.p, n, v3.dot(v3.sub(qw, A.p), n));
+      if (v3.dist(c0, c1) > 0.5) s += L2(pr(c0), pr(c1), '#ffd2ad', 3, ' stroke-dasharray="6 5"') + dotAt(pr(c0), 4);
+      if (tp === 'slider') txt = rd(p.pos) + ' mm';
+    }
+    if (tp === 'ball') { s += L2(pr(A.p), pr(qw), '#ff8a3d', 5) + L2(pr(A.p), pr(qw), '#fff3e8', 2, ' opacity=".8"') + dotAt(pr(A.p), 6); txt = rd(p.rx) + '° ' + rd(p.ry) + '° ' + rd(p.rz) + '°'; }
+    if (tp === 'coincident') { s += L2(pr(T.q0), pr(qw), '#ffd2ad', 3, ' stroke-dasharray="6 5"') + dotAt(pr(T.q0), 4); txt = rd(p.u) + ', ' + rd(p.v) + ' mm'; }
+    if (q[3] > 0 && txt) { const w = txt.length * 7.5 + 16; s += '<g transform="translate(' + (q[0] + 18).toFixed(1) + ',' + (q[1] + 6).toFixed(1) + ')"><rect width="' + w + '" height="22" rx="11" fill="#101a2b" stroke="#ff8a3d"/><text x="' + (w / 2) + '" y="15" text-anchor="middle" font-size="12" font-weight="600" fill="#ffb27a" font-family="system-ui,sans-serif">' + txt + '</text></g>'; }
+    return s;
+  }
   function liveDraw() {
     const H = LV.h; if (!H || !st.doc.features.includes(H.f) || H.f.suppressed) { liveSvg.style.display = 'none'; LV.h = null; return; }
     const key = jtDrive(H.f.params.type); if (!key) { liveSvg.style.display = 'none'; return; }
     const g = LV.drag ? LV.drag.g0 : handleGeom(H.f); if (!g) return; H.g = g; const M = R.matrices(), pr = (w) => R.project(w, M); let s = ''; const q = pr(qOf(g));
-    if (key === 'angle') { const pts = []; for (let k = 0; k <= 72; k++) { const z = pr(rotAbout(g.q, g.A.p, g.A.n, k * 5 * Math.PI / 180)); if (z[3] > 0) pts.push(z[0].toFixed(1) + ',' + z[1].toFixed(1)); } s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#ff8a3d" stroke-width="2" stroke-dasharray="5 4" opacity=".85"/>'; }
-    else { const L = jointRange(H.f, { drive: 'pos' })[1], a = pr(v3.madd(g.q, g.A.n, -L)), b = pr(v3.madd(g.q, g.A.n, L)); if (a[3] > 0 && b[3] > 0) s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="#ff8a3d" stroke-width="2" stroke-dasharray="5 4" opacity=".85"/>'; }
-    if (q[3] > 0) s += '<circle data-knob="1" cx="' + q[0] + '" cy="' + q[1] + '" r="11" fill="#ff8a3d" stroke="#fff" stroke-width="2" style="pointer-events:auto;cursor:grab"/><text x="' + (q[0] + 16) + '" y="' + (q[1] - 12) + '" font-size="11" fill="#ffd8bd" font-family="system-ui,sans-serif">drag me</text>';
-    liveSvg.innerHTML = s; liveSvg.style.display = '';
+    if (key === 'angle' && H.f.params.type !== 'gear') { const pts = []; for (let k = 0; k <= 72; k++) { const z = pr(rotAbout(g.q, g.A.p, g.A.n, k * 5 * Math.PI / 180)); if (z[3] > 0) pts.push(z[0].toFixed(1) + ',' + z[1].toFixed(1)); } s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#ff8a3d" stroke-width="2" stroke-dasharray="5 4" opacity=".85"/>'; }
+    else if (key === 'pos') { const L = jointRange(H.f, { drive: 'pos' })[1], a = pr(v3.madd(g.q, g.A.n, -L)), b = pr(v3.madd(g.q, g.A.n, L)); if (a[3] > 0 && b[3] > 0) s += '<line x1="' + a[0] + '" y1="' + a[1] + '" x2="' + b[0] + '" y2="' + b[1] + '" stroke="#ff8a3d" stroke-width="2" stroke-dasharray="5 4" opacity=".85"/>'; }
+    try { s += liveCues(H, g, q, key, pr); } catch (eC) { /* cosmetic */ }
+    if (q[3] > 0 && !(key === 'angle' || key === 'pos')) s += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="7" fill="#ff8a3d" stroke="#fff" stroke-width="2"/>';
+    if (q[3] > 0 && (key === 'angle' || key === 'pos')) s += '<circle data-knob="1" cx="' + q[0] + '" cy="' + q[1] + '" r="11" fill="#ff8a3d" stroke="#fff" stroke-width="2" style="pointer-events:auto;cursor:grab"/><text x="' + (q[0] + 16) + '" y="' + (q[1] - 12) + '" font-size="11" fill="#ffd8bd" font-family="system-ui,sans-serif">drag me</text>';
+    if (s !== liveSvg.__last) { liveSvg.innerHTML = s; liveSvg.__last = s; } liveSvg.style.display = '';
   }
   document.addEventListener('pointerdown', (e) => {
     if (!e.target || !e.target.closest || !e.target.closest('#x10live [data-knob]') || !LV.h || !LV.h.g) return; e.stopImmediatePropagation(); e.preventDefault();
@@ -32427,12 +32504,192 @@ body.x855 #x86fab{display:none!important}
     e.preventDefault();
   }, true);
   document.addEventListener('pointerup', () => { if (LV.drag) { LV.drag = null; P.refreshPanels && P.refreshPanels(); } }, true);
-  CAD.x10.ui.live = { panel: livePanel, joint: liveJoint, ground: liveGround, handle: liveHandle };
+
+  /* ================= Assembly Studio ================= */
+  const VERB = { hinge: 'spins on', slider: 'slides on', concentric: 'spins & slides on', ball: 'swivels on', screw: 'screws along', gear: 'meshes with', lock: 'is locked to', coincident: 'glides on' };
+  const GLYPH = { hinge: '⟳', slider: '⇄', concentric: '↻', ball: '◉', screw: '⟳', gear: '⚙', lock: '🔒', coincident: '▭' };
+  (function () { const s = document.createElement('style'); s.textContent = 'body.ik-dragging:not(.ak-adv) #mpeBar{display:none!important}body.ik-dragging:not(.ak-adv) #x10mate{display:none!important}#ik-live .akp{height:30px;padding:0 12px;border-radius:15px;border:1px solid #34476a;background:#1a2a47;color:#e6edf7;font:600 12px system-ui,sans-serif;cursor:pointer}#ik-live .akp.fx{background:#3a2616;border-color:#ff8a3d;color:#ffcfa6}#ik-live .akc{border:1px solid #243551;border-radius:12px;padding:10px;margin:8px 0;background:#121c2e;display:flex;flex-direction:column;gap:8px}#ik-live .akc.on{border-color:#ff8a3d;box-shadow:0 0 0 1px #ff8a3d55}#ik-live .akplay{height:38px;min-width:92px;border-radius:10px;border:0;background:#ff8a3d;color:#1a0f06;font:700 13px system-ui,sans-serif;cursor:pointer}#ik-live .akplay.stop{background:#2a3d60;color:#e6edf7}#ik-live .akrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}#ik-live .aknum{width:62px}'; document.head.appendChild(s); })();
+  function studioRender() {
+    const pn = LV.pn; if (!pn || !pn.isOn()) return; const cs = partsNow(), fx = fixedMap(), js = liveJoints(), sp = LV.speed || 1;
+    LV.sig = js.map((f) => f.id + f.params.type + f.params.compA + f.params.compB).join(',') + '|' + Object.keys(fx).filter((k) => fx[k]).join(',') + '|' + cs.length;
+    let h = '<div class="akrow" style="margin-bottom:2px">' + (cs.length ? cs.map((c) => '<button class="akp' + (fx[c.src] ? ' fx' : '') + '" data-fx2="' + c.src + '" title="' + (fx[c.src] ? 'Grounded: never moves. Click to let it move.' : 'Free to move. Click to ground it (or press G over it).') + '">' + (fx[c.src] ? '⚓ ' : '') + esc(srcName(c.src)) + '</button>').join('') : '<span class="note">No parts yet. Insert a part first.</span>') + '</div><p class="note" style="margin:2px 0 6px">Click a part to ground it · press <b>G</b> over a part · drag a part onto another to join them.</p>';
+    if (!js.length) h += '<div class="akc"><b>No motion yet</b><span class="note">Drag a part so its round face meets another part’s round face. Aakar offers only the motions that fit. Or press Add motion.</span></div>';
+    h += js.map((f) => {
+      const p = f.params, key = jtDrive(p.type), rg = key ? jointRange(f, { drive: key }) : null, cur = key ? (+p[key] || 0) : 0, on = !!LV.anim[f.id], bad = f._status && f._status.level === 'error';
+      let c = '<div class="akc' + (on ? ' on' : '') + '" data-card="' + f.id + '"><div class="akrow"><span style="font-size:15px">' + (GLYPH[p.type] || '⚙') + '</span><span style="flex:1"><b>' + esc(srcName(p.compB)) + '</b> ' + (VERB[p.type] || p.type) + ' <b>' + esc(srcName(p.compA)) + '</b></span><button class="btn sm" data-show="' + f.id + '" title="Show the handle, trail and readout on the model">◎</button><button class="btn sm" data-del2="' + f.id + '" title="Remove this motion">✕</button></div>';
+      if (bad) c += '<div class="note" style="color:#ff9a8a">' + esc((f._status && f._status.msg) || 'This joint could not be solved') + '</div>';
+      if (key) {
+        c += '<div class="akrow">' + (p.type === 'lock' ? '' : '<button class="akplay' + (on ? ' stop' : '') + '" data-play="' + f.id + '">' + (on ? '❚❚ Pause' : '▶ Play') + '</button>') + '<input type="range" data-lr="' + f.id + '" min="' + rg[0] + '" max="' + rg[1] + '" step="1" value="' + cur + '" style="flex:1;min-width:90px"><input type="number" class="aknum" data-ln="' + f.id + '" value="' + Math.round(cur * 10) / 10 + '"> <span class="note">' + rg[3] + '</span></div>';
+        c += jtExtra(p.type).map(([k2, l2, u2]) => { const r2 = jtMm(k2) ? jointRange(f, { drive: 'pos' }) : [-180, 180, 1, '°'], c2 = +p[k2] || 0; return '<div class="akrow"><span class="note" style="min-width:48px">' + l2 + '</span><input type="range" data-lr2="' + f.id + '" data-ck="' + k2 + '" min="' + r2[0] + '" max="' + r2[1] + '" step="1" value="' + c2 + '" style="flex:1;min-width:90px"><input type="number" class="aknum" data-ln2="' + f.id + '" data-ck="' + k2 + '" value="' + Math.round(c2 * 10) / 10 + '"> <span class="note">' + u2 + '</span></div>'; }).join('');
+        c += '<div class="akrow"><label class="note"><input type="checkbox" data-lim="' + f.id + '"' + (p.limOn ? ' checked' : '') + '> Limit</label><input type="number" class="aknum" data-l0="' + f.id + '" value="' + (p.lim0 == null ? -90 : p.lim0) + '"> <span class="note">to</span> <input type="number" class="aknum" data-l1="' + f.id + '" value="' + (p.lim1 == null ? 90 : p.lim1) + '"></div>';
+      } else if (p.type === 'lock') c += '<div class="note">These two parts move as one.</div>';
+      return c + '</div>';
+    }).join('');
+    h += '<div class="akc" style="gap:6px"><b>🎥 Cameras</b><div class="akrow">' + [['iso', 'Iso'], ['front', 'Front'], ['top', 'Top'], ['right', 'Right']].map(([v, l]) => '<button class="akp" data-cam="' + v + '">' + l + '</button>').join('') + '<button class="akp" data-camfit="1" title="Zoom to the moving part">▣ Frame part</button></div><div class="akrow"><button class="akp' + (LV.orbit ? ' fx' : '') + '" data-camorb="1" title="Slowly circle the camera so you see the part turn from every side">↻ Orbit' + (LV.orbit ? ' on' : '') + '</button><button class="akp' + (window.AAKAR_QUAD && window.AAKAR_QUAD.on ? ' fx' : '') + '" data-cam4="1" title="Four live windows: Iso, Front, Top, Right">▦ 4 windows' + (window.AAKAR_QUAD && window.AAKAR_QUAD.on ? ' on' : '') + '</button></div></div>';
+    h += '<div class="akrow" style="margin-top:6px"><button class="btn sm primary" data-add="1">＋ Add motion</button><button class="btn sm" data-playall="1">▶ Play all</button><button class="btn sm" data-stopall="1">■ Stop all</button></div>';
+    h += '<div class="akrow" style="margin-top:8px"><span class="note">Speed</span><input type="range" data-spd="1" min="0.25" max="3" step="0.25" value="' + sp + '" style="flex:1"><span class="note" data-spdl="1">' + sp + '×</span></div>';
+    h += '<div class="akrow" style="margin-top:6px"><label class="note"><input type="checkbox" data-mv2="1"' + (X.dragState && X.dragState.on ? ' checked' : '') + '> Move parts by dragging</label><span style="flex:1"></span><button class="btn sm" data-adv="1" title="Mate points, every mate type, the joint wizard, the parts table">Advanced ▸</button></div>';
+    pn.body.innerHTML = h;
+    const q = (s) => pn.body.querySelector(s), qa = (s) => [...pn.body.querySelectorAll(s)], byId = (id) => liveJoints().find((f) => f.id === id);
+    qa('[data-fx2]').forEach((b) => { b.onclick = () => { P.pushUndo(); const fm = fixedMap(), k = b.dataset.fx2; if (fm[k]) delete fm[k]; else fm[k] = true; P.regenerate(true); liveRender(); status(srcName(k) + (fm[k] ? ' is grounded' : ' can move')); }; });
+    qa('[data-play]').forEach((b) => { b.onclick = () => { const f = byId(b.dataset.play); if (!f) return; if (LV.anim[f.id]) liveStop(f.id); else { liveHandle(f); liveSpin(f); } liveRender(); }; });
+    qa('[data-show]').forEach((b) => { b.onclick = () => { const f = byId(b.dataset.show); if (f) liveHandle(f); }; });
+    qa('[data-del2]').forEach((b) => { b.onclick = () => { const f = byId(b.dataset.del2); if (!f) return; liveStop(f.id); P.pushUndo(); const i = idxF(f); st.doc.features.splice(i, 1); F.invalidate(st.doc, Math.max(0, i)); P.regenerate(true); if (LV.h && LV.h.f === f) LV.h = null; liveRender(); }; });
+    qa('[data-lr]').forEach((r) => { r.oninput = () => { const f = byId(r.dataset.lr); if (!f) return; liveStop(f.id); f.params[jtDrive(f.params.type)] = +r.value; touchF(f); const n = q('[data-ln="' + f.id + '"]'); if (n) n.value = r.value; }; });
+    qa('[data-ln]').forEach((n) => { n.onchange = () => { const f = byId(n.dataset.ln); if (!f) return; liveStop(f.id); f.params[jtDrive(f.params.type)] = +n.value || 0; touchF(f); const r = q('[data-lr="' + f.id + '"]'); if (r) r.value = n.value; }; });
+    qa('[data-lr2]').forEach((r) => { r.oninput = () => { const f = byId(r.dataset.lr2); if (!f) return; liveStop(f.id); f.params[r.dataset.ck] = +r.value; touchF(f); const n = q('[data-ln2="' + f.id + '"][data-ck="' + r.dataset.ck + '"]'); if (n) n.value = r.value; }; });
+    qa('[data-ln2]').forEach((n) => { n.onchange = () => { const f = byId(n.dataset.ln2); if (!f) return; liveStop(f.id); f.params[n.dataset.ck] = +n.value || 0; touchF(f); const r = q('[data-lr2="' + f.id + '"][data-ck="' + n.dataset.ck + '"]'); if (r) r.value = n.value; }; });
+    const limSet = (id, fn) => { const f = byId(id); if (!f) return; fn(f.params); touchF(f); };
+    qa('[data-lim]').forEach((c) => { c.onchange = () => limSet(c.dataset.lim, (p) => { p.limOn = c.checked; if (p.lim0 == null) p.lim0 = -90; if (p.lim1 == null) p.lim1 = 90; }); });
+    qa('[data-l0]').forEach((n) => { n.onchange = () => limSet(n.dataset.l0, (p) => { p.lim0 = +n.value || 0; }); });
+    qa('[data-l1]').forEach((n) => { n.onchange = () => limSet(n.dataset.l1, (p) => { p.lim1 = +n.value || 0; }); });
+    qa('[data-cam]').forEach((b) => { b.onclick = () => { try { if (window.AAKAR_QUAD && window.AAKAR_QUAD.on) return; P.setView ? P.setView(b.dataset.cam) : (() => { const E = Math.PI / 2 - 1e-3, vs = { iso: [-Math.PI / 4 - 0.3, 0.55], top: [-Math.PI / 2, E], front: [-Math.PI / 2, 0], right: [0, 0] }; R.cam.upv = null; [R.cam.yaw, R.cam.pitch] = vs[b.dataset.cam]; P.redraw(); })(); camFrame(); } catch (e) { toast('Camera: ' + e.message, true); } }; });
+    const cf = q('[data-camfit]'); if (cf) cf.onclick = () => camFrame();
+    const co = q('[data-camorb]'); if (co) co.onclick = () => { LV.orbit = !LV.orbit; if (LV.orbit) camOrbit(); liveRender(); };
+    const c4 = q('[data-cam4]'); if (c4) c4.onclick = () => { try { const Q = window.AAKAR_QUAD; if (!Q) return toast('Four windows are not available', true); Q.set(!Q.on); if (Q.on) { ['Iso', 'Front', 'Top', 'Right'].forEach((n, i) => Q.view(i, n)); } setTimeout(liveRender, 120); } catch (e) { toast('Four windows: ' + e.message, true); } };
+    const add = q('[data-add]'); if (add) add.onclick = () => liveJoint();
+    const pa = q('[data-playall]'); if (pa) pa.onclick = () => { liveJoints().forEach((f) => { if (jtDrive(f.params.type) && f.params.type !== 'lock') liveSpin(f); }); const f0 = liveJoints()[0]; if (f0 && !LV.h) liveHandle(f0); liveRender(); };
+    const sa = q('[data-stopall]'); if (sa) sa.onclick = () => { liveStop(); liveRender(); };
+    const sd = q('[data-spd]'); if (sd) sd.oninput = () => { LV.speed = +sd.value; const l = q('[data-spdl]'); if (l) l.textContent = sd.value + '×'; };
+    const mv = q('[data-mv2]'); if (mv) mv.onchange = () => { LV.noDrag = !mv.checked; try { X.toggleDrag(mv.checked); } catch (e) { /* ignore */ } };
+    const ad = q('[data-adv]'); if (ad) ad.onclick = () => { LV.adv = true; document.body.classList.add('ak-adv'); liveRender(); };
+  }
+  /* G over a part grounds / frees it */
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'g' && e.key !== 'G') return; if (e.ctrlKey || e.metaKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return;
+    if (!LV.pn || !LV.pn.isOn() || !window.__lastPtr) return; const vr = document.getElementById('viewport').getBoundingClientRect(), lp = window.__lastPtr;
+    if (lp.x < vr.left || lp.x > vr.right || lp.y < vr.top || lp.y > vr.bottom) return; const h = IK.faceAt(lp.x - vr.left, lp.y - vr.top); if (!h || !h.body || !h.body.src) return;
+    e.preventDefault(); P.pushUndo(); const fm = fixedMap(), k = h.body.src; if (fm[k]) delete fm[k]; else fm[k] = true; P.regenerate(true); liveRender(); status(srcName(k) + (fm[k] ? ' is grounded' : ' can move'));
+  }, true);
+  /* clickable joint badges in 3D + the live "release to join" target while dragging */
+  const bdg = (function () { const NS = 'http://www.w3.org/2000/svg', s = document.createElementNS(NS, 'svg'); s.id = 'ak-bdg'; s.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:99980;display:none'); document.getElementById('viewport').appendChild(s); return s; })();
+  bdg.addEventListener('pointerdown', (e) => { const g = e.target.closest && e.target.closest('[data-bj]'); if (!g) return; e.stopImmediatePropagation(); e.preventDefault(); const f = liveJoints().find((x) => x.id === g.getAttribute('data-bj')); if (!f) return; if (LV.anim[f.id]) liveStop(f.id); else { liveHandle(f); if (jtDrive(f.params.type) && f.params.type !== 'lock') liveSpin(f); else liveHandle(f); } liveRender(); }, true);
+  let dropC = { t: 0, src: null, others: null, best: null };
+  function dropMatch(src, others) {
+    const AAx = axesFor(src, 'axis'); let best = null; if (!AAx.length) return null;
+    others.forEach(({ o, ax }) => ax.forEach((b) => AAx.forEach((a) => {
+      const rr = Math.abs(a.r - b.r) / Math.max(a.r, b.r); if (rr > 0.08 || !a.a || !b.a) return;
+      const da = v3.norm(v3.sub(a.b, a.a)), db = v3.norm(v3.sub(b.b, b.a)); if (Math.abs(v3.dot(da, db)) < 0.97) return;
+      const w = v3.sub(a.p, b.p), perp = v3.len(v3.sub(w, v3.scale(db, v3.dot(w, db)))); if (perp > Math.max(a.r, b.r) * 1.3 + 15) return;
+      const sc = perp + rr * 100; if (!best || sc < best.sc) best = { o, a, b, sc, db };
+    })));
+    return best;
+  }
+  function bdgTick() {
+    requestAnimationFrame(bdgTick);
+    const on = LV.pn && LV.pn.isOn(); if (!on) { if (bdg.__last) { bdg.innerHTML = ''; bdg.__last = ''; } bdg.style.display = 'none'; return; }
+    const M = R.matrices(), pr = (w) => R.project(w, M), stt = st.state; let s = '', cnt = {};
+    liveJoints().forEach((f) => { const p = f.params; if (f.suppressed || !p.compA) return; let Aw = null; try { Aw = X.refW(stt, p.compA, X.freshRef(stt, p.compA, p.a)); } catch (e) { return; } if (!Aw || !Aw.p) return; const z = pr(Aw.p); if (z[3] <= 0) return;
+      const k = Aw.p.map((v) => Math.round(v)).join(','), i = (cnt[k] = (cnt[k] || 0) + 1) - 1, x = z[0] + 26 + i * 36, y = z[1] - 26, play = !!LV.anim[f.id];
+      s += '<g data-bj="' + f.id + '" style="pointer-events:auto;cursor:pointer"><title>' + esc(srcName(p.compB) + ' ' + (VERB[p.type] || '') + ' ' + srcName(p.compA)) + ' — click to ' + (play ? 'pause' : 'play') + '</title><line x1="' + z[0].toFixed(1) + '" y1="' + z[1].toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="#ff8a3d" stroke-width="1.5" opacity=".7"/><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="16" fill="' + (play ? '#ff8a3d' : '#101a2b') + '" stroke="#ff8a3d" stroke-width="2"/><text x="' + x.toFixed(1) + '" y="' + (y + 5).toFixed(1) + '" text-anchor="middle" font-size="15" fill="' + (play ? '#1a0f06' : '#ffb27a') + '" font-family="system-ui,sans-serif">' + (play ? '❚❚' : (GLYPH[p.type] || '⚙')) + '</text></g>'; });
+    const D = X.dragState, act = D && D.act; const now = performance.now();
+    if (act && act.src && !fixedMap()[act.src]) {
+      if (dropC.src !== act.src) { dropC = { t: 0, src: act.src, others: partsNow().map((c) => c.src).filter((o) => o !== act.src).map((o) => ({ o, ax: axesFor(o, 'axis') })), best: null }; }
+      if (now - dropC.t > 160) { dropC.t = now; try { dropC.best = dropMatch(act.src, dropC.others); } catch (e) { dropC.best = null; } }
+      const b = dropC.best; if (b) { const n = b.db, u = v3.norm(v3.cross(n, Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0])), w2 = v3.cross(n, u), pts = []; for (let k = 0; k <= 48; k++) { const a = k / 48 * Math.PI * 2, c = v3.add(b.b.p, v3.add(v3.scale(u, Math.cos(a) * b.b.r), v3.scale(w2, Math.sin(a) * b.b.r))), z = pr(c); if (z[3] > 0) pts.push(z[0].toFixed(1) + ',' + z[1].toFixed(1)); }
+        const c0 = pr(b.b.p); s += '<polyline points="' + pts.join(' ') + '" fill="rgba(255,138,61,.12)" stroke="#ff8a3d" stroke-width="3" stroke-dasharray="7 5"/>'; if (c0[3] > 0) s += '<g transform="translate(' + (c0[0] + 18).toFixed(1) + ',' + (c0[1] - 34).toFixed(1) + ')"><rect width="190" height="26" rx="13" fill="#101a2b" stroke="#ff8a3d"/><text x="95" y="17" text-anchor="middle" font-size="12" font-weight="600" fill="#ffb27a" font-family="system-ui,sans-serif">Release to join ' + esc(srcName(b.o)) + '</text></g>'; }
+    } else dropC.src = null;
+    if (s !== bdg.__last) { bdg.innerHTML = s; bdg.__last = s; } bdg.style.display = '';
+  }
+  requestAnimationFrame(bdgTick);
+
+  function camFrame() {
+    const stt = st.state, movers = new Set(); liveJoints().forEach((f) => { if (!fixedMap()[f.params.compB]) movers.add(f.params.compB); });
+    const bs = [...stt.bodies.values()].filter((b) => !movers.size || movers.has(b.src)); if (!bs.length) return; const mn = [1e18, 1e18, 1e18], mx = [-1e18, -1e18, -1e18];
+    bs.forEach((b) => { const x = b.solid.bbox(); for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], x.min[k]); mx[k] = Math.max(mx[k], x.max[k]); } });
+    const all = [...stt.bodies.values()]; all.forEach((b) => { const x = b.solid.bbox(); if (v3.dist(v3.scale(v3.add(x.min, x.max), 0.5), v3.scale(v3.add(mn, mx), 0.5)) < v3.dist(mn, mx) * 0.6) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], x.min[k]); mx[k] = Math.max(mx[k], x.max[k]); } });
+    R.cam.target = v3.scale(v3.add(mn, mx), 0.5); const asp = Math.min(1, R.w / Math.max(1, R.h)); R.cam.dist = Math.max(20, v3.dist(mn, mx) * 0.75 / Math.tan(R.cam.fov / 2) / asp); P.redraw();
+  }
+  function camOrbit() {
+    if (LV.orbRaf) return; let t0 = performance.now();
+    const step = (t) => { const dt = Math.min(0.05, (t - t0) / 1000); t0 = t; if (!LV.orbit) { LV.orbRaf = 0; return; } R.cam.upv = null; R.cam.yaw += 0.4 * dt; P.redraw(); LV.orbRaf = requestAnimationFrame(step); };
+    LV.orbRaf = requestAnimationFrame(step);
+  }
+  function liveAvoid() {
+    const el = document.getElementById('ik-live'); if (!el || !LV.pn || !LV.pn.isOn() || el.classList.contains('min')) return;
+    const pts = []; try { const M = R.matrices(), stt = st.state, vr = document.getElementById('viewport').getBoundingClientRect();
+      const js = LV.h ? [LV.h.f] : liveJoints().filter((f) => LV.anim[f.id]); js.forEach((f) => { const bs = [...stt.bodies.values()].filter((b) => b.src === f.params.compB); bs.forEach((b) => { const x = b.solid.bbox(); [[(x.min[0] + x.max[0]) / 2, (x.min[1] + x.max[1]) / 2, (x.min[2] + x.max[2]) / 2]].forEach((w) => { const z = R.project(w, M); if (z[3] > 0) pts.push([z[0] + vr.left, z[1] + vr.top]); }); }); }); } catch (e) { return; }
+    if (!pts.length) return; const r = el.getBoundingClientRect(), pad = 24, hit = () => pts.some((p) => p[0] > r.left - pad && p[0] < r.right + pad && p[1] > r.top - pad && p[1] < r.bottom + pad);
+    if (!hit()) return;
+    const vr2 = document.getElementById('viewport').getBoundingClientRect(), w = r.width, onRight = r.left + w / 2 > (vr2.left + vr2.right) / 2;
+    el.style.right = onRight ? 'auto' : '10px'; el.style.left = onRight ? (vr2.left + 10) + 'px' : 'auto';
+    const r2 = el.getBoundingClientRect(); if (pts.some((p) => p[0] > r2.left - pad && p[0] < r2.right + pad && p[1] > r2.top - pad && p[1] < r2.bottom + pad)) { el.style.right = onRight ? '10px' : 'auto'; el.style.left = onRight ? 'auto' : (vr2.left + 10) + 'px'; }
+  }
+  setInterval(() => { try { if (LV.h || Object.keys(LV.anim).length) liveAvoid(); } catch (e) { /* ignore */ } }, 500);
+  function liveClear() { liveStop(); LV.orbit = false; LV.h = null; LV.tr = null; LV.hv = null; LV.drag = null; liveSvg.style.display = 'none'; liveSvg.innerHTML = ''; liveSvg.__last = ''; dropChipHide(); }
+  document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (LV.h || Object.keys(LV.anim).length || document.getElementById('ik-dropchip')) liveClear(); }, true);
+
+;(function () {
+  const G = window, P = G.PRISM; if (!P || !P.R) return;
+  const NS = 'http://www.w3.org/2000/svg', vp = document.getElementById('viewport'); if (!vp) return;
+  const sv = document.createElementNS(NS, 'svg'); sv.id = 'ak-axtri'; sv.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:60;display:none'); vp.appendChild(sv);
+  const COL = { X: '#ff5a5a', Y: '#4ddb7a', Z: '#5aa2ff' };
+  const mm = (A, B) => A.map((r, i) => [0, 1, 2].map((j) => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+  const rx = (a) => [[1, 0, 0], [0, Math.cos(a), -Math.sin(a)], [0, Math.sin(a), Math.cos(a)]], ry = (a) => [[Math.cos(a), 0, Math.sin(a)], [0, 1, 0], [-Math.sin(a), 0, Math.cos(a)]], rz = (a) => [[Math.cos(a), -Math.sin(a), 0], [Math.sin(a), Math.cos(a), 0], [0, 0, 1]];
+  const eul = (r) => mm(rz((r[2] || 0) * Math.PI / 180), mm(ry((r[1] || 0) * Math.PI / 180), rx((r[0] || 0) * Math.PI / 180)));
+  let last = '';
+  function colourLabels() {
+    document.querySelectorAll('#dlgForm *').forEach((el) => { if (el.children.length || el.__ax) return; const t = el.textContent || ''; const m = /^(Position|Rotation about|Move|Rotate about) ([XYZ])( \(.*)?$/.exec(t); if (!m) return; el.__ax = 1; el.innerHTML = m[1] + ' <b style="color:' + COL[m[2]] + ';border:1px solid ' + COL[m[2]] + ';border-radius:5px;padding:0 5px;margin:0 2px">' + m[2] + '</b>' + (m[3] || ''); });
+  }
+  function size() { let L = 30; try { const bs = [...P.st.state.bodies.values()]; bs.forEach((b) => { const x = b.solid.bbox(); L = Math.max(L, 0.35 * Math.hypot(x.max[0] - x.min[0], x.max[1] - x.min[1], x.max[2] - x.min[2])); }); } catch (e) { /* ignore */ } return Math.min(L, 400); }
+  function tick() {
+    requestAnimationFrame(tick);
+    const md = document.getElementById('modal'), ti = document.getElementById('dlgTitle'), on = md && !md.classList.contains('hidden') && ti && /Insert part/i.test(ti.textContent || '');
+    if (!on) { if (last) { sv.style.display = 'none'; sv.innerHTML = ''; last = ''; } return; }
+    colourLabels();
+    const inp = [...document.querySelectorAll('#dlgForm input')], v = inp.slice(1, 7).map((i) => +i.value || 0); if (v.length < 6) return;
+    const o = v.slice(0, 3), Rm = eul(v.slice(3, 6)), Lh = size(), Mx = P.R.matrices(), pr = (w) => P.R.project(w, Mx);
+    let s = '';
+    const axis = (org, dirs, op, wd, lab) => ['X', 'Y', 'Z'].forEach((k, i) => { const d = dirs[i], e = [org[0] + d[0] * Lh, org[1] + d[1] * Lh, org[2] + d[2] * Lh], a = pr(org), b = pr(e); if (a[3] <= 0 || b[3] <= 0) return;
+      const dx = b[0] - a[0], dy = b[1] - a[1], ln = Math.hypot(dx, dy) || 1, ux = dx / ln, uy = dy / ln;
+      s += '<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="' + COL[k] + '" stroke-width="' + wd + '" stroke-linecap="round" opacity="' + op + '"' + (lab ? '' : ' stroke-dasharray="5 5"') + '/>';
+      s += '<polygon points="' + [[b[0], b[1]], [b[0] - ux * 12 - uy * 5, b[1] - uy * 12 + ux * 5], [b[0] - ux * 12 + uy * 5, b[1] - uy * 12 - ux * 5]].map((p2) => p2[0].toFixed(1) + ',' + p2[1].toFixed(1)).join(' ') + '" fill="' + COL[k] + '" opacity="' + op + '"/>';
+      if (lab) s += '<g transform="translate(' + (b[0] + ux * 14 - 9).toFixed(1) + ',' + (b[1] + uy * 14 - 9).toFixed(1) + ')"><rect width="18" height="18" rx="5" fill="#0b1220" stroke="' + COL[k] + '"/><text x="9" y="13" text-anchor="middle" font-size="12" font-weight="700" fill="' + COL[k] + '" font-family="system-ui,sans-serif">' + k + '</text></g>'; });
+    axis([0, 0, 0], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], 0.35, 2, false);
+    axis(o, [[Rm[0][0], Rm[1][0], Rm[2][0]], [Rm[0][1], Rm[1][1], Rm[2][1]], [Rm[0][2], Rm[1][2], Rm[2][2]]], 1, 4, true);
+    const oo = pr(o); if (oo[3] > 0) s += '<circle cx="' + oo[0].toFixed(1) + '" cy="' + oo[1].toFixed(1) + '" r="5" fill="#fff" stroke="#0b1220" stroke-width="2"/>';
+    if (s !== last) { sv.innerHTML = s; last = s; } sv.style.display = '';
+  }
+  requestAnimationFrame(tick);
+})();
+
+  CAD.x10.ui.live = { clear: liveClear, panel: livePanel, joint: liveJoint, ground: liveGround, handle: liveHandle };
   P.addGroup('assembly', 'Live assembly', [
     ['liveasm', 'Live assembly', () => livePanel(), 'Live assembly: say which part is fixed, add joints by clicking two parts, move them with a 3D handle or sliders', IK.IC.mate],
     ['livejoint', 'Add joint', () => liveJoint(), 'Add a joint: click the part that stays, then the part that moves. Round faces are found for you; choose rotate, slide, ball, screw, gear, fixed or surface', IK.IC.mate],
     ['liveground', 'Fix a part', () => liveGround(), 'Click a part to fix it in space. Everything else moves around it', IK.IC.mate]
   ]);
+  /* ---- drop a part onto a matching round face: one chip, one click */
+  function dropChipHide() { const o = document.getElementById('ik-dropchip'); if (o) o.remove(); }
+  function showDropChip(src, best) {
+    dropChipHide(); const lp = window.__lastPtr || { x: 300, y: 200 }, el = document.createElement('div'); el.id = 'ik-dropchip';
+    el.style.cssText = 'position:fixed;z-index:99998;left:' + Math.min(window.innerWidth - 440, lp.x + 14) + 'px;top:' + Math.max(60, lp.y - 96) + 'px;padding:10px;border-radius:14px;background:#101a2bf5;border:1px solid #ff8a3d;box-shadow:0 12px 32px #000b;font:13px system-ui,sans-serif;color:#e6edf7;display:flex;flex-direction:column;gap:8px';
+    const bt = 'height:36px;padding:0 14px;border-radius:9px;border:1px solid #34476a;background:#1a2a47;color:#e6edf7;font:600 13px system-ui,sans-serif;cursor:pointer';
+    el.innerHTML = '<div style="font-weight:600">' + esc(srcName(src)) + ' fits ' + esc(srcName(best.o)) + ' (Ø' + (Math.round(best.a.r * 20) / 10) + ' mm). What should it do?</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button data-d="pin" style="' + bt + ';background:#ff8a3d;color:#1a0f06;border:0">Spin</button><button data-d="slide" style="' + bt + '">Slide</button><button data-d="pinslide" style="' + bt + '">Spin + slide</button><button data-d="fixed" style="' + bt + '">Lock</button><button data-d="x" style="' + bt + ';opacity:.8">Not now</button></div>';
+    document.body.appendChild(el);
+    el.querySelectorAll('[data-d]').forEach((b) => { b.onclick = () => {
+      const k = b.dataset.d; dropChipHide(); if (k === 'x') return; const J = JOINTS[k]; if (!J) return;
+      try {
+        const ra = J.kind === 'axis' ? makeRef({ body: best.b.body, fi: best.b.fi, p: best.b.p, n: null }) : null, rb = J.kind === 'axis' ? makeRef({ body: best.a.body, fi: best.a.fi, p: best.a.p, n: null }) : null;
+        const f = jointMake(J, { cA: best.o, cB: src, a: ra, b: rb }, true); livePanel(); liveHandle(f); if (jtDrive(J.type)) { setTimeout(() => liveSpin(f), 150); }
+      } catch (e) { toast(e.message || String(e), true); }
+    }; });
+    setTimeout(() => { const d = document.getElementById('ik-dropchip'); if (d === el) el.remove(); }, 15000);
+  }
+  window.AAKAR_LIVE_DROP = (a0) => {
+    const src = a0 && a0.src; if (!src || fixedMap()[src]) return;
+    if (liveJoints().some((f) => f.params.compA === src || f.params.compB === src)) return;
+    const others = partsNow().map((c) => c.src).filter((s2) => s2 !== src); if (!others.length) return;
+    const AAx = axesFor(src, 'axis'); if (!AAx.length) return; let best = null;
+    others.forEach((o) => axesFor(o, 'axis').forEach((b) => AAx.forEach((a) => {
+      const rr = Math.abs(a.r - b.r) / Math.max(a.r, b.r); if (rr > 0.08 || !a.a || !b.a) return;
+      const da = v3.norm(v3.sub(a.b, a.a)), db = v3.norm(v3.sub(b.b, b.a)); if (Math.abs(v3.dot(da, db)) < 0.97) return;
+      const w = v3.sub(a.p, b.p), perp = v3.len(v3.sub(w, v3.scale(db, v3.dot(w, db)))); if (perp > Math.max(a.r, b.r) * 1.3 + 15) return;
+      const sc = perp + rr * 100; if (!best || sc < best.sc) best = { o, a, b, sc };
+    })));
+    if (best) showDropChip(src, best);
+  };
+  document.addEventListener('pointerdown', (e) => { if (!e.target.closest || !e.target.closest('#ik-dropchip')) dropChipHide(); }, true);
   /* ---- 3D linear pattern: click a point on the part, then the point it should step to */
   function patTwoPoint() {
     const snapV = (h) => { const s = h.body.solid; let best = null, bd = Infinity; s.V.forEach((q) => { const d = v3.dist(q, h.p); if (d < bd) { bd = d; best = q; } }); const bb = s.bbox(), dg = Math.hypot(bb.max[0] - bb.min[0], bb.max[1] - bb.min[1], bb.max[2] - bb.min[2]); return best && bd < 0.06 * dg ? best.slice() : h.p.slice(); };
@@ -32820,7 +33077,7 @@ body.x855 #x86fab{display:none!important}
     act.last = v; X.setCollisions(hits.length ? COL.checkComponents(AS.components(), { only: [act.src], maxPairs: 4 }) : []);
     if (hits.length) status('Collision with ' + hits.map((x) => nameOf(x.ca.src === act.src ? x.cb : x.ca)).join(', '));
   }
-  function endDrag() { if (!D.act) return; const a0 = D.act; D.act = null; P.refreshPanels(); try { if (window.AAKAR_MPE) window.AAKAR_MPE.release(a0); } catch (re) { console.error(re); } }
+  function endDrag() { if (!D.act) return; const a0 = D.act; D.act = null; P.refreshPanels(); const nM0 = st.doc.features.filter((f) => f.type === 'x10Mate').length; try { if (window.AAKAR_MPE) window.AAKAR_MPE.release(a0); } catch (re) { console.error(re); } try { if (window.AAKAR_LIVE_DROP && st.doc.features.filter((f) => f.type === 'x10Mate').length === nM0) setTimeout(() => window.AAKAR_LIVE_DROP(a0), 120); } catch (de) { console.error(de); } }
   cv.addEventListener('pointerdown', (e) => { if (!D.on || e.button !== 0 || e.altKey || document.body.classList.contains('ik-picking') || document.body.classList.contains('x10-picking') || st.sketching) return; if (beginDrag(e)) { e.preventDefault(); e.stopImmediatePropagation(); try { cv.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ } } }, true);
   cv.addEventListener('pointermove', (e) => { if (D.act) { e.preventDefault(); e.stopImmediatePropagation(); moveDrag(e); } }, true);
   cv.addEventListener('pointerup', (e) => { if (D.act) { e.stopImmediatePropagation(); endDrag(); } }, true);
@@ -45472,7 +45729,8 @@ File.prototype.text=function(){var f=this;return f.slice(0,8).arrayBuffer().then
     });
     return skPieces;
   }
-  const getPieces = () => (skDirty2 ? buildPieces() : skPieces);
+  const pieceHidden = (p) => { try { return ((st.doc.meta || {}).vis || {})[p.sid] === false || (window.AAKAR_SK3D && window.AAKAR_SK3D.sketches === false); } catch (e) { return false; } };
+  const getPieces = () => (skDirty2 ? buildPieces() : skPieces).filter((p) => !pieceHidden(p));
   /** one single curve of a connected shape, as a piece of its own (Ctrl+click) */
   function entityPiece(pc, entId) {
     if (pc.ents.length === 1) return pc; const ep = pc.entPolys.find((x) => x.id === entId); if (!ep) return null;
@@ -51994,7 +52252,7 @@ CAD.featExt.loftRail=function(f,st,h){const p=f.params,r=F.railEval(st,f,p),pts=
     var sel = st.selFeature && st.doc.features.find(function (x) { return x.id === st.selFeature; }), want = {};
     if (sel && sel.params) { (sel.params.sections || []).forEach(function (s) { want[s] = 1; }); if (sel.params.sketch) want[sel.params.sketch] = 1; }
     var cons = null; try { cons = window.__aakConsumed; } catch (e) { cons = null; } void cons;
-    var out = []; var i = 0; st.state && st.state.sketches.forEach(function (sk) { out.push({ sk: sk, idx: i++, force: !!want[sk.id] }); }); return out;
+    var out = []; var i = 0; var hv = ((st.doc.meta || {}).vis) || {}, g3 = window.AAKAR_SK3D || {}; st.state && st.state.sketches.forEach(function (sk) { var ix = i++; if (hv[sk.id] === false || g3.sketches === false) return; out.push({ sk: sk, idx: ix, force: !!want[sk.id] }); }); return out;
   }
   function loftState() { var f = null; var fs = st.doc.features; for (var i = fs.length - 1; i >= 0; i--) if (fs[i].params && Array.isArray(fs[i].params.sections) && !fs[i].suppressed) { f = fs[i]; break; } if (!f || !UX.loftAnalyse) return null; try { return { f: f, rows: UX.loftAnalyse(f) }; } catch (e) { return null; } }
   var lsKey = null, lsVal = null;
@@ -52764,6 +53022,20 @@ CAD.featExt.loftRail=function(f,st,h){const p=f.params,r=F.railEval(st,f,p),pts=
     '.fitem .nm input{width:100%;font:inherit;color:inherit;background:var(--panel2,#1b2230);border:1px solid var(--acc,#ff8a3d);border-radius:4px;padding:0 4px;outline:none}' +
     '.fitem.fhide{display:none!important}.fitem .nm .sub{opacity:.6}';
   document.head.appendChild(css);
+  (function () {
+    var c2 = document.createElement('style'); c2.id = 'ak-tree-vis';
+    c2.textContent = '#featList .fitem{position:relative}#featList .fitem .fold,#featList .fitem .fchv{all:unset;box-sizing:border-box;cursor:pointer;flex:none;width:22px;height:22px;display:inline-flex!important;align-items:center;justify-content:center;border-radius:6px;background:rgba(255,138,61,.18);border:1px solid rgba(255,138,61,.6);color:#ffc08f;font-size:12px;line-height:1;user-select:none}#featList .fitem .fold:hover,#featList .fitem .fchv:hover{background:#ff8a3d;color:#1a0f06}#featList .fitem .fgap{width:22px;flex:none}' +
+      '#featList .fitem .nm{min-width:0}#featList .fitem .act{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:#101a2b;border:1px solid #34476a;border-radius:8px;padding:2px 3px;box-shadow:0 4px 14px #000a;z-index:4;gap:2px}#featList .fitem .act button{min-width:24px;height:22px;font-size:12px}' +
+      '#ak-foldbar{display:flex;gap:6px;padding:4px 6px 6px;position:sticky;top:0;z-index:5;background:var(--panel,#121c2e)}#ak-foldbar button{flex:1;height:28px;border-radius:7px;border:1px solid #34476a;background:#1a2a47;color:#e6edf7;font:600 12px system-ui,sans-serif;cursor:pointer}#ak-foldbar button:hover{border-color:#ff8a3d}';
+    document.head.appendChild(c2);
+    var bar = document.createElement('div'); bar.id = 'ak-foldbar'; bar.innerHTML = '<button data-f="open" title="Open every folded group">▾ Expand all</button><button data-f="shut" title="Fold every group so only the top steps show">▸ Collapse all</button>';
+    list.parentNode.insertBefore(bar, list);
+    bar.onclick = function (e) {
+      var b = e.target.closest('button'); if (!b) return; var want = b.dataset.f === 'open' ? '▸' : '▾';
+      for (var pass = 0; pass < 12; pass++) { var hit = [].filter.call(list.querySelectorAll('.fold, .fchv'), function (x) { return x.textContent === want; }); if (!hit.length) break; hit.forEach(function (x) { x.click(); }); if (want === '▾') break; }
+      if (want === '▾') { /* fold nested groups too */ for (var q = 0; q < 6; q++) { var more = [].filter.call(list.querySelectorAll('.fold, .fchv'), function (x) { return x.textContent === '▾' && x.closest('.fitem') && !x.closest('.fitem').classList.contains('fhide'); }); if (!more.length) break; more.forEach(function (x) { x.click(); }); } }
+    };
+  })();
   var assigned = null;
   function tname(t) { return (P.F && P.F.TYPE_NAMES && P.F.TYPE_NAMES[t]) || (window.CAD && CAD.featNames && CAD.featNames[t]) || (CAD.feat && CAD.feat.TYPE_NAMES && CAD.feat.TYPE_NAMES[t]) || t; }
   function candidates(t) {
@@ -57400,7 +57672,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
   (function () {
     var L = fmtL, deg = 180 / Math.PI;
     var isS = function (v) { return v.type === 'stair' || v.type === 'stairH'; }, isH = function (v) { return v.type === 'stairH' || v.type === 'ladderH'; };
-    var GS = { sel: 0, datum: 'blank', mirror: false, edges: true, wood: 'pine', wopa: 1, meas: false, mz: {}, zoom: {}, sig: '', cdatum: 'foot', cmirror: false };
+    var GS = { sel: 0, datum: 'blank', mirror: false, edges: false, wood: 'pine', wopa: 1, meas: false, mz: {}, zoom: {}, sig: '', cdatum: 'foot', cmirror: false };
 
     D.uo = '';
     root.addEventListener('change', function (e) { var el = e.target; if (el && el.dataset && el.dataset.a === 'unit') { if (G.AakarPrefs && G.AakarPrefs.set) G.AakarPrefs.set('unit', el.value); else { D.uo = el.value; render(true); } } });
@@ -57524,6 +57796,10 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       var p = Painter(fs, mir), T = p.T, ln = p.ln, poly = p.poly, pl = p.pl, arrow = p.arrow, dimH = p.dimH, X = p.X, Y = p.Y, as = p.as;
       var dat = o.datum === 'blank' ? xD : 0, lenS = LN, k;
       var lo = { c: -1.55 * fs, s: -3.1 * fs, e: -4.65 * fs, ch: -6.7 * fs, sl: -8.8 * fs, tot: -12.4 * fs }, up = { c: Ws + 1.0 * fs, s: Ws + 2.5 * fs, e: Ws + 4.0 * fs, g: Ws + 5.7 * fs, t: Ws + 7.7 * fs };
+      (function () {
+        var x0 = Math.min(0, xD) - 9 * fs, x1 = xB + 1.5 * fs, bx = Math.min(X(x0), X(x1)), bw = Math.abs(X(x1) - X(x0)), rows2 = [[lo.c, 1], [lo.ch, 1], [up.c, 1]]; if (edges) rows2.push([lo.s, 0], [lo.e, 1], [up.s, 0], [up.e, 1]);
+        rows2.forEach(function (rw) { p.out.push('<rect x="' + f1(bx) + '" y="' + f1(Y(rw[0] + 1.15 * fs)) + '" width="' + f1(bw) + '" height="' + f1(1.5 * fs) + '" rx="' + f1(0.3 * fs) + '" fill="' + (rw[1] ? 'rgba(130,170,240,.10)' : 'rgba(130,170,240,.05)') + '"/>'); });
+      })();
       woodLayer(p, [xD, 0, xB, Ws], [[0, 0], [xB, 0], [xC, Ws], [xD, Ws]], fs);
       poly([[xD, 0], [xB, 0], [xB, Ws], [xD, Ws]], 'blank');
       poly([[0, 0], [xB, 0], [xC, Ws], [xD, Ws]], GS.wood !== 'off' ? 'outline wd' : 'outline');
@@ -57531,22 +57807,34 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       for (k = 0; k < n; k++) { var h = hs[k], a = h - P / 2, b = h + P / 2; poly([[xAt(a, y0), y0], [xAt(b, y0), y0], [xAt(b, y1), y1], [xAt(a, y1), y1]], 'slot' + (k === sel ? ' sel' : '')); }
       ln(dat, 0, dat, lo.c + 0.9 * fs, 'ext'); ln(xD, Ws, xD, up.c - 0.15 * fs, 'ext'); T(dat, lo.c, '0', 'dim0'); T(xD, up.c, '0', 'dim0');
       var cap = function (x, y, s) { T(x, y, s, 'cap', 'end', fs * 0.82); };
-      cap(dat - 0.9 * fs, lo.c, 'centre'); cap(dat - 0.9 * fs, lo.s, 'start'); cap(dat - 0.9 * fs, lo.e, 'end'); cap(dat - 0.9 * fs, lo.ch, 'centre → centre');
+      cap(dat - 0.9 * fs, lo.c, 'centre'); cap(dat - 0.9 * fs, lo.s, 'start'); cap(dat - 0.9 * fs, lo.e, 'end'); cap(dat - 0.9 * fs, lo.ch, 'pitch');
       cap(xD - 0.9 * fs, up.c, 'centre'); cap(xD - 0.9 * fs, up.s, 'start'); cap(xD - 0.9 * fs, up.e, 'end');
       for (k = 0; k < n; k++) { var h2 = hs[k], ex = fs * 0.9, xl = xAt(h2, 0), xu = xAt(h2, Ws); ln(xl + cos * ex, -sin * ex, xu - cos * ex, Ws + sin * ex, 'cl'); p.out.push('<line data-k="' + k + '" class="hit" x1="' + f1(X(xl)) + '" y1="' + f1(Y(0)) + '" x2="' + f1(X(xu)) + '" y2="' + f1(Y(Ws)) + '"/>'); }
       if (!edges) for (k = 0; k < n; k++) { var xl2 = xAt(hs[k], 0); ln(xl2, -0.45 * fs, xl2, lo.ch + 0.1 * fs, 'ext'); }
       for (k = 0; k < n; k++) {
         var hh = hs[k], xl3 = xAt(hh, 0), xu3 = xAt(hh, Ws), s = k === sel;
-        ln(xl3, 0, xl3, -0.45 * fs, 'dl'); T(xl3, lo.c, lenS(xl3 - dat), s ? 'sel' : '');
-        ln(xu3, Ws, xu3, Ws + 0.45 * fs, 'dl'); T(xu3, up.c, lenS(xu3 - xD), s ? 'sel' : 'top');
-        T(xu3, up.g, noun + (k + 1), s ? 'sel' : '');
+        var mc = s ? '#ff5a5a' : '#ffa24d', tw = 0.42 * fs;
+        p.out.push('<polygon points="' + p.pt(xl3, 0) + ' ' + p.pt(xl3 - tw, -0.85 * fs) + ' ' + p.pt(xl3 + tw, -0.85 * fs) + '" fill="' + mc + '" stroke="#0b0f14" stroke-width="' + f1(0.08 * fs) + '"/>');
+        p.out.push('<polygon points="' + p.pt(xu3, Ws) + ' ' + p.pt(xu3 - tw, Ws + 0.85 * fs) + ' ' + p.pt(xu3 + tw, Ws + 0.85 * fs) + '" fill="' + mc + '" stroke="#0b0f14" stroke-width="' + f1(0.08 * fs) + '"/>');
+        T(xl3, lo.c, lenS(xl3 - dat), s ? 'sel' : '');
+        T(xu3, up.c, lenS(xu3 - xD), s ? 'sel' : 'top');
+        { var bwid = (String(noun + (k + 1)).length * 0.62 + 0.9) * fs; p.out.push('<rect x="' + f1(X(xu3) - bwid / 2) + '" y="' + f1(Y(up.g + 1.0 * fs)) + '" width="' + f1(bwid) + '" height="' + f1(1.45 * fs) + '" rx="' + f1(0.72 * fs) + '" fill="' + mc + '"/>'); p.out.push('<text x="' + f1(X(xu3)) + '" y="' + f1(Y(up.g + 0.1 * fs)) + '" font-size="' + f1(fs * 0.92) + '" font-weight="700" fill="#1a0f06" text-anchor="middle" font-family="system-ui,sans-serif">' + esc(noun + (k + 1)) + '</text>'); }
         if (edges || s) {
           var cl = s ? 'sel' : 'edge', a1 = xAt(hh - P / 2, 0), a2 = xAt(hh + P / 2, 0), b1 = xAt(hh - P / 2, Ws), b2 = xAt(hh + P / 2, Ws);
           ln(a1, 0, a1, lo.s + 0.9 * fs, 'ext'); T(a1, lo.s, lenS(a1 - dat), cl); ln(a2, 0, a2, lo.e + 0.9 * fs, 'ext'); T(a2, lo.e, lenS(a2 - dat), cl);
           ln(b1, Ws, b1, up.s - 0.15 * fs, 'ext'); T(b1, up.s, lenS(b1 - xD), cl); ln(b2, Ws, b2, up.e - 0.15 * fs, 'ext'); T(b2, up.e, lenS(b2 - xD), cl);
+          if (s) {
+            ln(dat, lo.c, dat, lo.e - 0.3 * fs, 'ext'); ln(xD, up.c, xD, up.e + 0.3 * fs, 'ext');
+            dimH(dat, a1, lo.s - 0.55 * fs, '', 'sel'); dimH(dat, a2, lo.e - 0.55 * fs, '', 'sel');
+            dimH(xD, b1, up.s + 0.55 * fs, '', 'sel'); dimH(xD, b2, up.e + 0.55 * fs, '', 'sel');
+          }
         }
       }
-      for (k = 0; k + 1 < n; k++) dimH(xAt(hs[k], 0), xAt(hs[k + 1], 0), lo.ch, lenS(pitch));
+      if (n > 1) {
+        for (k = 0; k < n; k++) { var xt = xAt(hs[k], 0); ln(xt, lo.ch - 0.35 * fs, xt, lo.ch + 0.35 * fs, 'dl'); }
+        ln(xAt(hs[0], 0), lo.ch, xAt(hs[n - 1], 0), lo.ch, 'dl');
+        var mp = Math.max(0, Math.min(n - 2, (n >> 1) - 1)); dimH(xAt(hs[mp], 0), xAt(hs[mp + 1], 0), lo.ch, 'pitch ' + lenS(pitch) + (n > 2 ? '  (every mark)' : ''), 'dim', true);
+      }
       if (sel >= 0 && sel < n) {
         var hq = hs[sel], q1 = xAt(hq - P / 2, 0), q2 = xAt(hq + P / 2, 0);
         ln(q1, 0, q1, lo.sl, 'ext'); ln(q2, 0, q2, lo.sl, 'ext'); dimH(q1, q2, lo.sl, '', 'sel');
@@ -57612,7 +57900,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       var dl = o.datum === 'blank' ? x0 : xA, h = hs[k], a1 = xAt(h - P / 2, 0), a2 = xAt(h + P / 2, 0), b1 = xAt(h - P / 2, Ws), b2 = xAt(h + P / 2, Ws);
       var A = a1 - (o.datum === 'blank' ? xD : 0), Af = a2 - (o.datum === 'blank' ? xD : 0), Au = b1 - xD, Auf = b2 - xD, B = openAlong, Cc = pitch - openAlong;
       T(x0, 20, noun + (k + 1) + ' close-up  (schematic, not to scale)', 'title', 'start'); T(W0 - 20, 20, 'θ = ' + deg0.toFixed(2) + '° to the edge · ' + (90 - deg0).toFixed(2) + '° off square', 'angt', 'end');
-      T(x0, 37, 'Distances run along the edge from the datum  ·  left = ' + (mir ? 'TOP' : 'FLOOR (bottom)') + ' end', 'cap', 'start');
+      T(x0, 37, 'Distances run along the edge from the datum  ·  left = ' + (mir ? 'TOP' : 'FLOOR (bottom)') + ' end  ·  slot is measured along the edge', 'cap', 'start');
       poly([[x0, yT], [x0, yB], [xA, yB]], 'waste'); poly([[x0, yT], [xR - dx, yT], [xR, yB], [xA, yB]], 'outline'); ln(x0, yT, x0, yB, 'blankl'); ln(x0, yB, xR, yB, 'blankl');
       poly([[n1, yB], [f1x, yB], [f1x - dx, yT], [n1 - dx, yT]], 'slot sel'); poly([[n2, yB], [f2, yB], [f2 - dx, yT], [n2 - dx, yT]], 'slot');
       ln(c1, yB + 6, c1 - dx, yT - 6, 'cl'); ln(c2, yB + 6, c2 - dx, yT - 6, 'cl');
@@ -57761,7 +58049,8 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         var enc = new TextEncoder(), T = dimTable(X, kind), title = kind === 'cut' ? 'Mark and cut sheet' : 'Mark and route sheet', now = new Date().toISOString().slice(0, 10);
         var tbl = '<table>' + T.rows.map(function (r, i) { return '<tr>' + r.map(function (x) { return '<' + (i ? 'td' : 'th') + '>' + esc(String(x)) + '</' + (i ? 'td' : 'th') + '>'; }).join('') + '</tr>'; }).join('') + '</table>';
         var html = '<!doctype html><meta charset="utf-8"><title>' + title + '</title><style>body{font:14px system-ui,sans-serif;margin:24px;color:#111}img{max-width:100%;border:1px solid #ccc;margin:8px 0}table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #bbb;padding:3px 9px;text-align:right}th{background:#eee}@media print{img{page-break-inside:avoid}}</style><h2>' + title + '</h2><p>' + esc(T.head) + ' All sizes in millimetres. ' + now + '</p>' + imgs.map(function (i) { return '<img src="' + i.url + '" alt="' + i.name + '">'; }).join('') + tbl;
-        var files = imgs.map(function (i) { return { name: i.name + '.png', data: i.png }; }).concat([{ name: 'dimensions.csv', data: enc.encode('﻿' + csvOf(T.rows) + '\r\n') }, { name: 'marking-sheet.html', data: enc.encode(html) }, { name: 'README.txt', data: enc.encode(title + ' (' + now + ')\r\n' + T.head + '\r\nAll sizes in millimetres.\r\n\r\nboard.png : the board with every mark and dimension\r\n' + (kind === 'cut' ? '' : 'closeup-*.png : edge-to-edge close-up of every groove (start, slot, gap, angle)\r\n') + 'dimensions.csv : the table, opens in Excel or Sheets\r\nmarking-sheet.html : drawing and table on one page, open it and print\r\n') }]);
+        var svgFiles = []; if (kind !== 'cut' && X.g) for (var si = 0; si < X.g.n; si++) { var st0 = slotSvgText(X.g, si, X.noun); if (st0) svgFiles.push({ name: slotName(X.noun, si) + '.svg', data: enc.encode(st0) }); }
+        var files = imgs.map(function (i) { return { name: i.name + '.png', data: i.png }; }).concat(svgFiles).concat([{ name: 'dimensions.csv', data: enc.encode('﻿' + csvOf(T.rows) + '\r\n') }, { name: 'marking-sheet.html', data: enc.encode(html) }, { name: 'README.txt', data: enc.encode(title + ' (' + now + ')\r\n' + T.head + '\r\nAll sizes in millimetres.\r\n\r\nboard.png : the board with every mark and dimension\r\n' + (kind === 'cut' ? '' : 'closeup-*.png and closeup-*.svg : edge-to-edge close-up of every groove, one image per slot (start, slot, gap, angle); the svg files are vector and open in any editor\r\n') + 'dimensions.csv : the table, opens in Excel or Sheets\r\nmarking-sheet.html : drawing and table on one page, open it and print\r\n') }]);
         var blob = zipStore(files), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (kind === 'cut' ? 'mark-and-cut' : 'mark-and-route') + '-' + now + '.zip'; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
         if (btn) btn.textContent = label;
       }).catch(function (e) { if (btn) btn.textContent = label; alert('Export failed: ' + (e && e.message || e)); });
@@ -57783,12 +58072,40 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         '<label class="note">Measure from <select data-r="datum" style="width:auto"><option value="blank"' + (GS.datum === 'blank' ? ' selected' : '') + '>Rectangular blank, floor end</option><option value="cut"' + (GS.datum === 'cut' ? ' selected' : '') + '>Cut corner (floor-cut end)</option></select></label>' +
         '<label class="note"><input type="checkbox" data-r="mirror"' + (GS.mirror ? ' checked' : '') + '> Mirror (opposite stringer)</label>' + '<label class="note"><input type="checkbox" data-r="edges"' + (GS.edges ? ' checked' : '') + '> all edges</label>') +
         ctrlRow(measButtons('flat') + '<button class="btn" data-r="zgroove">Zoom to selected</button><button class="btn" data-r="zfit">Fit</button>');
-      return head + woodRow() + '<h5>① Side view: click a ' + (X.routed ? 'groove' : 'rung') + ' to select it</h5>' + pzBox('side', 'side') + '<h5 style="margin-top:8px">② Flat stringer: mark &amp; ' + (X.routed ? 'route' : 'cut') + ' (click a ' + (X.routed ? 'groove' : 'rung') + ' line to select it)</h5>' + pzBox('flat', 'flat') +
+      return head + woodRow() + '<h5>① Side view: click a ' + (X.routed ? 'groove' : 'rung') + ' to select it</h5>' + pzBox('side', 'side') + '<h5 style="margin-top:8px">② Flat stringer: mark &amp; ' + (X.routed ? 'route' : 'cut') + ' (click a ' + (X.routed ? 'groove' : 'rung') + ' line to select it)</h5>' + pzBox('flat', 'flat') + partsHTML(g, noun) + markTable(g, noun) +
         '<div class="two"><div><h5 style="margin-top:8px">③ ' + noun + (k + 1) + ' edge to edge</h5><div class="det">' + detailSVG(g, { sel: k, mirror: GS.mirror, datum: GS.datum, noun: noun }) + '</div></div><div><h5 style="margin-top:8px">Everything for ' + noun + (k + 1) + '</h5><div class="box info">' + info + '</div></div></div>' +
         '<div class="note" style="margin-top:6px">' + esc(X.help) + '</div>';
     }
+
+    function slotName(noun, k) { return 'closeup-' + String(noun || 'G') + (k + 1); }
+    function slotSvgText(g, k, noun) { var hd = document.createElement('div'); hd.innerHTML = detailSVG(g, { sel: k, mirror: GS.mirror, datum: GS.datum, noun: noun }); var sv = hd.querySelector('svg'); if (!sv) return ''; sv.insertAdjacentHTML('afterbegin', '<style>' + sheetCss() + '</style><rect x="0" y="0" width="1000" height="400" fill="#0b0f14"/>'); return '<?xml version="1.0" encoding="UTF-8"?>' + new XMLSerializer().serializeToString(sv); }
+    function slotPng(g, k, noun, W) { var hd = document.createElement('div'); hd.innerHTML = detailSVG(g, { sel: k, mirror: GS.mirror, datum: GS.datum, noun: noun }); return svgPng(hd.querySelector('svg'), { x: 0, y: 0, w: 1000, h: 400 }, W || 2000); }
+    function slotsExport(g, noun, mode, k, btn) {
+      var label = btn ? btn.textContent : '';
+      if (mode === 'svg') { var t = slotSvgText(g, k, noun); if (t) CAD.io.download(slotName(noun, k) + '.svg', new Blob([t], { type: 'image/svg+xml' })); return; }
+      if (btn) btn.textContent = 'Preparing…';
+      var done = function () { if (btn) btn.textContent = label; };
+      if (mode === 'png') { slotPng(g, k, noun).then(function (r) { CAD.io.download(slotName(noun, k) + '.png', new Blob([r.png], { type: 'image/png' })); done(); }).catch(function (e) { done(); alert('Export failed: ' + (e && e.message || e)); }); return; }
+      var jobs = []; for (var i = 0; i < g.n; i++) (function (i) { jobs.push(slotPng(g, i, noun).then(function (r) { return { name: slotName(noun, i) + '.png', data: r.png }; })); })(i);
+      Promise.all(jobs).then(function (files) { CAD.io.download('slots-' + new Date().toISOString().slice(0, 10) + '.zip', zipStore(files)); done(); }).catch(function (e) { done(); alert('Export failed: ' + (e && e.message || e)); });
+    }
+    function partsHTML(g, noun) {
+      var nm = X_NAME(noun), h = '<h5 style="margin-top:12px">④ Slot by slot — one image per ' + nm + ' <button class="btn" data-r="slotall" title="Download every slot image as PNG files in one zip">⬇ All ' + g.n + ' as PNG (zip)</button> <span class="note">each image is a close-up of one ' + nm + ' with its start, width, gap and angle</span></h5>';
+      for (var k = 0; k < g.n; k++) h += '<div style="margin:10px 0" class="det"><div style="display:flex;gap:6px;align-items:center;margin:2px 0 4px"><b style="color:#ffb27a;flex:1">' + noun + (k + 1) + '</b><button class="btn" data-r="slotpng" data-k="' + k + '" title="Download this image as PNG">⬇ PNG</button><button class="btn" data-r="slotsvg" data-k="' + k + '" title="Download this image as SVG (vector)">⬇ SVG</button></div>' + detailSVG(g, { sel: k, mirror: GS.mirror, datum: GS.datum, noun: noun }) + '</div>';
+      return h;
+    }
+    function X_NAME(noun) { return noun === 'T' ? 'tread' : noun === 'R' ? 'rung' : 'groove'; }
+
+    function markTable(g, noun) {
+      var dat = GS.datum === 'blank' ? g.xD : 0, fm = function (v) { return LN(v); }, sel = Math.min(GS.sel, g.n - 1), r = '';
+      for (var k = 0; k < g.n; k++) {
+        var h = g.hs[k], hh = g.P / 2, c0 = g.xAt(h, 0) - dat, s0 = g.xAt(h - hh, 0) - dat, e0 = g.xAt(h + hh, 0) - dat, c1 = g.xAt(h, g.Ws) - g.xD, s1 = g.xAt(h - hh, g.Ws) - g.xD, e1 = g.xAt(h + hh, g.Ws) - g.xD;
+        r += '<tr' + (k === sel ? ' style="background:rgba(255,90,90,.16)"' : (k % 2 ? ' style="background:rgba(130,170,240,.07)"' : '')) + '><td style="font-weight:700;color:#ffb27a">' + noun + (k + 1) + '</td><td><b>' + fm(c0) + '</b></td><td>' + fm(s0) + ' → ' + fm(e0) + '</td><td><b>' + fm(c1) + '</b></td><td>' + fm(s1) + ' → ' + fm(e1) + '</td><td>' + fm(h) + '</td></tr>';
+      }
+      return '<h5 style="margin-top:10px">③ Marking table — all distances from the ' + (GS.datum === 'blank' ? 'floor end of the blank' : 'floor-cut corner') + ' (' + unit() + ')</h5><div style="overflow:auto;max-height:280px"><table style="width:100%;border-collapse:collapse;font:13px ui-monospace,Menlo,Consolas,monospace"><tr style="position:sticky;top:0;background:#101a2b;text-align:left"><th>Mark</th><th>Bottom edge: centre</th><th>start → end</th><th>Top edge: centre</th><th>start → end</th><th>Height h</th></tr>' + r + '</table></div><div class="note" style="margin-top:4px">Mark the centre on each edge, join the two marks with a straightedge, then mark the groove width either side (start / end). Top-edge distances are from the top-left corner of the blank.</div>';
+    }
     function routeWire(el, X) {
-      var g = X.g, k = Math.min(GS.sel, g.n - 1), fsS = Math.max(g.Htot / 38, 12), fsF = Math.max(Math.max(g.Ws * 0.2, g.blankL / 110), 6);
+      var g = X.g, k = Math.min(GS.sel, g.n - 1), fsS = Math.max(g.Htot / 38, 12), fsF = 1.2 * Math.max(Math.max(g.Ws * 0.2, g.blankL / 110), 6);
       var si = sideSVG(g, { fs: fsS, sel: k, noun: X.noun }), fi = layoutSVG(g, { fs: fsF, mirror: GS.mirror, sel: k, edges: GS.edges, datum: GS.datum, noun: X.noun });
       si.fs = fsS; fi.fs = fsF; si.onsel = fi.onsel = function (i) { GS.sel = i; redraw(); };
       var sw = el.querySelector('[data-pz=side]'), fw = el.querySelector('[data-pz=flat]'); sw.querySelector('svg').innerHTML = si.svg; fw.querySelector('svg').innerHTML = fi.svg;
@@ -57804,6 +58121,8 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         else if (a === 'zfit') GS.zoom = {};
         else if (a.indexOf('wood:') === 0) GS.wood = a.slice(5);
         else if (a === 'zip') { exportZip(el, X, 'route', b); return; }
+        else if (a === 'slotpng' || a === 'slotsvg') { slotsExport(g, X.noun, a === 'slotpng' ? 'png' : 'svg', +b.dataset.k, b); return; }
+        else if (a === 'slotall') { slotsExport(g, X.noun, 'zip', 0, b); return; }
         else if (a === 'zgroove') { var k = Math.min(GS.sel, g.n - 1), h = g.hs[k], x1 = g.xAt(h - g.P / 2, 0), x2 = g.xAt(h + g.P / 2, g.Ws), w = Math.max(Math.abs(x2 - x1) + g.pitch * 1.6, g.Ws * 2.2), cx = (x1 + x2) / 2, hh = w * 0.4; GS.zoom.flat = GS.mirror ? { x: -cx - w / 2, y: -g.Ws / 2 - hh / 2, w: w, h: hh } : { x: cx - w / 2, y: -g.Ws / 2 - hh / 2, w: w, h: hh }; }
         else return;
         X._redraw();
