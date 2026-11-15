@@ -57492,10 +57492,11 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
 
   /* ---------- file helpers ---------- */
   function save(name, text, mime) { var b = new Blob([text], { type: mime || 'text/plain' }), a = doc.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; doc.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800); }
-  function dxf(items) {
-    var o = ['0', 'SECTION', '2', 'ENTITIES'], L = function (a, b, lay) { o.push('0', 'LINE', '8', lay, '10', a[0].toFixed(4), '20', a[1].toFixed(4), '11', b[0].toFixed(4), '21', b[1].toFixed(4)); };
+  function dxf(items, toy) {
+    var o = (toy ? ['999', 'TOY BUILD - NOT FOR PEOPLE'] : []).concat(['0', 'SECTION', '2', 'ENTITIES']), L = function (a, b, lay) { o.push('0', 'LINE', '8', lay, '10', a[0].toFixed(4), '20', a[1].toFixed(4), '11', b[0].toFixed(4), '21', b[1].toFixed(4)); };
     items.polys.forEach(function (p) { if (p.layer === 'd') return; for (var i = 1; i < p.pts.length; i++) L(p.pts[i - 1], p.pts[i], p.layer === 'c' ? 'CUT' : 'OUTLINE'); if (p.closed && p.pts.length > 2) L(p.pts[p.pts.length - 1], p.pts[0], p.layer === 'c' ? 'CUT' : 'OUTLINE'); });
     items.circles.forEach(function (c) { o.push('0', 'CIRCLE', '8', c.layer === 'c' ? 'CUT' : 'OUTLINE', '10', c.c[0].toFixed(4), '20', c.c[1].toFixed(4), '40', c.r.toFixed(4)); });
+    if (toy) { var bx0 = 1e18, bx1 = -1e18, by1 = -1e18; items.polys.forEach(function (p) { p.pts.forEach(function (q) { bx0 = Math.min(bx0, q[0]); bx1 = Math.max(bx1, q[0]); by1 = Math.max(by1, q[1]); }); }); if (isFinite(bx0) && isFinite(by1)) { var th = Math.max(10, (bx1 - bx0) / 30); o.push('0', 'TEXT', '8', 'NOTE', '10', bx0.toFixed(4), '20', (by1 + th * 1.5).toFixed(4), '40', th.toFixed(4), '1', 'TOY BUILD - NOT FOR PEOPLE'); } }
     o.push('0', 'ENDSEC', '0', 'EOF'); return o.join('\n');
   }
   D.dxf = dxf;
@@ -57587,7 +57588,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     var t = D.by[D.cur] || D.tools[0]; if (!t) return; D.cur = t.id; var v = D.vals[t.id], groups = {}, u = unit();
     D.tools.forEach(function (x) { (groups[x.group] = groups[x.group] || []).push(x); });
     var nav = Object.keys(groups).map(function (g) { return '<h6>' + esc(g) + '</h6>' + groups[g].map(function (x) { return '<button data-t="' + x.id + '"' + (x.id === t.id ? ' class="on"' : '') + '>' + esc(x.name) + '</button>'; }).join(''); }).join('');
-    root.innerHTML = '<header><h1>Designers · ' + esc(t.name) + '</h1><span class="note">' + esc(t.blurb || '') + '</span><span class="sp"></span><label class="note">Units (whole app) <select data-a="unit" style="width:auto">' + ['mm', 'cm', 'm', 'in', 'ft'].map(function (x) { return '<option value="' + x + '"' + (unit() === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label><button class="btn" data-a="calc" title="Calculator that understands units (mm, cm, m, in, ft, fractions)">\u{1F9EE} Calc</button><button class="btn" data-a="conv" title="Unit converter. Hover any length in the designers to see it in other units.">⇄ Units</button><button class="btn" data-a="setx" title="Download every setting and entered value of this designer as a labelled file (JSON)">⬇ Settings</button><button class="btn" data-a="setl" title="Load a settings file saved with the Settings button">⬆ Load</button><button class="btn" data-a="reset">Reset</button><button class="btn" data-a="x">✕ Close</button></header>' +
+    root.innerHTML = '<header><h1>Designers · ' + esc(t.name) + '</h1><span class="note">' + esc(t.blurb || '') + '</span><span class="sp"></span><label class="note">Units (whole app) <select data-a="unit" style="width:auto">' + ['mm', 'cm', 'm', 'in', 'ft'].map(function (x) { return '<option value="' + x + '"' + (unit() === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label><button class="btn" data-a="navt" title="Hide or show the tool list on the left to give the drawing more room">☰ Tools</button><button class="btn" data-a="inpt" title="Hide or show the inputs column">◧ Inputs</button><button class="btn" data-a="calc" title="Calculator that understands units (mm, cm, m, in, ft, fractions)">\u{1F9EE} Calc</button><button class="btn" data-a="conv" title="Unit converter. Hover any length in the designers to see it in other units.">⇄ Units</button><button class="btn" data-a="setx" title="Download every setting and entered value of this designer as a labelled file (JSON)">⬇ Settings</button><button class="btn" data-a="setl" title="Load a settings file saved with the Settings button">⬆ Load</button><button class="btn" data-a="reset">Reset</button><button class="btn" data-a="x">✕ Close</button></header>' +
       '<div class="wrap"><nav>' + nav + '</nav><div class="inp"><table><tbody>' + inputRows(t, v) + '</tbody></table><div class="note" style="margin-top:8px">' + esc(t.note || '') + '</div></div><div class="main" id="dsgMain"></div></div>';
     S.keepTab = keepTab; paint();
   }
@@ -57606,7 +57607,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     (o.actions || []).forEach(function (a) { ex += '<button class="btn' + (a.pri ? ' pri' : '') + '" data-x="' + a.id + '">' + esc(a.label) + '</button>'; });
     main.innerHTML = '<div class="kpi">' + (o.kpi || []).map(function (k) { return '<div><span>' + esc(k[0]) + '</span><b>' + esc(k[1]) + '</b></div>'; }).join('') + '</div>' +
       '<div class="row"><div class="tabs">' + tabs.map(function (x) { return '<button class="btn' + (x.id === S.tab ? ' on' : '') + '" data-v="' + x.id + '">' + esc(x.name) + '</button>'; }).join('') + '</div><span style="flex:1"></span>' + (o.build && o.build.length ? '<button class="btn pri" data-a="build">Build in Aakar</button>' : '') + ex + '</div>' + (o.anim ? '<div class="row"><button class="btn" data-a="play">' + (S.anim ? '■ Stop' : '▶ Animate') + '</button><span class="note">' + esc(o.anim) + '</span></div>' : '') + body +
-      (o.warn ? '<div class="warn">' + esc(o.warn) + '</div>' : '') + '<div class="box"><h5>Checks</h5><ul class="dck">' + (o.checks || []).map(function (c) { return '<li class="' + (c[0] === 'w' ? 'w' : c[0] === 'x' ? 'x' : '') + '">' + esc(c[1]) + '</li>'; }).join('') + '</ul></div>';
+      (o.warn ? '<div class="warn">' + esc(o.warn) + '</div>' : '') + (D.toyBox ? D.toyBox(o) : '') + '<div class="box"><h5>Checks</h5><ul class="dck">' + (o.checks || []).map(function (c) { return '<li class="' + (c[0] === 'w' ? 'w' : c[0] === 'x' ? 'x' : '') + '">' + esc(c[1]) + '</li>'; }).join('') + '</ul></div>';
     if (cur && cur.after) { var vh = main.querySelector('.vhtml'); if (vh) { try { cur.after(vh); } catch (eAf) { vh.innerHTML = '<div class="warn">' + esc(String(eAf && eAf.message || eAf)) + '</div>'; } } } else if (cur && D.attachMeasure) { try { D.attachMeasure(main.querySelector('.view')); } catch (eM) { /* ok */ } }
   }
   function cutsHTML(o) {
@@ -57617,7 +57618,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
   }
   function guideHTML(t) { var g = D.guides[t.id]; if (!g) return '<div class="note">No guide.</div>'; return '<div class="box gd"><h5>' + esc(g.title) + ' · ' + esc(g.objective) + '</h5><ol>' + g.steps.map(function (s) { return '<li><b>' + esc(s[0]) + '</b><br>' + esc(s[1]) + '</li>'; }).join('') + '</ol><div class="note">Challenge: ' + esc(g.challenge) + '</div><div class="note">The same lessons are in the Aakar tutorial pack file for this tool (Tutorials › Import).</div></div>'; }
   function readInput(el) {
-    var t = D.by[D.cur], k = el.dataset.k, f = (t.fields || []).find(function (z) { return z.k === k; }); if (!f) return;
+    var t = D.by[D.cur], k = el.dataset.k, f = (t.fields || []).find(function (z) { return z.k === k; }); if (!f) return; D.lastK = k;
     var v = D.vals[t.id];
     if (el.type === 'checkbox') v[k] = el.checked; else if (f.t === 'sel') v[k] = isNaN(+el.value) || el.value === '' ? el.value : +el.value;
     else if (f.t === 'len') { var mm = parseLen(el.value); el.classList.toggle('bad', isNaN(mm)); if (isNaN(mm)) return false; v[k] = mm; }
@@ -57637,9 +57638,16 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     var b = e.target.closest('button'); if (!b) return; var t = D.by[D.cur], o = S.out;
     if (b.dataset.t) { stopAnim(); D.cur = b.dataset.t; S.tab = null; render(); return; }
     if (b.dataset.v) { S.tab = b.dataset.v; paint(); return; }
+    if (b.dataset.toyfoot) { var vt = D.vals[t.id]; vt.foot = +b.dataset.toyfoot; vt.toy = true; D.lastK = 'foot'; var sc3 = root.querySelector('.inp').scrollTop; render(true); root.querySelector('.inp').scrollTop = sc3; return; }
     if (b.dataset.x && t.act) { t.act(b.dataset.x, o, D.vals[t.id], D); return; }
     var a = b.dataset.a; if (!a) return;
     if (a === 'x') { stopAnim(); D.close(); return; }
+    if (a === 'navt' || a === 'inpt') {
+      root.classList.toggle(a === 'navt' ? 'navc' : 'inpc');
+      try { localStorage.setItem('aakar.dsg.panels', JSON.stringify({ nav: root.classList.contains('navc'), inp: root.classList.contains('inpc') })); } catch (e1) { /* ok */ }
+      var bt = root.querySelector('button[data-a=' + a + ']'); if (bt) bt.classList.toggle('off', root.classList.contains(a === 'navt' ? 'navc' : 'inpc'));
+      return;
+    }
     if (a === 'setx') {
       var vv = D.vals[t.id], sec = '', rows0 = [], VK = ['sel', 'datum', 'mirror', 'edges', 'wood', 'cdatum', 'cmirror'];
       (t.fields || []).forEach(function (f) { if (f.h) { sec = f.h; return; } if (!f.k) return; var vl = vv[f.k], lab = vl; if (f.t === 'sel') { var oo = (typeof f.o === 'function' ? f.o() : f.o).filter(function (q) { return String(q[0]) === String(vl); })[0]; lab = oo ? oo[1] : vl; } rows0.push({ section: sec, key: f.k, label: f.l, value: vl, shown: f.t === 'chk' ? (vl ? 'yes' : 'no') : lab, unit: f.t === 'len' ? 'mm (stored)' : (f.u || ''), visible: !(f.show && !f.show(vv)) }); });
@@ -57654,11 +57662,11 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     }
     if (a === 'reset') { (t.fields || []).forEach(function (f) { if (f.k) D.vals[t.id][f.k] = f.v; }); render(); return; }
     if (a === 'build') { D.build(o.build, t.id === 'stair' ? ({ stair: 'Cut stair', stairH: 'Grooved stair', ladder: 'Ladder', ladderH: 'Grooved ladder' })[D.vals.stair.type] + (({ inline: ' · in-line landing', L: ' · L-shape', Lw: ' · L-shape winders', U: ' · U-shape' })[D.vals.stair.lay] || '') : t.name); setTimeout(function () { D.close(); try { P.fitView && P.fitView(); } catch (e9) { /* ok */ } }, 60); return; }
-    if (a === 'svg' && o.items) { save(t.id + '.svg', (o.viewSvg || (o.views[0] && o.views[0].svg)).replace('<svg ', '<svg style="background:#fff" ').replace(/(<svg[^>]*>)/, '$1<style>.o{stroke:#222;fill:none}.c{stroke:#d9640f;fill:none}.d{stroke:#2a62c9;fill:none}.g{stroke:#aaa;fill:none}.k{stroke:#169b5a;fill:none}.fl{fill:rgba(255,138,61,.16)}.fb{fill:rgba(122,167,255,.16)}.t{fill:#222;stroke:none;font-family:Arial,sans-serif}.hl{fill:#d9640f}</style>'), 'image/svg+xml'); return; }
-    if (a === 'dxf' && o.items) { save(t.id + '.dxf', dxf(o.items), 'application/dxf'); return; }
+    if (a === 'svg' && o.items) { save(t.id + '.svg', D.toySvg((o.viewSvg || (o.views[0] && o.views[0].svg)).replace('<svg ', '<svg style="background:#fff" ').replace(/(<svg[^>]*>)/, '$1<style>.o{stroke:#222;fill:none}.c{stroke:#d9640f;fill:none}.d{stroke:#2a62c9;fill:none}.g{stroke:#aaa;fill:none}.k{stroke:#169b5a;fill:none}.fl{fill:rgba(255,138,61,.16)}.fb{fill:rgba(122,167,255,.16)}.t{fill:#222;stroke:none;font-family:Arial,sans-serif}.hl{fill:#d9640f}</style>')), 'image/svg+xml'); return; }
+    if (a === 'dxf' && o.items) { save(t.id + '.dxf', dxf(o.items, D.toyFlag()), 'application/dxf'); return; }
     if (a === 'nc' && o.gcode) { save(t.id + '.nc', o.gcode, 'text/plain'); return; }
-    if (a === 'csv') { save(t.id + '_cutlist.csv', 'Part,Qty,Length mm,Width mm,Thickness mm,Material\n' + (o.cuts || []).map(function (r) { return [r.n, r.q || 1, r2(r.l), r.w ? r2(r.w) : '', r.t ? r2(r.t) : '', r.m || ''].join(','); }).join('\n'), 'text/csv'); return; }
-    if (a === 'tile') { D.last2d = { items: o.items, title: t.name }; D.open('tiles'); return; }
+    if (a === 'csv') { save(t.id + '_cutlist.csv', (D.toyFlag() ? 'TOY BUILD - NOT FOR PEOPLE\n' : '') + 'Part,Qty,Length mm,Width mm,Thickness mm,Material\n' + (o.cuts || []).map(function (r) { return [r.n, r.q || 1, r2(r.l), r.w ? r2(r.w) : '', r.t ? r2(r.t) : '', r.m || ''].join(','); }).join('\n'), 'text/csv'); return; }
+    if (a === 'tile') { D.last2d = { items: o.items, title: t.name + (D.toyFlag() ? ' [TOY BUILD - NOT FOR PEOPLE]' : '') }; D.open('tiles'); return; }
     if (a === 'play') { if (S.anim) stopAnim(); else startAnim(); return; }
   });
   function startAnim() { var t = D.by[D.cur]; if (!t.step) return; S.anim = 1; var last = performance.now(), loop = function (n) { if (!S.anim) return; var dt = (n - last) / 1000; last = n; t.step(D.vals[t.id], dt); var main = doc.getElementById('dsgMain'), view = main && main.querySelector('.view'); compute(); if (S.out && view) { var cur = (S.out.views || []).find(function (w) { return w.id === S.tab; }); if (cur) view.innerHTML = cur.svg; var kp = main.querySelector('.kpi'); if (kp) kp.innerHTML = (S.out.kpi || []).map(function (k) { return '<div><span>' + esc(k[0]) + '</span><b>' + esc(k[1]) + '</b></div>'; }).join(''); } requestAnimationFrame(loop); }; requestAnimationFrame(loop); paint(); }
@@ -57709,6 +57717,51 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     root.addEventListener('mouseout', function (e) { if (e.target.closest && e.target.closest('.inp')) { var a = document.activeElement; setHl(a && root.contains(a) && a.dataset ? a.dataset.k : ''); } });
     root.addEventListener('focusin', function (e) { var k = e.target.dataset && e.target.dataset.k; if (k) setHl(k); });
     root.addEventListener('focusout', function () { setHl(''); });
+    function mzSegs(svg) {
+      if (svg.__mzs) return svg.__mzs;
+      var S = [], big = null, area = function (P) { var a = 0, i; for (i = 0; i < P.length; i++) { var p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a / 2); };
+      svg.querySelectorAll('line').forEach(function (l) { if (l.closest('g.mz')) return; var cl = l.getAttribute('class') || ''; if (/(^|\s)(ext|dl|hxl|hx|dim|mzl|mzs)(\s|$)/.test(cl)) return; var a = [+l.getAttribute('x1'), +l.getAttribute('y1'), +l.getAttribute('x2'), +l.getAttribute('y2')]; if (a.every(isFinite)) S.push(a); });
+      svg.querySelectorAll('polygon,polyline').forEach(function (pg) {
+        if (pg.closest('g.mz')) return; var P = [];
+        (pg.getAttribute('points') || '').trim().split(/\s+/).forEach(function (t) { var c = t.split(','); if (c.length === 2 && isFinite(+c[0]) && isFinite(+c[1])) P.push([+c[0], +c[1]]); });
+        if (P.length < 2) return; var closed = pg.tagName.toLowerCase() === 'polygon';
+        for (var i = 0; i < P.length - (closed ? 0 : 1); i++) { var q = P[(i + 1) % P.length]; S.push([P[i][0], P[i][1], q[0], q[1]]); }
+        if (closed && P.length > 2) { var ar = area(P); if (!big || ar > big.ar) big = { ar: ar, P: P }; }
+      });
+      var pts = big ? big.P : null, x0 = 1e18, x1 = -1e18, y0 = 1e18, y1 = -1e18;
+      (pts || []).forEach(function (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
+      if (!pts) S.forEach(function (s) { x0 = Math.min(x0, s[0], s[2]); x1 = Math.max(x1, s[0], s[2]); y0 = Math.min(y0, s[1], s[3]); y1 = Math.max(y1, s[1], s[3]); });
+      return svg.__mzs = { S: S, box: isFinite(x0) && x1 > x0 && y1 > y0 ? { x0: x0, x1: x1, y0: y0, y1: y1 } : null };
+    }
+    function mzHL(svg, pts, fs, on) {
+      var M = mzSegs(svg), s = '', eps = fs * 0.06 + 1e-6, near = function (x, y, q) { return Math.hypot(x - q.x, y - q.y) < eps; }, ve = 'vector-effect="non-scaling-stroke"';
+      if (on && M.S.length) { var seen = {}, cnt = 0; M.S.forEach(function (sg) { [[sg[0], sg[1]], [sg[2], sg[3]]].forEach(function (p) { var k = Math.round(p[0] * 100) + ',' + Math.round(p[1] * 100); if (seen[k] || cnt > 600) return; seen[k] = 1; cnt++; s += '<circle fill="none" stroke="#ffd23d" stroke-opacity=".5" stroke-width="1" ' + ve + ' cx="' + p[0] + '" cy="' + p[1] + '" r="' + fs * 0.22 + '"/>'; }); }); }
+      pts.forEach(function (q) {
+        var inc = M.S.filter(function (sg) { return near(sg[0], sg[1], q) || near(sg[2], sg[3], q); });
+        inc.forEach(function (sg) { s += '<line stroke="#ff8a3d" stroke-width="3.4" stroke-linecap="round" ' + ve + ' x1="' + sg[0] + '" y1="' + sg[1] + '" x2="' + sg[2] + '" y2="' + sg[3] + '"/>'; });
+        s += '<circle fill="none" stroke="#ffd23d" stroke-width="2" ' + ve + ' cx="' + q.x + '" cy="' + q.y + '" r="' + fs * 0.75 + '"/>';
+        var nm = inc.length >= 2 ? 'vertex' : (inc.length === 1 ? 'point on an edge' : 'point');
+        s += '<text fill="#ffd23d" font-weight="700" font-size="' + fs * 0.95 + '" x="' + (q.x + fs * 1.0) + '" y="' + (q.y - fs * 1.0) + '">' + nm + '</text>';
+        var b = M.box, lim = b ? Math.min(b.x1 - b.x0, b.y1 - b.y0) * 0.75 : 0; if (b) {
+          [[b.y0, 'top edge'], [b.y1, 'bottom edge']].forEach(function (e) { var d = Math.abs(q.y - e[0]); if (d > eps && d <= lim) s += '<line stroke="#9fd0ff" stroke-width="1.3" stroke-dasharray="5 4" ' + ve + ' x1="' + q.x + '" y1="' + q.y + '" x2="' + q.x + '" y2="' + e[0] + '"/><text fill="#9fd0ff" font-size="' + fs * 0.9 + '" x="' + (q.x + fs * 0.4) + '" y="' + ((q.y + e[0]) / 2) + '">' + esc(LN(d) + ' from ' + e[1]) + '</text>'; });
+          [[b.x0, 'left edge'], [b.x1, 'right edge']].forEach(function (e) { var d = Math.abs(q.x - e[0]); if (d > eps && d <= lim) s += '<line stroke="#9fd0ff" stroke-width="1.3" stroke-dasharray="5 4" ' + ve + ' x1="' + q.x + '" y1="' + q.y + '" x2="' + e[0] + '" y2="' + q.y + '"/><text fill="#9fd0ff" font-size="' + fs * 0.9 + '" text-anchor="middle" x="' + ((q.x + e[0]) / 2) + '" y="' + (q.y - fs * 0.35) + '">' + esc(LN(d) + ' from ' + e[1]) + '</text>'; });
+        }
+      });
+      return s;
+    }
+    D.mzHL = mzHL;
+    D.toyFlag = function () { var v = D.vals && D.vals.stair; return !!(v && v.toy && (v.type === 'stair' || v.type === 'stairH') && D.cur === 'stair'); };
+    D.toySvg = function (svg) {
+      if (!D.toyFlag()) return svg; var m = /viewBox="([^"]+)"/.exec(svg); if (!m) return svg;
+      var a = m[1].trim().split(/[\s,]+/).map(Number); if (a.length !== 4 || !a.every(isFinite)) return svg;
+      var bh = a[3] * 0.07, nv = a[0] + ' ' + (a[1] - bh) + ' ' + a[2] + ' ' + (a[3] + bh);
+      var ban = '<rect x="' + a[0] + '" y="' + (a[1] - bh) + '" width="' + a[2] + '" height="' + bh + '" fill="#ffd23d"/><text x="' + (a[0] + a[2] / 2) + '" y="' + (a[1] - bh * 0.28) + '" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="' + bh * 0.6 + '" style="fill:#000 !important;stroke:none" fill="#000">TOY BUILD - NOT FOR PEOPLE</text>';
+      return svg.replace(m[0], 'viewBox="' + nv + '"').replace(/<\/svg>\s*$/, ban + '</svg>');
+    };
+    (function () {
+      var st = document.createElement('style'); st.textContent = '#dsg.navc .wrap{grid-template-columns:0 330px 1fr}#dsg.navc nav{visibility:hidden;overflow:hidden;padding:0;border:0;min-width:0}#dsg.inpc .wrap{grid-template-columns:190px 0 1fr}#dsg.inpc .inp{visibility:hidden;overflow:hidden;padding:0;border:0;min-width:0}#dsg.navc.inpc .wrap{grid-template-columns:0 0 1fr}#dsg button[data-a=navt].off,#dsg button[data-a=inpt].off{opacity:.55}'; document.head.appendChild(st);
+      try { var sv = JSON.parse(localStorage.getItem('aakar.dsg.panels') || '{}'); if (sv.nav) root.classList.add('navc'); if (sv.inp) root.classList.add('inpc'); } catch (e0) { /* ok */ }
+    })();
     D.attachMeasure = function (view) {
       if (!view) return; var svg = view.querySelector('svg'); if (!svg) return;
       var on = false, pts = [], snaps = null, chip = document.createElement('button'), rd = document.createElement('div');
@@ -57718,8 +57771,9 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       chip.className = 'btn mzb'; chip.textContent = '📏 Measure'; chip.title = 'Measure between two points (snaps to line ends and corners)'; view.appendChild(chip); rd.className = 'note'; view.parentNode.insertBefore(rd, view.nextSibling);
       var collect = function () { var a = []; svg.querySelectorAll('line').forEach(function (l) { a.push([+l.getAttribute('x1'), +l.getAttribute('y1')], [+l.getAttribute('x2'), +l.getAttribute('y2')]); }); svg.querySelectorAll('polygon,polyline').forEach(function (pg) { (pg.getAttribute('points') || '').trim().split(/\s+/).forEach(function (t) { var c = t.split(','); if (c.length === 2 && isFinite(+c[0])) a.push([+c[0], +c[1]]); }); }); svg.querySelectorAll('circle').forEach(function (c) { a.push([+c.getAttribute('cx'), +c.getAttribute('cy')]); }); return a; };
       var draw = function () {
-        var o = svg.querySelector('g.mz'); if (o) o.remove(); if (!pts.length) { rd.textContent = on ? 'Measure: click a point, then a second point. Points snap to line ends and corners.' : ''; return; }
+        var o = svg.querySelector('g.mz'); if (o) o.remove(); if (!pts.length) { if (on) { var vb0 = svg.getAttribute('viewBox').split(/\s+/).map(Number); svg.insertAdjacentHTML('beforeend', '<g class="mz">' + mzHL(svg, [], vb0[2] / 70, true) + '</g>'); } rd.textContent = on ? 'Measure: click a point, then a second point. Points snap to line ends and corners.' : ''; return; }
         var vb = svg.getAttribute('viewBox').split(/\s+/).map(Number), fs = vb[2] / 70, g = '<g class="mz">'; if (pts[1]) g += '<line stroke="#ffe14d" stroke-width="1.6" vector-effect="non-scaling-stroke" x1="' + pts[0].x + '" y1="' + pts[0].y + '" x2="' + pts[1].x + '" y2="' + pts[1].y + '"/>';
+        g += mzHL(svg, pts, fs, on);
         pts.forEach(function (q) { g += '<circle fill="#ffe14d" cx="' + q.x + '" cy="' + q.y + '" r="' + fs * 0.35 + '"/>'; });
         if (pts[1]) { var d = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y); g += '<text fill="#ffe14d" font-weight="700" text-anchor="middle" font-size="' + fs * 1.4 + '" x="' + (pts[0].x + pts[1].x) / 2 + '" y="' + ((pts[0].y + pts[1].y) / 2 - fs) + '">' + esc(LN(d) + ' ' + unit()) + '</text>'; }
         svg.insertAdjacentHTML('beforeend', g + '</g>');
@@ -57990,6 +58044,10 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         if (i < n - 1) { var iq = G.ins[i][0]; ln(G.nos[i][0], G.nos[i][1], iq, G.ins[i][1], 'hxl'); ln(iq, G.ins[i][1], G.nos[i + 1][0], G.nos[i + 1][1], 'hxl'); ln(iq, c.T, iq, rowB - 2.2 * fs, 'hxl'); p.out.push('<circle cx="' + f1(X(iq)) + '" cy="' + f1(Y(c.T)) + '" r="' + f1(fs * 0.55) + '"/>'); T(iq, rowB - (i % 2 ? 1.3 : 0) * fs, lab(iq), 'hxt', 'middle', 1.25 * fs); }
         p.out.push('</g>');
       }
+      for (i = 0; i < n - 1; i++) {
+        var iv = G.ins[i][0]; ln(iv, 0, iv, c.T, 'dl'); p.arrow(iv, 0, 0, -1, p.as); p.arrow(iv, c.T, 0, 1, p.as); ln(iv + 0.6 * fs, sw, iv + 0.6 * fs, c.T, 'ext'); p.arrow(iv + 0.6 * fs, c.T, 0, -1, p.as); p.arrow(iv + 0.6 * fs, sw, 0, 1, p.as);
+        if (i === 0 || i === n - 2 || i === Math.floor((n - 2) / 2)) { T(iv - 0.5 * fs, c.T / 2 - 0.3 * fs, LN(c.T), 'dim', 'end'); T(iv + 1.1 * fs, (sw + c.T) / 2 - 0.3 * fs, LN(sw - c.T), 'dim', 'start'); }
+      }
       var x0 = Math.min(X(-22 * fs), X(G.Lb + 12 * fs)), x1 = Math.max(X(-22 * fs), X(G.Lb + 12 * fs)), top = -(rowT + 8.2 * fs), bot = 7.2 * fs;
       var snaps = [], sn = function (x, y) { snaps.push([X(x), Y(y)]); };
       sn(0, 0); sn(G.Lb, 0); sn(G.Lb, sw); sn(0, sw); G.outline.forEach(function (q) { sn(q[0], q[1]); });
@@ -58001,8 +58059,8 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     function vbOf(svg) { var a = svg.getAttribute('viewBox').split(/\s+/).map(Number); return { x: a[0], y: a[1], w: a[2], h: a[3] }; }
     function setVB(svg, v) { svg.setAttribute('viewBox', v.x + ' ' + v.y + ' ' + v.w + ' ' + v.h); }
     function drawMeas(svg, key, fs) {
-      var old = svg.querySelector('g.mz'); if (old) old.remove(); var m = GS.mz[key]; if (!m || !m.length) return;
-      var g = '<g class="mz">', r = fs * 0.28, A = m[0], B = m[1];
+      var old = svg.querySelector('g.mz'); if (old) old.remove(); var m = GS.mz[key] || []; if (!m.length && !GS.meas) return;
+      var g = '<g class="mz">' + D.mzHL(svg, m, fs, GS.meas), r = fs * 0.28, A = m[0], B = m[1];
       if (B) g += '<line class="mzl" x1="' + A.x + '" y1="' + A.y + '" x2="' + B.x + '" y2="' + B.y + '"/><line class="mzs" x1="' + A.x + '" y1="' + A.y + '" x2="' + B.x + '" y1="' + A.y + '"/><line class="mzs" x1="' + B.x + '" y1="' + A.y + '" x2="' + B.x + '" y2="' + B.y + '"/>';
       m.forEach(function (q) { g += '<circle class="mzp" cx="' + q.x + '" cy="' + q.y + '" r="' + r + '"/>'; });
       if (B) { var dx = Math.abs(B.x - A.x), dy = Math.abs(B.y - A.y), d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * deg; g += '<text class="t mzt" x="' + (A.x + B.x) / 2 + '" y="' + ((A.y + B.y) / 2 - fs * 0.6) + '" font-size="' + fs * 1.05 + '" text-anchor="middle">' + esc(LN(d) + ' ' + unit()) + '</text>'; }
@@ -58052,9 +58110,9 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     function sheetCss() { var o = ''; try { Array.prototype.forEach.call(document.styleSheets, function (sh) { try { Array.prototype.forEach.call(sh.cssRules, function (r) { if (r.selectorText && /#dsg svg|svg\.lay/.test(r.selectorText)) o += r.cssText.replace(/#dsg /g, '') + '\n'; }); } catch (e) { /* skip */ } }); } catch (e2) { /* skip */ } return o; }
     function svgPng(svgEl, bbox, W) {
       return new Promise(function (res, rej) {
-        var c = svgEl.cloneNode(true), H = Math.max(40, Math.round(W * bbox.h / bbox.w)); c.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); c.setAttribute('viewBox', bbox.x + ' ' + bbox.y + ' ' + bbox.w + ' ' + bbox.h); c.setAttribute('width', W); c.setAttribute('height', H); c.setAttribute('class', 'lay');
+        var tb = D.toyFlag() ? bbox.h * 0.08 : 0, c = svgEl.cloneNode(true), H = Math.max(40, Math.round(W * (bbox.h + tb) / bbox.w)); c.setAttribute('xmlns', 'http://www.w3.org/2000/svg'); c.setAttribute('viewBox', bbox.x + ' ' + (bbox.y - tb) + ' ' + bbox.w + ' ' + (bbox.h + tb)); c.setAttribute('width', W); c.setAttribute('height', H); c.setAttribute('class', 'lay');
         var mz = c.querySelector('g.mz'); if (mz) mz.remove();
-        c.insertAdjacentHTML('afterbegin', '<style>' + sheetCss() + '</style><rect x="' + bbox.x + '" y="' + bbox.y + '" width="' + bbox.w + '" height="' + bbox.h + '" fill="#0b0f14"/>');
+        c.insertAdjacentHTML('afterbegin', '<style>' + sheetCss() + '</style><rect x="' + bbox.x + '" y="' + (bbox.y - tb) + '" width="' + bbox.w + '" height="' + (bbox.h + tb) + '" fill="#0b0f14"/>' + (tb ? '<rect x="' + bbox.x + '" y="' + (bbox.y - tb) + '" width="' + bbox.w + '" height="' + tb + '" fill="#ffd23d"/><text x="' + (bbox.x + bbox.w / 2) + '" y="' + (bbox.y - tb * 0.28) + '" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="' + tb * 0.6 + '" style="fill:#000 !important;stroke:none" fill="#000">TOY BUILD - NOT FOR PEOPLE</text>' : ''));
         var img = new Image(), url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(c)], { type: 'image/svg+xml;charset=utf-8' }));
         img.onload = function () { var cv = document.createElement('canvas'); cv.width = W; cv.height = H; cv.getContext('2d').drawImage(img, 0, 0, W, H); URL.revokeObjectURL(url); cv.toBlob(function (b) { b.arrayBuffer().then(function (ab) { res({ png: new Uint8Array(ab), url: cv.toDataURL('image/png') }); }); }, 'image/png'); };
         img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('Could not draw the board image')); }; img.src = url;
@@ -58065,8 +58123,8 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       var m = function (x) { return Math.round(x * 100) / 100; }, rows;
       if (kind === 'cut') {
         var c = X.c, G = X.G, dat = function (u) { return GS.cdatum === 'foot' ? u : G.Lb - u; };
-        rows = [['Step', 'Nosing mark on top edge (mm)', 'Inside corner (mm)', 'Tread cut (mm)', 'Riser cut (mm)']];
-        for (var i = 0; i < c.n; i++) rows.push([i + 1, m(dat(G.nos[i][0])), i < c.n - 1 ? m(dat(G.ins[i][0])) : '', i < c.n - 1 ? m(c.g) : '', m(c.r)]);
+        rows = [['Step', 'Nosing mark on top edge (mm)', 'Inside corner (mm)', 'Inside corner up from bottom edge (mm)', 'Inside corner down from top edge (mm)', 'Nosing point from bottom edge (mm)', 'Tread cut (mm)', 'Riser cut (mm)']];
+        for (var i = 0; i < c.n; i++) rows.push([i + 1, m(dat(G.nos[i][0])), i < c.n - 1 ? m(dat(G.ins[i][0])) : '', i < c.n - 1 ? m(c.T) : '', i < c.n - 1 ? m(c.sw - c.T) : '', m(c.sw), i < c.n - 1 ? m(c.g) : '', m(c.r)]);
         return { rows: rows, head: 'Measured from the ' + (GS.cdatum === 'foot' ? 'foot end' : 'top end') + ' of the board. Board ' + m(G.Lb) + ' long x ' + m(c.sw) + ' wide.' };
       }
       var g = X.g, lo = GS.datum === 'blank' ? g.off : 0;
@@ -58091,10 +58149,10 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       Promise.all(jobs).then(function (imgs) {
         var enc = new TextEncoder(), T = dimTable(X, kind), title = kind === 'cut' ? 'Mark and cut sheet' : 'Mark and route sheet', now = new Date().toISOString().slice(0, 10);
         var tbl = '<table>' + T.rows.map(function (r, i) { return '<tr>' + r.map(function (x) { return '<' + (i ? 'td' : 'th') + '>' + esc(String(x)) + '</' + (i ? 'td' : 'th') + '>'; }).join('') + '</tr>'; }).join('') + '</table>';
-        var html = '<!doctype html><meta charset="utf-8"><title>' + title + '</title><style>body{font:14px system-ui,sans-serif;margin:24px;color:#111}img{max-width:100%;border:1px solid #ccc;margin:8px 0}table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #bbb;padding:3px 9px;text-align:right}th{background:#eee}@media print{img{page-break-inside:avoid}}</style><h2>' + title + '</h2><p>' + esc(T.head) + ' All sizes in millimetres. ' + now + '</p>' + imgs.map(function (i) { return '<img src="' + i.url + '" alt="' + i.name + '">'; }).join('') + tbl;
+        var html = '<!doctype html><meta charset="utf-8"><title>' + title + '</title><style>body{font:14px system-ui,sans-serif;margin:24px;color:#111}img{max-width:100%;border:1px solid #ccc;margin:8px 0}table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #bbb;padding:3px 9px;text-align:right}th{background:#eee}@media print{img{page-break-inside:avoid}}</style>' + (D.toyFlag() ? '<div style="background:#ffd23d;color:#000;font:700 16px system-ui,sans-serif;padding:8px 12px;margin-bottom:10px">TOY BUILD - NOT FOR PEOPLE</div>' : '') + '<h2>' + title + '</h2><p>' + esc(T.head) + ' All sizes in millimetres. ' + now + '</p>' + imgs.map(function (i) { return '<img src="' + i.url + '" alt="' + i.name + '">'; }).join('') + tbl;
         var svgFiles = []; if (kind !== 'cut' && X.g) for (var si = 0; si < X.g.n; si++) { var st0 = slotSvgText(X.g, si, X.noun); if (st0) svgFiles.push({ name: slotName(X.noun, si) + '.svg', data: enc.encode(st0) }); }
-        var files = imgs.map(function (i) { return { name: i.name + '.png', data: i.png }; }).concat(svgFiles).concat([{ name: 'dimensions.csv', data: enc.encode('﻿' + csvOf(T.rows) + '\r\n') }, { name: 'marking-sheet.html', data: enc.encode(html) }, { name: 'README.txt', data: enc.encode(title + ' (' + now + ')\r\n' + T.head + '\r\nAll sizes in millimetres.\r\n\r\nboard.png : the board with every mark and dimension\r\n' + (kind === 'cut' ? '' : 'closeup-*.png and closeup-*.svg : edge-to-edge close-up of every groove, one image per slot (start, slot, gap, angle); the svg files are vector and open in any editor\r\n' + 'board-mirror-opposite-stringer.png and mirror-closeup-*.png : the OPPOSITE stringer (mirror image of the board and of each close-up). Numbers are the same, measured from the floor end.\r\n') + 'dimensions.csv : the table, opens in Excel or Sheets\r\nmarking-sheet.html : drawing and table on one page, open it and print\r\n') }]);
-        var blob = zipStore(files), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (kind === 'cut' ? 'mark-and-cut' : 'mark-and-route') + '-' + now + '.zip'; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+        var files = imgs.map(function (i) { return { name: i.name + '.png', data: i.png }; }).concat(svgFiles).concat([{ name: 'dimensions.csv', data: enc.encode('﻿' + (D.toyFlag() ? 'TOY BUILD - NOT FOR PEOPLE\r\n' : '') + csvOf(T.rows) + '\r\n') }, { name: 'marking-sheet.html', data: enc.encode(html) }, { name: 'README.txt', data: enc.encode((D.toyFlag() ? 'TOY BUILD - NOT FOR PEOPLE\r\n' : '') + title + ' (' + now + ')\r\n' + T.head + '\r\nAll sizes in millimetres.\r\n\r\nboard.png : the board with every mark and dimension\r\n' + (kind === 'cut' ? '' : 'closeup-*.png and closeup-*.svg : edge-to-edge close-up of every groove, one image per slot (start, slot, gap, angle); the svg files are vector and open in any editor\r\n' + 'board-mirror-opposite-stringer.png and mirror-closeup-*.png : the OPPOSITE stringer (mirror image of the board and of each close-up). Numbers are the same, measured from the floor end.\r\n') + 'dimensions.csv : the table, opens in Excel or Sheets\r\nmarking-sheet.html : drawing and table on one page, open it and print\r\n') }]);
+        var blob = zipStore(files), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (kind === 'cut' ? 'mark-and-cut' : 'mark-and-route') + (D.toyFlag() ? '-TOY' : '') + '-' + now + '.zip'; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
         if (btn) btn.textContent = label;
       }).catch(function (e) { if (btn) btn.textContent = label; alert('Export failed: ' + (e && e.message || e)); });
     }
@@ -58121,7 +58179,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     }
 
     function slotName(noun, k) { return 'closeup-' + String(noun || 'G') + (k + 1); }
-    function slotSvgText(g, k, noun) { var hd = document.createElement('div'); hd.innerHTML = detailSVG(g, { sel: k, mirror: GS.mirror, datum: GS.datum, noun: noun }); var sv = hd.querySelector('svg'); if (!sv) return ''; sv.insertAdjacentHTML('afterbegin', '<style>' + sheetCss() + '</style><rect x="0" y="0" width="1000" height="400" fill="#0b0f14"/>'); return '<?xml version="1.0" encoding="UTF-8"?>' + new XMLSerializer().serializeToString(sv); }
+    function slotSvgText(g, k, noun) { var hd = document.createElement('div'); hd.innerHTML = detailSVG(g, { sel: k, mirror: GS.mirror, datum: GS.datum, noun: noun }); var sv = hd.querySelector('svg'); if (!sv) return ''; sv.insertAdjacentHTML('afterbegin', '<style>' + sheetCss() + '</style><rect x="0" y="0" width="1000" height="400" fill="#0b0f14"/>'); if (D.toyFlag()) { sv.setAttribute('viewBox', '0 -34 1000 434'); sv.insertAdjacentHTML('beforeend', '<rect x="0" y="-34" width="1000" height="34" fill="#ffd23d"/><text x="500" y="-9" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="22" style="fill:#000 !important;stroke:none" fill="#000">TOY BUILD - NOT FOR PEOPLE</text>'); } return '<?xml version="1.0" encoding="UTF-8"?>' + new XMLSerializer().serializeToString(sv); }
     function slotPng(g, k, noun, W) { var hd = document.createElement('div'); hd.innerHTML = detailSVG(g, { sel: k, mirror: GS.mirror, datum: GS.datum, noun: noun }); return svgPng(hd.querySelector('svg'), { x: 0, y: 0, w: 1000, h: 400 }, W || 2000); }
     function slotsExport(g, noun, mode, k, btn) {
       var label = btn ? btn.textContent : '';
@@ -58180,11 +58238,11 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     function cutInner(X) {
       var c = X.c, G = X.G, dn = GS.cdatum === 'foot' ? 'foot end' : 'top end', rows = '', i;
       var dat = function (u) { return GS.cdatum === 'foot' ? u : G.Lb - u; };
-      for (i = 0; i < c.n; i++) rows += '<tr data-row="' + i + '"><td><b>' + (i + 1) + '</b></td><td>' + LF(dat(G.nos[i][0])) + '</td><td>' + (i < c.n - 1 ? LF(dat(G.ins[i][0])) : '–') + '</td><td>' + (i < c.n - 1 ? LU(c.g) : '–') + '</td><td>' + LU(c.r) + '</td></tr>';
+      for (i = 0; i < c.n; i++) rows += '<tr data-row="' + i + '"><td><b>' + (i + 1) + '</b></td><td>' + LF(dat(G.nos[i][0])) + '</td><td>' + (i < c.n - 1 ? LF(dat(G.ins[i][0])) : '–') + '</td><td>' + (i < c.n - 1 ? LU(c.T) : '–') + '</td><td>' + (i < c.n - 1 ? LU(c.sw - c.T) : '–') + '</td><td>' + (i < c.n - 1 ? LU(c.g) : '–') + '</td><td>' + LU(c.r) + '</td></tr>';
       var head = ctrlRow('<b>Mark &amp; cut the notched stringer</b><span style="flex:1"></span><label class="note">Measure from <select data-r="cdatum" style="width:auto"><option value="foot"' + (GS.cdatum === 'foot' ? ' selected' : '') + '>Foot end of the board</option><option value="top"' + (GS.cdatum === 'top' ? ' selected' : '') + '>Top end of the board</option></select></label><label class="note"><input type="checkbox" data-r="cmirror"' + (GS.cmirror ? ' checked' : '') + '> Mirror (opposite stringer)</label>') +
         ctrlRow(measButtons('cut') + '<button class="btn" data-r="zfit">Fit</button>');
       return head + woodRow() + '<h5>Board laid flat: marks run along the edge of the board</h5>' + pzBox('cut', 'flat') +
-        '<div class="two"><div><h5 style="margin-top:8px">Steps, measured from the ' + dn + '</h5><div class="box"><table><tr><th>Step</th><th>Nosing mark (top edge)</th><th>Inside corner</th><th>Tread cut</th><th>Riser cut</th></tr>' + rows + '</table></div></div>' +
+        '<div class="two"><div><h5 style="margin-top:8px">Steps, measured from the ' + dn + '</h5><div class="box"><table><tr><th>Step</th><th>Nosing mark (top edge)</th><th>Inside corner</th><th>Corner up from bottom edge</th><th>Corner down from top edge</th><th>Tread cut</th><th>Riser cut</th></tr>' + rows + '</table></div></div>' +
         '<div><h5 style="margin-top:8px">How to mark and cut</h5><div class="box"><table><tr><th>#</th><th>What to do</th><th>Measure</th></tr>' +
         '<tr><td>1</td><td style="text-align:left">Straight board (its top edge carries the nosing marks)</td><td>' + LU(G.Lb) + ' × ' + LU(c.sw) + '</td></tr>' +
         '<tr><td>2</td><td style="text-align:left">First nosing mark, from the foot (bottom) end</td><td>' + LU(G.first) + '</td></tr>' +
@@ -58361,14 +58419,26 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         keys.forEach(function (k) { var el = inp.querySelector('[data-k="' + k + '"]'); if (!el || document.activeElement === el) return; var f = (t.fields || []).find(function (z) { return z.k === k; }); el.value = f && f.t === 'len' ? fmtN(v[k]) : String(v[k]); });
       } catch (eS) { /* ok */ }
     }
-    function toyApply(v) {
-      var ft = Math.max(5, v.foot), ov = Math.max(0, v.ovh || 0), r, g;
+    function toyApply(v, quiet) {
+      var ft = Math.max(5, v.foot), ov = Math.max(0, v.ovh || 0), n = Math.max(2, v.n | 0), r, g;
       if (v.mode === 'step') { v.g1 = ft; r = v.r1; g = ft; }
-      else { v.n = Math.max(2, Math.round(v.R / ft) + 1); var s = stepsOf(v); r = s.r; g = s.g; }
+      else { v.R = Math.round((n - 1) * ft * 100) / 100; r = v.H / n; g = ft; }
       v.tw = Math.round((g + ov) * 100) / 100;
-      var keys = ['n', 'tw', 'g1'];
+      var keys = ['R', 'tw', 'g1'];
       if (v.type === 'stair') { v.sw = Math.ceil(r * g / Math.hypot(r, g) + 35); keys.push('sw'); }
-      toySync(v, keys);
+      if (!quiet) { var rv = D.vals.stair; if (rv && rv !== v) ['n', 'R', 'tw', 'g1', 'sw'].forEach(function (k) { rv[k] = v[k]; }); toySync(v, keys); }
+    }
+    function toyRows(v) {
+      var s = stepsOf(v), g0 = Math.round((v.mode === 'step' ? v.g1 : s.g) * 10) / 10, c = [g0, 120, 150, 180, 210, 240], seen = {}, rows = []; if (v.r0 > 0 && v.mode !== 'step') { var mn = Math.round(v.r0 / Math.max(1, (v.n | 0) - 1) * 1000) / 1000; if (Math.abs(g0 - mn) < 0.2) c[0] = mn; else c.push(mn); }
+      c.forEach(function (ft) { if (ft < 40 || seen[ft]) return; seen[ft] = 1;
+        var q = Object.assign({}, v, { foot: ft }); toyApply(q, true); var o = composeLayout(q), r = q.mode === 'step' ? q.r1 : q.H / Math.max(2, q.n | 0), kk = (o.kpi || []).filter(function (z) { return z[0].indexOf('Stringer') === 0; })[0];
+        rows.push({ ft: ft, run: q.mode === 'step' ? ft * (Math.max(2, q.n | 0) - 1) : q.R, ang: Math.atan2(r, ft) * 180 / Math.PI, lng: kk ? kk[1] : '', tw: q.tw, sw: q.sw, floor: (q.mode === 'step' ? ft * (Math.max(2, q.n | 0) - 1) : q.R) + (q.lnd === 'yes' ? q.ld : 0), cur: Math.abs(ft - v.foot) < 0.5, mine: v.r0 > 0 && v.mode !== 'step' && Math.abs(ft - v.r0 / Math.max(1, (v.n | 0) - 1)) < 0.01 }); });
+      return rows.sort(function (a, b) { return a.ft - b.ft; });
+    }
+    function toyBox(o) {
+      if (!o || !o.toyRows) return ''; var v = D.vals.stair, n = Math.max(2, v.n | 0);
+      return '<div class="box"><h5>Toy build: suggested foot room</h5><div class="note">Steps stay at ' + n + (v.lnd === 'yes' ? ' (' + (n - 1) + ' treads and step ' + n + ' is the landing)' : '') + ', and so does the total rise. A bigger foot room makes the stair longer. Pick a row, or type your own foot room.</div><table><tr><th>Foot room</th><th>Total run</th><th>Angle</th><th>Stringer long edge</th><th>Tread board</th><th>Stringer board</th><th>Floor space</th><th></th></tr>' +
+        o.toyRows.map(function (r) { return '<tr' + (r.cur ? ' style="background:rgba(61,220,151,.12)"' : '') + '><td>' + fmtL(r.ft) + (r.mine ? ' (your run)' : '') + '</td><td>' + fmtL(r.run) + '</td><td>' + r.ang.toFixed(1) + '°</td><td>' + r.lng + '</td><td>' + fmtL(r.tw) + '</td><td>' + fmtL(r.sw) + '</td><td>' + fmtL(r.floor) + '</td><td>' + (r.cur ? 'in use' : '<button class="btn" data-toyfoot="' + r.ft + '">Use</button>') + '</td></tr>'; }).join('') + '</table></div>';
     }
     function toyChecks(v, out) {
       var s = stepsOf(v), r = v.mode === 'step' ? v.r1 : s.r, g = v.mode === 'step' ? v.g1 : s.g, ang = Math.atan2(r, g) * 180 / Math.PI, ck = [];
@@ -58378,8 +58448,9 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       ck.push([(v.ovh || 0) > 30 ? 'x' : '', 'Tread overhang ' + fmtL(v.ovh || 0) + (v.ovh > 30 ? ' is more than 30 mm past the last screw, the tread may tip or split' : ' (limit 30 mm)')]);
       ck.push([g < 30 ? 'x' : '', 'Tread seat on the stringer: ' + fmtL(g) + (g < 30 ? ', under 30 mm, too little to fix' : ', at least 30 mm for 2 screws each side')]);
       if (v.type === 'stair') { var th = v.sw - r * g / Math.hypot(r, g); ck.push([th < 35 ? 'x' : '', 'Wood left under the notches ' + fmtL(th) + (th < 35 ? ': under 35 mm, the stringer may split. Use a wider board.' : ' (toy limit 35 mm)')]); }
-      out.checks = ck.concat(out.checks); out.kpi = (out.kpi || []).concat([['Build', 'TOY']]);
+      out.warn = 'TOY BUILD, not for people. This banner is also written on every PNG, SVG, DXF, printed tile, cut list and marking sheet you export.' + (out.warn ? ' ' + out.warn : ''); out.toyRows = toyRows(v); out.checks = ck.concat(out.checks); out.kpi = (out.kpi || []).concat([['Build', 'TOY']]);
     }
+    D.toyBox = toyBox;
     var SHOW_S = function (v) { return isS(v); }, SHOW_L = function (v) { return !isS(v); }, SHOW_H = function (v) { return isH(v); };
     var DEF = {
       stair: { H: 2700, R: 3600, n: 15, w: 900, sw: 286, st: 45, tt: 38, gd: 10 }, ladder: { H: 2700, R: 900, n: 9, w: 400, sw: 95, st: 32, tt: 28, gd: 8 }
@@ -58663,20 +58734,22 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         { k: 'stk', l: 'Stock board length (0 = not set)', t: 'len', v: 0, tip: 'Length of the board you will cut the stringer from. The tool checks the fit and shows the waste.' },
         { h: 'Load' }, { k: 'P', l: 'Point load on one tread', t: 'num', v: 1.5, u: 'kN' },
         { h: 'Toy build', show: isS },
-        { k: 'toy', l: 'Toy build (not for people)', t: 'chk', v: false, show: isS, tip: 'Switch on to design a toy: you type the foot room you want on each step and the steps, tread board and stringer board follow. Off = a normal stair with the usual comfort checks.' },
-        { k: 'foot', l: 'Foot room per step (going)', t: 'len', v: 0, show: function (v) { return isS(v) && v.toy; }, tip: 'Flat part of each step where a foot lands. Type it and the number of steps follows (total rise and run stay as you typed them). In Riser and going mode it sets the going.' },
+        { k: 'toy', l: 'Toy build (not for people)', t: 'chk', v: false, show: isS, tip: 'Switch on to design a toy: you type the foot room you want on each step. The steps stay as typed; the run, tread board and stringer board follow. Off = a normal stair with the usual comfort checks.' },
+        { k: 'foot', l: 'Foot room per step (going)', t: 'len', v: 0, show: function (v) { return isS(v) && v.toy; }, tip: 'Flat part of each step where a foot lands. The number of steps and the total rise stay as you typed them, so the total run follows the foot room. In Riser and going mode it sets the going.' },
         { k: 'ovh', l: 'Tread overhang past the stringer', t: 'len', v: 30, show: function (v) { return isS(v) && v.toy; }, tip: 'How far the tread board sticks out past the going. Tread board width = foot room + this. Keep it to about 30 mm (2.5 x a 12 mm board) so the screws still hold.' }
       ],
       act: function (id, o, v, Dz) { if (id === 'fit' && o.fit && o.fit.stock) v.lel = o.fit.stock; else if (id === 'min') v.lel = 0; Dz.refresh(); },
       onsel: function (v, k) {
         var C;
-        if (k === 'toy' && v.toy && !(v.foot > 0) && isS(v)) { var s00 = stepsOf(v); v.foot = Math.round(s00.g * 10) / 10; }
+        if (k === 'toy' && v.toy && !(v.foot > 0) && isS(v)) { var s00 = stepsOf(v); v.foot = Math.round((v.mode === 'step' ? v.g1 : s00.g) * 100) / 100; D.lastK = 'toy'; v.r0 = v.R; }
         if (k === 'type') { C = (v.type === 'ladder' || v.type === 'ladderH') ? DEF.ladder : DEF.stair; v.H = C.H; v.R = C.R; v.n = C.n; v.w = C.w; v.sw = C.sw; v.st = C.st; v.tt = C.tt; v.gd = C.gd; v.gbm = 0; v.gtm = 0; v.glip = 0; v.lel = 0; var s0 = stepsOf(v); v.r1 = Math.round(s0.r * 100) / 100; v.g1 = Math.round(s0.g * 100) / 100; }
         if (k === 'mode') { if (v.mode === 'step') { var s1 = stepsOf(v); v.r1 = Math.round(s1.r * 100) / 100; v.g1 = Math.round(s1.g * 100) / 100; } else { var nn = Math.max(2, v.n | 0); v.H = isS(v) ? nn * v.r1 : (nn + 1) * v.r1; v.R = isS(v) ? (nn - 1) * v.g1 : (nn + 1) * v.g1; } }
       },
       compute: function (v) {
         var toy = !!v.toy && isS(v);
-        if (toy && v.foot > 0) toyApply(v);
+        if (toy && v.foot > 0) {
+          if (/^(R|H|n|g1|r1)$/.test(D.lastK || '')) { v.foot = Math.round((v.mode === 'step' ? v.g1 : stepsOf(v).g) * 100) / 100; var rv0 = D.vals.stair; if (rv0 && rv0 !== v) rv0.foot = v.foot; if (D.lastK === 'R') { v.r0 = v.R; if (rv0) rv0.r0 = v.R; } toySync(v, ['foot']); } else toyApply(v);
+        }
         var out = composeLayout(v);
         if (toy) toyChecks(v, out);
         return out;
