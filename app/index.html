@@ -3,7 +3,8 @@
 <head><script id="aakar-wheel-pre">window.__aakarWheelPreHook=1;window.addEventListener('wheel',function(e){var f=window.__aakarWheelPre;if(f)f(e);},{passive:false,capture:true});</script><script id="aakar-w1-seed">(function(){try{var K='prism.v7.layout',o=JSON.parse(localStorage.getItem(K)||'{}')||{};if(o.w1layout)return;o.collapsed=o.collapsed||{};['Sketch+ examples','Examples','Kernel','Macros','Mesh','Export 3D'].forEach(function(t){if(o.collapsed[t]===undefined)o.collapsed[t]=true;});o.w1layout=1;localStorage.setItem(K,JSON.stringify(o));}catch(e){}})();(function(){try{var K='prism.v7.layout',o=JSON.parse(localStorage.getItem(K)||'{}')||{};if(o.w2layout)return;o.collapsed=o.collapsed||{};if(o.collapsed['Curves & curvature']===undefined)o.collapsed['Curves & curvature']=true;o.w2layout=1;localStorage.setItem(K,JSON.stringify(o));}catch(e){}})();</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Aakar 9.9.9 — Parametric · NURBS · SubD · Analysis · Drawings · Render</title>
+<meta name="aakar-version" content="1.0.0">
+<title>Aakar — Parametric · NURBS · SubD · Analysis · Drawings · Render</title>
 <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2IiByb2xlPSJpbWciIGFyaWEtbGFiZWw9IkFha2FyIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjMWYyNzM2Ii8+PHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMGQxMTE4Ii8+PC9saW5lYXJHcmFkaWVudD48bGluZWFyR3JhZGllbnQgaWQ9ImwiIHgxPSIwIiB5MT0iMCIgeDI9IjAiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmZmM0OGEiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmZjlhNGQiLz48L2xpbmVhckdyYWRpZW50PjxsaW5lYXJHcmFkaWVudCBpZD0iciIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iI2ZmOGEzZCIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2UyNjUxYSIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHg9IjgiIHk9IjgiIHdpZHRoPSIyNDAiIGhlaWdodD0iMjQwIiByeD0iNTYiIGZpbGw9InVybCgjYmcpIiBzdHJva2U9IiNmZjhhM2QiIHN0cm9rZS13aWR0aD0iNSIvPjxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyOCAxMzApIHNjYWxlKC43NCkgdHJhbnNsYXRlKC0xMjggLTEyOCkiPjxwb2x5Z29uIHBvaW50cz0iMTEyLDI4IDE0NiwyOCA4OCwyMjggMzAsMjI4IiBmaWxsPSJ1cmwoI2wpIi8+PHBvbHlnb24gcG9pbnRzPSIxMTIsMjggMTQ2LDI4IDIyNiwyMjggMTY4LDIyOCIgZmlsbD0idXJsKCNyKSIvPjxwb2x5Z29uIHBvaW50cz0iMTEyLDI4IDE0NiwyOCAxMjguOCw4OCIgZmlsbD0iI2I4NTAwZiIvPjxwb2x5Z29uIHBvaW50cz0iMTEwLjYsMTUwIDE0Ni4yLDE1MCAxNTYuMiwxODYgMTAwLjIsMTg2IiBmaWxsPSIjZmZmMWUzIi8+PC9nPjwvc3ZnPg==">
 <style>
 :root{--bg:#12161f;--panel:#1a202c;--panel2:#212938;--line:#2c3547;--txt:#dfe6f2;--mut:#8a97ad;--acc:#ff8a3d;--acc2:#3db8ff;--ok:#42d392;--bad:#ff5d6c;--warn:#ffc94d;--r:8px;font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
@@ -286,7 +287,7 @@ body.aaktouch #aakNavPill{display:flex}
 <body><div id="aakarSplash"><svg viewBox="0 0 256 256" aria-hidden="true"><defs><linearGradient id="aal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient><linearGradient id="aar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient></defs><polygon points="112,28 146,28 88,228 30,228" fill="url(#aal)"/><polygon points="112,28 146,28 226,228 168,228" fill="url(#aar)"/><polygon points="112,28 146,28 128.8,88" fill="#b8500f"/><polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/></svg><b>Aakar</b><small>FORM · SHAPE · CAD</small></div>
 <header id="top">
   <div class="row1">
-    <div class="brand" title="Aakar"><svg viewBox="0 0 256 256" aria-label="Aakar logo"><defs><linearGradient id="aal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient><linearGradient id="aar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient></defs><polygon points="112,28 146,28 88,228 30,228" fill="url(#aal)"/><polygon points="112,28 146,28 226,228 168,228" fill="url(#aar)"/><polygon points="112,28 146,28 128.8,88" fill="#b8500f"/><polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/></svg><span>Aakar <b>9.9.9</b></span></div>
+    <div class="brand" title="Aakar"><svg viewBox="0 0 256 256" aria-label="Aakar logo"><defs><linearGradient id="aal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc48a"/><stop offset="1" stop-color="#ff9a4d"/></linearGradient><linearGradient id="aar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e2651a"/></linearGradient></defs><polygon points="112,28 146,28 88,228 30,228" fill="url(#aal)"/><polygon points="112,28 146,28 226,228 168,228" fill="url(#aar)"/><polygon points="112,28 146,28 128.8,88" fill="#b8500f"/><polygon points="110.6,150 146.2,150 156.2,186 100.2,186" fill="#fff1e3"/></svg><span>Aakar</span></div>
     <nav id="ribbon"><button data-tab="model" class="on">Solid</button><button data-tab="surface">Surface</button><button data-tab="curves">Curves</button><button data-tab="subd">SubD</button><button data-tab="bim" style="display:none" aria-hidden="true">BIM</button><button data-tab="analysis">Analysis</button><button data-tab="drawing">Drawing</button><button data-tab="cam">CAM</button><button data-tab="learn">Tutorials</button></nav>
     <div class="tb-right"><button class="pill" id="btnLeft" title="Feature / body panel">☰</button><button class="pill" id="btnRight" title="Inspector panel">⚙</button></div>
   </div>
@@ -3386,7 +3387,7 @@ body.aaktouch #aakNavPill{display:flex}
     }
     const now = new Date().toISOString().slice(0, 19);
     return ['ISO-10303-21;', 'HEADER;', "FILE_DESCRIPTION(('Aakar model'),'2;1');",
-      `FILE_NAME(${str((opts.fileName || name) + '.step')},'${now}',('Aakar'),(''),'Aakar 8.26.0','Aakar','');`,
+      `FILE_NAME(${str((opts.fileName || name) + '.step')},'${now}',('Aakar'),(''),'Aakar 1.0','Aakar','');`,
       "FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));", 'ENDSEC;', 'DATA;', ...out, 'ENDSEC;', 'END-ISO-10303-21;', ''].join('\n');
   }
 
@@ -4568,7 +4569,7 @@ body.aaktouch #aakNavPill{display:flex}
     storeys.forEach(s => { if (s.els.length) E(`IFCRELCONTAINEDINSPATIALSTRUCTURE('${guid()}',${oh},$,$,(${s.els.join(',')}),${s.ent})`); });
     mats.forEach((els, m) => E(`IFCRELASSOCIATESMATERIAL('${guid()}',${oh},$,$,(${els.join(',')}),${E(`IFCMATERIAL(${qs(m)},$,$)`)})`));
     const now = new Date().toISOString().slice(0, 19);
-    return ['ISO-10303-21;', 'HEADER;', "FILE_DESCRIPTION(('ViewDefinition [DesignTransferView]'),'2;1');", `FILE_NAME('model.ifc','${now}',('Aakar'),(''),'Aakar 8.26.0','Aakar','');`, "FILE_SCHEMA(('IFC4'));", 'ENDSEC;', 'DATA;', ...out, 'ENDSEC;', 'END-ISO-10303-21;', ''].join('\n');
+    return ['ISO-10303-21;', 'HEADER;', "FILE_DESCRIPTION(('ViewDefinition [DesignTransferView]'),'2;1');", `FILE_NAME('model.ifc','${now}',('Aakar'),(''),'Aakar 1.0','Aakar','');`, "FILE_SCHEMA(('IFC4'));", 'ENDSEC;', 'DATA;', ...out, 'ENDSEC;', 'END-ISO-10303-21;', ''].join('\n');
   }
   CAD.bim = { wallQuads, planChains, schedule, scheduleCSV, exportIFC, rectSection, levelZ };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -16897,7 +16898,7 @@ function profLabel(r, i) { try { let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e1
 
   // ---------------------------------------------------------------- branding
   try {
-    const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>9.9.9</b>';
+    const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar';
     document.title = 'Aakar 5 — Parametric · NURBS · SubD · BIM · Analysis · Drawings';
     P.status('Aakar 5 add-on loaded — new tools in Surface ▸ Surface+ / Surface edit / Analyse and SubD ▸ SubD+. Press ▶ Demo for a complex example.');
   } catch (e) { /* headless */ }
@@ -18141,7 +18142,7 @@ precision mediump float; void main(){}`;
   P.setTab(cur);
   Object.keys(L.palettes).forEach(renderPalette);
   bodyCls(); applyCards(); enhance(); renderDocks();
-  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>9.9.9</b>'; } catch (e) { /* ignore */ }
+  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar'; } catch (e) { /* ignore */ }
   P.status('Aakar 7 — drag a group header to the left / right edge to dock it, back to the ribbon to undock, or onto the 3D view to float · ▾ collapses · ⌃ minimises the ribbon · ☷ Layout · ▶ Vase demo');
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -18348,7 +18349,7 @@ precision mediump float; void main(){}`;
   setTimeout(() => window.dispatchEvent(new Event('resize')), 30);
   CAD.v8 = CAD.v8 || {};
   CAD.v8.windows = { W, open, close, switchTo, save, rename, popOut, blankDoc, render };
-  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar <b>9.9.9</b>'; } catch (e) { /* ignore */ }
+  try { const b = document.querySelector('.brand span'); if (b) b.innerHTML = 'Aakar'; } catch (e) { /* ignore */ }
   document.title = W.active.name + ' — Aakar 8';
   P.status('Aakar 8 — every project opens in its own window (tabs under the ribbon, ✕ closes, ↗ pops out) · drag tool groups to the left / right edge to dock them · Render tab: materials, .skm, lights');
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -18868,7 +18869,7 @@ precision mediump float; void main(){}`;
     const mats = new Map();
     objs.forEach(o => { const c = o.color.map(x => Math.max(0, Math.min(1, x))), op = o.opacity == null ? 1 : o.opacity, k = c.map(x => x.toFixed(3)).join(',') + '|' + op.toFixed(2); if (!mats.has(k)) mats.set(k, { id: 'mat' + mats.size, name: o.matName || ('Colour ' + (mats.size + 1)), c, op }); o.mat = mats.get(k); });
     const now = new Date().toISOString().slice(0, 19);
-    let x = `<?xml version="1.0" encoding="utf-8"?>\n<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">\n<asset><contributor><authoring_tool>Aakar 8.26.0</authoring_tool></contributor><created>${now}</created><modified>${now}</modified><unit meter="0.001" name="millimeter"/><up_axis>Z_UP</up_axis></asset>\n<library_effects>\n`;
+    let x = `<?xml version="1.0" encoding="utf-8"?>\n<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">\n<asset><contributor><authoring_tool>Aakar 1.0</authoring_tool></contributor><created>${now}</created><modified>${now}</modified><unit meter="0.001" name="millimeter"/><up_axis>Z_UP</up_axis></asset>\n<library_effects>\n`;
     mats.forEach(m => { x += `<effect id="${m.id}-fx"><profile_COMMON><technique sid="common"><lambert><diffuse><color>${m.c.map(v => v.toFixed(4)).join(' ')} 1</color></diffuse>${m.op < 1 ? `<transparent opaque="A_ONE"><color>1 1 1 ${m.op.toFixed(3)}</color></transparent><transparency><float>1</float></transparency>` : ''}</lambert></technique></profile_COMMON></effect>\n`; });
     x += '</library_effects>\n<library_materials>\n';
     mats.forEach(m => { x += `<material id="${m.id}" name="${xmlEsc(m.name)}"><instance_effect url="#${m.id}-fx"/></material>\n`; });
@@ -19057,8 +19058,8 @@ precision mediump float; void main(){}`;
   const cur = st.tab; TABS.forEach(t => { try { P.setTab(t); harvest(); } catch (e) { /* ignore */ } }); P.setTab(cur); harvest();
   bodyCls(); applyTB(); renderTL(); if (UI.dims) openDims();
   CAD.v81 = { renderTL, setRoll, moveFeature, openDims, renderDims, labels, exportDAE, importDAE, parseDAE, exportOBJ, toolbarMenu, historyMenu, UI, applyTB };
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>9.9.9</b>'; document.title = document.title; } catch (e) { /* ignore */ }
-  P.status('Aakar 8.1 — sketch splines (fit / NURBS / Bézier / conic / ellipse) · revolve open profiles · NURBS tab · timeline & history · detailed dimensions · ▤ Toolbars · SketchUp / Plasticity exchange · .skm');
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar'; document.title = document.title; } catch (e) { /* ignore */ }
+  P.status('Aakar — sketch splines (fit / NURBS / Bézier / conic / ellipse) · revolve open profiles · NURBS tab · timeline & history · detailed dimensions · ▤ Toolbars · SketchUp / Plasticity exchange · .skm');
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -19661,8 +19662,8 @@ precision mediump float; void main(){}`;
     ['x9guide', 'Handbook', guide, 'Download the printable tutorial handbook', IC.book]
   ]);
   CAD.x9.ui = { open, buildAll, COURSES, guide, A };
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>9.9.9</b>'; document.title = document.title; } catch (e) { /* ignore */ }
-  P.status('Aakar 8.15.1 — new CAM tab (3-axis CAM, simulation, G-code) · new Tutorials tab (Examples, Handbook, Import tutorial, Library)');
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar'; document.title = document.title; } catch (e) { /* ignore */ }
+  P.status('Aakar — new CAM tab (3-axis CAM, simulation, G-code) · new Tutorials tab (Examples, Handbook, Import tutorial, Library)');
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -20880,8 +20881,8 @@ precision mediump float; void main(){}`;
   ]);
   CAD.x10.ui = { openPal, runCmd, harvest, asmPanel, mateCmd, measPanel, startMeasure, secPanel, sec, secUpdate, parPanel, compareWith, compareMenu, comPanel, addComment, conPanel, autosave, savePanel, recover, api, insertJSON, bom, components, faceGeom, dbAll, endPick };
   renderPins();
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>9.9.9</b>'; document.title = document.title; } catch (e) { /* ignore */ }
-  P.status('Aakar 8.4 — NURBS & SubD fillets (variable radius) · assemblies & mates · measure & section · parameters · auto-save · compare · comments · Ctrl+K command search · script console');
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar'; document.title = document.title; } catch (e) { /* ignore */ }
+  P.status('Aakar — NURBS & SubD fillets (variable radius) · assemblies & mates · measure & section · parameters · auto-save · compare · comments · Ctrl+K command search · script console');
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -21693,8 +21694,8 @@ precision mediump float; void main(){}`;
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && panelEl && panelEl.classList.contains('on') && !recording && !typing(e.target)) panelEl.classList.remove('on'); });
 
   CAD.x85 = { toggleLasso, lassoOn: () => lassoMode, selectAll, selectNone, invert, boxSelect, effective, setSelection, saveAs, openControls, toggleMode, cfg: () => cfg, rebuildKeys, PRESETS };
-  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar <b>9.9.9</b>'; document.title = document.title; } catch (e) { /* ignore */ }
-  P.status('Aakar 8.5: Ctrl+A selects all · ▢ Select (Q) = drag to box-select · ⚙ Controls = mouse buttons and shortcuts · Save as');
+  try { const b = $('.brand span'); if (b) b.innerHTML = 'Aakar'; document.title = document.title; } catch (e) { /* ignore */ }
+  P.status('Aakar: Ctrl+A selects all · ▢ Select (Q) = drag to box-select · ⚙ Controls = mouse buttons and shortcuts · Save as');
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <!--PRISM-V85-END-->
@@ -35501,7 +35502,7 @@ struct BOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
       mats.push({ name: name + ' material', pbrMetallicRoughness: { baseColorFactor: [col[0], col[1], col[2], 1], metallicFactor: 0.1, roughnessFactor: 0.6 } }); meshes.push({ name, primitives: [{ attributes: { POSITION: ap, NORMAL: an }, material: mats.length - 1, mode: 4 }] }); nodes.push({ name, mesh: meshes.length - 1 });
     });
     if (!meshes.length) throw new Error('There are no solids to export');
-    const json = { asset: { version: '2.0', generator: 'Aakar 8.15' }, scene: 0, scenes: [{ nodes: nodes.map((_, i) => i) }], nodes, meshes, materials: mats, accessors, bufferViews: views, buffers: [{ byteLength: off }] };
+    const json = { asset: { version: '2.0', generator: 'Aakar 1.0' }, scene: 0, scenes: [{ nodes: nodes.map((_, i) => i) }], nodes, meshes, materials: mats, accessors, bufferViews: views, buffers: [{ byteLength: off }] };
     let js = new TextEncoder().encode(JSON.stringify(json)); const jPad = (4 - js.length % 4) % 4; if (jPad) { const t = new Uint8Array(js.length + jPad); t.set(js); t.fill(0x20, js.length); js = t; }
     const bPad = (4 - off % 4) % 4, binLen = off + bPad, total = 12 + 8 + js.length + 8 + binLen, out = new Uint8Array(total), dv = new DataView(out.buffer);
     dv.setUint32(0, 0x46546C67, true); dv.setUint32(4, 2, true); dv.setUint32(8, total, true); dv.setUint32(12, js.length, true); dv.setUint32(16, 0x4E4F534A, true); out.set(js, 20);
@@ -35641,7 +35642,7 @@ struct BOut { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
  function openSearch(){close();try{if(window.CAD&&CAD.x10&&CAD.x10.ui){CAD.x10.ui.openPal();return;}}catch(e){}document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true}));}
  function boot(){try{
   document.body.classList.add('x855');if(S.focus)document.body.classList.add('x855-focus');
-  document.title='Aakar 9.9.9 — Parametric · NURBS · SubD · BIM · Analysis · Drawings · Render';const br=$('.brand span');if(br)br.innerHTML = 'Aakar <b>9.9.9</b>';
+  document.title='Aakar — Parametric · NURBS · SubD · BIM · Analysis · Drawings · Render';const br=$('.brand span');if(br)br.innerHTML = 'Aakar';
   const row=$('#top .row1');if(!row||$('#x855bar'))return;
   const I={file:'<svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z M14 3v4h4"/></svg>',tools:'<svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg>',search:'<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg>',ws:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16 M3 9h6"/></svg>'};
   const bar=document.createElement('div');bar.id='x855bar';
@@ -36588,7 +36589,7 @@ body.sk-dock #wsCtx .s button.on{background:rgba(31,199,180,.2);color:#3fe0cd;fo
     var pop = buildPicker(); buildButton(pop); buildCube();
     try { var rb = document.getElementById('ribbon'); ['cam', 'learn'].forEach(function (t) { var b = rb && rb.querySelector('[data-tab="' + t + '"]'); if (b) rb.appendChild(b); }); } catch (e) { /* ignore */ } // CAM + Tutorials sit after Render
     try { buildWs(); } catch (e) { /* keep the classic ribbon */ }
-    var ver = function () { try { var bs = document.querySelector('.brand span'); if (bs) bs.innerHTML = 'Aakar <b>9.9.9</b>'; document.title = document.title.replace(/Aakar \d+(\.\d+)*/, 'Aakar 9.9.9'); } catch (e) { /* ignore */ } };
+    var ver = function () { try { var bs = document.querySelector('.brand span'); if (bs) bs.innerHTML = 'Aakar'; document.title = document.title.replace(/Aakar \d+(\.\d+)*/, 'Aakar'); } catch (e) { /* ignore */ } };
     ver(); setTimeout(ver, 1500); setTimeout(ver, 4000);
     var saved = get();
     apply(saved || 'bench');
@@ -36871,7 +36872,7 @@ body.sk-dock #wsCtx .s button.on{background:rgba(31,199,180,.2);color:#3fe0cd;fo
     },
     tab: function (v) { P().setTab(v); },
     note: function () { /* narration only */ },
-    refimg: function (v) { if (!window.AakarRefImg) throw new Error('Reference images need Aakar 8.63.2 or later'); window.AakarRefImg.tutorialOp(v); },
+    refimg: function (v) { if (!window.AakarRefImg) throw new Error('Reference images need a newer Aakar'); window.AakarRefImg.tutorialOp(v); },
     param: function (v) { var A = CAD.x10 && CAD.x10.ui && CAD.x10.ui.api; if (!A) throw new Error('Global parameters are not available in this build'); A.param(v.name, String(v.expr)); },
     link: function (v) { var A = CAD.x10 && CAD.x10.ui && CAD.x10.ui.api; if (!A) throw new Error('Global parameters are not available in this build'); var f = P().st.doc.features.find(function (x) { return x.id === X.ids[v.ref]; }); if (!f) throw new Error('Feature "' + v.ref + '" not found'); A.link(f, v.key, String(v.expr)); var e = featErr(f); if (e) throw new Error(f.name + ': ' + e); },
     shell: function (v) { var b = bodyOf(v.body), faces = v.face ? [CAD.feat.faceRef(b.solid, selectFace(b, v.face))] : []; commit(v.key, { type: 'shell', name: v.name, params: { body: b.key, faces: faces, thickness: v.thickness } }); },
@@ -43150,7 +43151,7 @@ const SurfPath = (function () {
       '<div class="tabs">' + [['general', 'gear', 1], ['units', 'ruler', 2], ['orientation', 'axes', 3], ['graphics', 'mon', 4], ['sketch', 'pen', 5]].map(function (t) { return '<button type="button" class="tab" data-tab="' + t[0] + '">' + ICO[t[1]] + '<span data-t="' + t[2] + '"></span></button>'; }).join('') + '</div>' +
       '<div class="body">' +
       /* general */
-      '<section class="pane" data-pane="general"><h3>Tool tips</h3><div class="card" style="max-width:640px;margin-bottom:6px"><div class="row"><div class="lb">Show a short description when you hover over a tool<small>Name, what it does and the first steps. The full guide is in the Aakar tool documentation PDF.</small></div><button type="button" class="sw" data-toggle="tooltips" aria-label="Tool tips"></button></div></div><h3 style="margin-top:18px">Toolbar</h3><div class="card" style="max-width:640px;margin-bottom:6px"><div class="row"><div class="lb">Compact toolbar: tool groups as drop-down menus<small>Each group is one button. Hover it or click it to open its tools; the button shows the tool you used last. Turn off to get the full wide ribbon with every tool visible.</small></div><button type="button" class="sw" data-toggle="cgrp" aria-label="Compact toolbar"></button></div></div><div class="card" style="max-width:640px;margin-top:8px"><div class="row"><div class="lb">Instant3D handles (legacy)<small>Off by default: double-click a feature in the timeline to edit it with the card (drag, type, Up to a face / edge / point, Through all). Turn on and reload to bring the old Instant3D button back.</small></div><button type="button" class="sw" data-toggle="instant3d" aria-label="Instant3D handles"></button></div></div><h3 style="margin-top:18px">Language</h3><p class="sub">Choose the interface language. Titles, tabs and buttons of this window and the sketch plane picker change now; the rest of Aakar is still English while translation is rolled out.</p>' +
+      '<section class="pane" data-pane="general"><h3>About</h3><div class="card" style="max-width:640px;margin-bottom:6px"><div class="row"><div class="lb">Aakar version<small>The version is shown only here.</small></div><span id="aakVer" style="position:static;display:inline-block;font:700 16px system-ui,sans-serif;color:#fff;padding:0 6px">1.0</span></div></div><h3>Tool tips</h3><div class="card" style="max-width:640px;margin-bottom:6px"><div class="row"><div class="lb">Show a short description when you hover over a tool<small>Name, what it does and the first steps. The full guide is in the Aakar tool documentation PDF.</small></div><button type="button" class="sw" data-toggle="tooltips" aria-label="Tool tips"></button></div></div><h3 style="margin-top:18px">Toolbar</h3><div class="card" style="max-width:640px;margin-bottom:6px"><div class="row"><div class="lb">Compact toolbar: tool groups as drop-down menus<small>Each group is one button. Hover it or click it to open its tools; the button shows the tool you used last. Turn off to get the full wide ribbon with every tool visible.</small></div><button type="button" class="sw" data-toggle="cgrp" aria-label="Compact toolbar"></button></div></div><div class="card" style="max-width:640px;margin-top:8px"><div class="row"><div class="lb">Instant3D handles (legacy)<small>Off by default: double-click a feature in the timeline to edit it with the card (drag, type, Up to a face / edge / point, Through all). Turn on and reload to bring the old Instant3D button back.</small></div><button type="button" class="sw" data-toggle="instant3d" aria-label="Instant3D handles"></button></div></div><h3 style="margin-top:18px">Language</h3><p class="sub">Choose the interface language. Titles, tabs and buttons of this window and the sketch plane picker change now; the rest of Aakar is still English while translation is rolled out.</p>' +
       '<div class="tiles">' + LANGS.map(function (l) { return '<button type="button" class="tile lang" data-set="language" data-val="' + l[0] + '"><b>' + l[1] + '</b><small>' + l[2] + '</small></button>'; }).join('') + '</div></section>' +
       /* units */
       '<section class="pane" data-pane="units"><h3>Units</h3><p class="sub">Default unit for lengths you type in.</p><div class="tiles">' +
@@ -43888,7 +43889,7 @@ const SurfPath = (function () {
   new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
   scan();
   window.AAKAR_SKBAR = { cfg: cfg, closeAll: closeAll, setCompact: function (v) { cfg.compact = !!v; save(); document.querySelectorAll('#sketcher .sk-bar').forEach(function (b) { b.classList.toggle('skc', cfg.compact); }); } };
-  if (window.console) console.info('Aakar 8.29 · compact sketch toolbar loaded');
+  if (window.console) console.info('Aakar · compact sketch toolbar loaded');
 })();
 
 </script>
@@ -51855,7 +51856,7 @@ CAD.featExt.loftRail=function(f,st,h){const p=f.params,r=F.railEval(st,f,p),pts=
 (function () {
   var P = window.PRISM; if (!P || !P.wholeEdge || window.AAKAR_UX) return;
   var st = P.st, R = P.R, F = P.F, vp = document.getElementById('viewport'); if (!vp) return;
-  var UX = window.AAKAR_UX = { version: '9.9.9', parts: ['edgebar'] };
+  var UX = window.AAKAR_UX = { version: '1.0', parts: ['edgebar'] };
   var css = document.createElement('style'); css.textContent =
     '#uxEdge{position:absolute;left:50%;bottom:58px;transform:translateX(-50%);z-index:30;background:var(--panel,#171d25);border:1px solid var(--line,#2a3441);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;box-shadow:0 8px 28px rgba(0,0,0,.45);max-width:min(94%,720px);font-size:12.5px}' +
     '#uxEdge .r{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;white-space:nowrap}#uxEdge b{font-weight:600}#uxEdge .m{opacity:.7}' +
@@ -57586,7 +57587,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     var t = D.by[D.cur] || D.tools[0]; if (!t) return; D.cur = t.id; var v = D.vals[t.id], groups = {}, u = unit();
     D.tools.forEach(function (x) { (groups[x.group] = groups[x.group] || []).push(x); });
     var nav = Object.keys(groups).map(function (g) { return '<h6>' + esc(g) + '</h6>' + groups[g].map(function (x) { return '<button data-t="' + x.id + '"' + (x.id === t.id ? ' class="on"' : '') + '>' + esc(x.name) + '</button>'; }).join(''); }).join('');
-    root.innerHTML = '<header><h1>Designers · ' + esc(t.name) + '</h1><span class="note">' + esc(t.blurb || '') + '</span><span class="sp"></span><label class="note">Units (whole app) <select data-a="unit" style="width:auto">' + ['mm', 'cm', 'm', 'in', 'ft'].map(function (x) { return '<option value="' + x + '"' + (unit() === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label><button class="btn" data-a="setx" title="Download every setting and entered value of this designer as a labelled file (JSON)">⬇ Settings</button><button class="btn" data-a="setl" title="Load a settings file saved with the Settings button">⬆ Load</button><button class="btn" data-a="reset">Reset</button><button class="btn" data-a="x">✕ Close</button></header>' +
+    root.innerHTML = '<header><h1>Designers · ' + esc(t.name) + '</h1><span class="note">' + esc(t.blurb || '') + '</span><span class="sp"></span><label class="note">Units (whole app) <select data-a="unit" style="width:auto">' + ['mm', 'cm', 'm', 'in', 'ft'].map(function (x) { return '<option value="' + x + '"' + (unit() === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select></label><button class="btn" data-a="calc" title="Calculator that understands units (mm, cm, m, in, ft, fractions)">\u{1F9EE} Calc</button><button class="btn" data-a="conv" title="Unit converter. Hover any length in the designers to see it in other units.">⇄ Units</button><button class="btn" data-a="setx" title="Download every setting and entered value of this designer as a labelled file (JSON)">⬇ Settings</button><button class="btn" data-a="setl" title="Load a settings file saved with the Settings button">⬆ Load</button><button class="btn" data-a="reset">Reset</button><button class="btn" data-a="x">✕ Close</button></header>' +
       '<div class="wrap"><nav>' + nav + '</nav><div class="inp"><table><tbody>' + inputRows(t, v) + '</tbody></table><div class="note" style="margin-top:8px">' + esc(t.note || '') + '</div></div><div class="main" id="dsgMain"></div></div>';
     S.keepTab = keepTab; paint();
   }
@@ -57693,13 +57694,14 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     (function () { var m = { H: 'hx-H', R: 'hx-R', r1: 'hx-r', g1: 'hx-g', n: 'hx-n', tt: 'hx-tt', ov: 'hx-ov', sw: 'hx-sw' }, c = '#dsg .vhtml{position:relative}#dsg svg.lay .outline.wd{fill:none;stroke:#ff8a3d;stroke-width:2.4}#dsg svg.lay g.wood .blank{stroke:#000;stroke-opacity:.7;stroke-dasharray:none}#dsg svg.lay g.wood .slot{fill:#2a1608;fill-opacity:.85;stroke:#ff8a3d}#dsg svg.lay g.wood .slot.sel{fill:#ff5d5d;fill-opacity:.5;stroke:#ff8a8a}'; Object.keys(m).forEach(function (k) { c += '#dsg .vhtml[data-hl=' + k + '] .' + m[k] + '{opacity:1}'; }); var st = document.createElement('style'); st.textContent = c; document.head.appendChild(st); })();
     function setHl(k) {
       GS.hl = HLK[k] ? k : ''; var vw = root.querySelector('.view,.vhtml'); if (!vw) return;
+      GS.d3 = (k && vw.querySelector('canvas.o3c') && /^(w|H|R)$/.test(k) && D.vals[D.cur] && (D.vals[D.cur].type === 'stair' || D.vals[D.cur].type === 'stairH')) ? k : ''; if (GS.o3redraw) { try { GS.o3redraw(); } catch (e3) { /* ok */ } }
       if (GS.hl) vw.setAttribute('data-hl', GS.hl); else vw.removeAttribute('data-hl');
       var m = vw.querySelector('.hxmiss'); if (m) m.remove();
       var inp = k ? root.querySelector('.inp [data-k="' + k + '"]') : null;
-      if (inp && !(GS.hl && vw.querySelector('svg .' + HLK[k]))) {
+      if (inp && !((GS.hl && vw.querySelector('svg .' + HLK[k])) || GS.d3)) {
         var tr = inp.closest('tr'), lab = tr && tr.firstElementChild ? tr.firstElementChild.textContent.replace(/\s*\(.*$/, '').trim() : k;
         var d = document.createElement('div'); d.className = 'hxmiss'; d.style.cssText = 'position:absolute;left:8px;top:8px;z-index:5;background:#2a2410;border:1px solid #ffe14d;color:#ffe14d;padding:4px 8px;border-radius:6px;font-size:12px;pointer-events:none';
-        var sideOn = !!root.querySelector('[data-v="side"].on'); d.textContent = '"' + lab + '" is not drawn on ' + (sideOn ? 'this view. It is a board dimension that shows in the 3D tab and the cut list.' : 'this tab. Try the Side or 3D tab.'); vw.appendChild(d);
+        var sideOn = !!root.querySelector('[data-v="side"].on'); d.textContent = '"' + lab + '" is not drawn on ' + (sideOn ? 'this view. It is a board dimension that shows in the 3D tab and the cut list.' : (vw.querySelector('canvas.o3c') ? 'the 3D tab. It is a board size: see the Side view, Cut list or Mark & cut.' : 'this tab. Try the Side or 3D tab.')); vw.appendChild(d);
       }
     }
     var kOf = function (el) { var e = el && el.closest ? el.closest('.inp tr') : null, i = e && e.querySelector('[data-k]'); return i ? i.dataset.k : ''; };
@@ -57782,6 +57784,14 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       return '<div class="row" style="margin:2px 0 6px"><span class="note">Lay it on:</span>' + o.map(function (x) { return '<button class="btn' + (GS.wood === x[0] ? ' on' : '') + '" data-r="wood:' + x[0] + '"><i style="display:inline-block;width:11px;height:11px;border-radius:3px;background:' + x[2] + ';margin-right:5px;vertical-align:-1px"></i>' + x[1] + '</button>'; }).join('') + '<span style="flex:1"></span><label class="note">Opacity <input type="range" min="30" max="100" value="' + Math.round(GS.wopa * 100) + '" data-r="wopa" style="width:90px;vertical-align:middle"></label><span class="note">' + (GS.wood === 'off' ? '' : 'Bright wood stays. Dark hatched wood is the offcut.') + '</span><button class="btn pri" data-r="zip" title="Download a ZIP: the board picture, the dimension table (CSV) and a printable sheet">⬇ Export marking sheet (ZIP)</button></div>';
     }
     /* ---------- drawing helper (y up, output flipped for SVG) ---------- */
+
+    function boldCss(fs) {
+      var f = function (v) { return (Math.round(fs * v * 100) / 100); };
+      return '<style>g.bdf .dl{stroke:#9fd0ff!important;stroke-width:' + f(0.075) + 'px!important}g.bdf .ext{stroke:#86aee0!important;stroke-width:' + f(0.04) + 'px!important;stroke-dasharray:' + f(0.35) + ' ' + f(0.3) + '!important}g.bdf .ah{fill:#9fd0ff!important}' +
+        'g.bdf text.t{stroke:#0b0f14!important;stroke-width:' + f(0.18) + 'px!important;paint-order:stroke!important;font-weight:700!important}g.bdf text.t.dim,g.bdf text.t.top,g.bdf text.t.dim0{font-weight:700!important;fill:#ffffff!important}g.bdf text.t.cap{fill:#d4e2f5!important;font-weight:600!important}' +
+        'g.bdf g.rowhl{opacity:0}g.bdf .hxl{stroke:#ffe14d;stroke-width:' + f(0.16) + 'px;fill:none;stroke-linecap:round}g.bdf .hxs{fill:rgba(255,225,77,.35);stroke:#ffe14d;stroke-width:' + f(0.14) + 'px}g.bdf g.rowhl circle{fill:#ffe14d;stroke:#0b0f14;stroke-width:' + f(0.1) + 'px}' +
+        'g.bdf text.t.hxt{fill:#ffe14d!important;font-weight:800!important;stroke:#0b0f14;stroke-width:' + f(0.26) + 'px;paint-order:stroke}</style>';
+    }
     function Painter(fs, mir) {
       var out = [], X = function (x) { return mir ? -x : x; }, Y = function (y) { return -y; }, sw = { start: 'end', end: 'start', middle: 'middle' };
       var pt = function (x, y) { return f1(X(x)) + ',' + f1(Y(y)); };
@@ -57858,11 +57868,17 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       ln(0, 0, 0, lo.tot, 'ext'); ln(xB, 0, xB, lo.tot, 'ext'); dimH(0, xB, lo.tot, 'long edge ' + lenS(xB) + ' ' + unit(), 'dim');
       { var xr = xB + 1.8 * fs; ln(xB, 0, xr + 0.4 * fs, 0, 'ext'); ln(xC, Ws, xr + 0.4 * fs, Ws, 'ext'); ln(xr, 0, xr, Ws, 'dl'); arrow(xr, 0, 0, -1, as); arrow(xr, Ws, 0, 1, as); T(xr + 0.7 * fs, Ws / 2 - 0.3 * fs, 'W ' + lenS(Ws), 'dim', 'start'); }
       T(xD, up.t, '◀ FLOOR (bottom) END · h = 0', 'tgl', 'start'); T(xC, up.t, 'TOP END · h = ' + lenS(C.Htot) + ' ' + unit() + ' ▶', 'tgl', 'end'); T((xD + xC) / 2, up.t, 'θ = ' + f1(deg0).toFixed(2) + '°  ·  ' + (90 - deg0).toFixed(2) + '° off square', 'angt');
+      for (k = 0; k < n; k++) {
+        var hq = hs[k], yq0 = lipY, yq1 = Ws - lipY; p.out.push('<g class="rowhl" data-row="' + k + '">');
+        poly([[xAt(hq - P / 2, yq0), yq0], [xAt(hq + P / 2, yq0), yq0], [xAt(hq + P / 2, yq1), yq1], [xAt(hq - P / 2, yq1), yq1]], 'hxs');
+        ln(xAt(hq, 0), 0, xAt(hq, 0), lo.c - 0.6 * fs, 'hxl'); ln(xAt(hq, Ws), Ws, xAt(hq, Ws), up.c + 0.6 * fs, 'hxl');
+        T(xAt(hq, 0), lo.c, lenS(xAt(hq, 0) - dat), 'hxt', 'middle', 1.25 * fs); T(xAt(hq, Ws), up.c, lenS(xAt(hq, Ws) - xD), 'hxt', 'middle', 1.25 * fs); p.out.push('</g>');
+      }
       var lefts = [X(xD - 10.5 * fs), X(xB + 10 * fs)], x0 = Math.min.apply(null, lefts), x1 = Math.max.apply(null, lefts), top = -(up.t + 1.2 * fs), bot = -lo.tot + 1.6 * fs;
       var snaps = [], sn = function (x, y) { snaps.push([X(x), Y(y)]); };
       sn(0, 0); sn(xB, 0); sn(xC, Ws); sn(xD, Ws); sn(xD, 0); sn(xB, Ws);
       for (k = 0; k < n; k++) { var hz = hs[k]; [0, Ws].forEach(function (yy) { sn(xAt(hz, yy), yy); sn(xAt(hz - P / 2, yy), yy); sn(xAt(hz + P / 2, yy), yy); }); }
-      return { svg: wrapW(p.out.join('')), bbox: { x: x0, y: top, w: x1 - x0, h: bot - top }, snaps: snaps };
+      return { svg: '<g class="bdf">' + boldCss(fs) + wrapW(p.out.join('')) + '</g>', bbox: { x: x0, y: top, w: x1 - x0, h: bot - top }, snaps: snaps };
     }
 
     /* ---------- side view of the grooved stringer (as installed) ---------- */
@@ -57957,6 +57973,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         var iu = G.ins[i][0]; ln(iu, c.T, iu, rowB + 0.5 * fs, 'ext'); T(iu, rowB - (i % 2 ? 1.3 : 0) * fs, lab(iu), 'top'); p.out.push('<circle cx="' + f1(X(iu)) + '" cy="' + f1(Y(c.T)) + '" r="' + f1(fs * 0.22) + '" class="mk2"/>');
       }
       T(-0.8 * fs, rowT + 0.9 * fs, 'top edge: nosing marks', 'cap', 'end'); T(-0.8 * fs, rowB, 'inside corners', 'cap', 'end');
+      T(0, rowT + 5.9 * fs, '◀ BOTTOM END (floor end of the stair)', 'cap', 'start'); T(G.Lb, rowT + 5.9 * fs, 'TOP END (upper floor) ▶', 'cap', 'end');
       ln(0, c.T, 0, -0.2 * fs, 'ext');
       // throat dimension and step 1 cut lengths
       var xr = G.Lb + 1.8 * fs; ln(G.Lb, 0, xr + 0.4 * fs, 0, 'ext'); ln(G.Lb, sw, xr + 0.4 * fs, sw, 'ext'); ln(xr, 0, xr, sw, 'dl'); p.arrow(xr, 0, 0, -1, p.as); p.arrow(xr, sw, 0, 1, p.as); T(xr + 0.7 * fs, sw / 2 - 0.3 * fs, 'board ' + LN(sw), 'dim', 'start');
@@ -57968,10 +57985,15 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       { var r = Math.min(4 * fs, G.foot[0] * 0.8 + fs), pts = [], thd = c.th * deg; for (i = 0; i <= 20; i++) { var an = (thd * i / 20) * Math.PI / 180; pts.push([G.foot[0] + r * Math.cos(Math.PI - an), r * Math.sin(Math.PI - an)]); } }
       T(0, rowB - 4.6 * fs, 'tread ' + LN(c.g) + ' (run ÷ ' + (n - 1) + ')   ·   riser ' + LN(c.r) + ' (rise ÷ ' + n + ')   ·   foot cut (level) θ ' + (c.th * deg).toFixed(2) + '°', 'red', 'start');
       T(G.topB[0], rowB - 3.0 * fs, 'top plumb cut ↑', 'cap');
-      var x0 = Math.min(X(-22 * fs), X(G.Lb + 12 * fs)), x1 = Math.max(X(-22 * fs), X(G.Lb + 12 * fs)), top = -(rowT + 5.4 * fs), bot = 7.2 * fs;
+      for (i = 0; i < n; i++) {
+        var uq = G.nos[i][0]; p.out.push('<g class="rowhl" data-row="' + i + '">'); ln(uq, -0.4 * fs, uq, rowT + 3.4 * fs, 'hxl'); p.out.push('<circle cx="' + f1(X(uq)) + '" cy="' + f1(Y(sw)) + '" r="' + f1(fs * 0.55) + '"/>'); T(uq, rowT + (i % 2 ? 2.3 : 0.9) * fs, lab(uq), 'hxt', 'middle', 1.25 * fs);
+        if (i < n - 1) { var iq = G.ins[i][0]; ln(G.nos[i][0], G.nos[i][1], iq, G.ins[i][1], 'hxl'); ln(iq, G.ins[i][1], G.nos[i + 1][0], G.nos[i + 1][1], 'hxl'); ln(iq, c.T, iq, rowB - 2.2 * fs, 'hxl'); p.out.push('<circle cx="' + f1(X(iq)) + '" cy="' + f1(Y(c.T)) + '" r="' + f1(fs * 0.55) + '"/>'); T(iq, rowB - (i % 2 ? 1.3 : 0) * fs, lab(iq), 'hxt', 'middle', 1.25 * fs); }
+        p.out.push('</g>');
+      }
+      var x0 = Math.min(X(-22 * fs), X(G.Lb + 12 * fs)), x1 = Math.max(X(-22 * fs), X(G.Lb + 12 * fs)), top = -(rowT + 8.2 * fs), bot = 7.2 * fs;
       var snaps = [], sn = function (x, y) { snaps.push([X(x), Y(y)]); };
       sn(0, 0); sn(G.Lb, 0); sn(G.Lb, sw); sn(0, sw); G.outline.forEach(function (q) { sn(q[0], q[1]); });
-      return { svg: wrapW(p.out.join('')), bbox: { x: x0, y: top, w: x1 - x0, h: bot - top }, snaps: snaps };
+      return { svg: '<g class="bdf">' + boldCss(fs) + wrapW(p.out.join('')) + '</g>', bbox: { x: x0, y: top, w: x1 - x0, h: bot - top }, snaps: snaps };
     }
 
     /* ---------- measure tool + pan/zoom on an SVG ---------- */
@@ -58056,13 +58078,22 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       var keys = kind === 'cut' ? [['cut', 'board']] : [['flat', 'board'], ['side', 'side-view']], jobs = [], label = btn ? btn.textContent : '';
       if (btn) btn.textContent = 'Preparing…';
       keys.forEach(function (k) { var w = el.querySelector('[data-pz=' + k[0] + ']'), svg = w && w.querySelector('svg'), bb = (X._bb || {})[k[0]]; if (svg && bb) jobs.push(svgPng(svg, bb, 2400).then(function (r) { r.name = k[1]; return r; })); });
+      try {
+        var mkSvg = function (str) { var e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.innerHTML = str; return e; };
+        if (kind === 'cut') { var mi = cutSVG(X.c, X.G, { fs: Math.max(X.G.Lb / 66, 11), mirror: !GS.cmirror, datum: GS.cdatum }); jobs.push(svgPng(mkSvg(mi.svg), mi.bbox, 2400).then(function (r) { r.name = 'board-mirror-opposite-stringer'; return r; })); }
+        else if (X.g) {
+          var gg = X.g, fsF2 = Math.min(1.45 * Math.max(Math.max(gg.Ws * 0.2, gg.blankL / 110), 6), 0.235 * gg.pitch), mi2 = layoutSVG(gg, { fs: fsF2, mirror: !GS.mirror, sel: Math.min(GS.sel, gg.n - 1), edges: GS.edges, datum: GS.datum, noun: X.noun });
+          jobs.push(svgPng(mkSvg(mi2.svg), mi2.bbox, 2400).then(function (r) { r.name = 'board-mirror-opposite-stringer'; return r; }));
+          for (var mj = 0; mj < gg.n; mj++) (function (mj) { var hd2 = document.createElement('div'); hd2.innerHTML = detailSVG(gg, { sel: mj, mirror: !GS.mirror, datum: GS.datum, noun: X.noun }); var d2 = hd2.querySelector('svg'); if (d2) jobs.push(svgPng(d2, { x: 0, y: 0, w: 1000, h: 400 }, 1600).then(function (r) { r.name = 'mirror-closeup-' + String(X.noun || 'G') + (mj + 1); return r; })); })(mj);
+        }
+      } catch (me) { /* the mirror images are extra: never block the export */ }
       if (kind !== 'cut' && X.g) { for (var ci = 0; ci < X.g.n; ci++) (function (ci) { try { var hd = document.createElement('div'); hd.innerHTML = detailSVG(X.g, { sel: ci, mirror: GS.mirror, datum: GS.datum, noun: X.noun }); var dsv = hd.querySelector('svg'); if (dsv) jobs.push(svgPng(dsv, { x: 0, y: 0, w: 1000, h: 400 }, 1600).then(function (r) { r.name = 'closeup-' + String(X.noun || 'G') + (ci + 1); return r; })); } catch (e0) { /* skip this close-up */ } })(ci); }
       Promise.all(jobs).then(function (imgs) {
         var enc = new TextEncoder(), T = dimTable(X, kind), title = kind === 'cut' ? 'Mark and cut sheet' : 'Mark and route sheet', now = new Date().toISOString().slice(0, 10);
         var tbl = '<table>' + T.rows.map(function (r, i) { return '<tr>' + r.map(function (x) { return '<' + (i ? 'td' : 'th') + '>' + esc(String(x)) + '</' + (i ? 'td' : 'th') + '>'; }).join('') + '</tr>'; }).join('') + '</table>';
         var html = '<!doctype html><meta charset="utf-8"><title>' + title + '</title><style>body{font:14px system-ui,sans-serif;margin:24px;color:#111}img{max-width:100%;border:1px solid #ccc;margin:8px 0}table{border-collapse:collapse;margin:8px 0}td,th{border:1px solid #bbb;padding:3px 9px;text-align:right}th{background:#eee}@media print{img{page-break-inside:avoid}}</style><h2>' + title + '</h2><p>' + esc(T.head) + ' All sizes in millimetres. ' + now + '</p>' + imgs.map(function (i) { return '<img src="' + i.url + '" alt="' + i.name + '">'; }).join('') + tbl;
         var svgFiles = []; if (kind !== 'cut' && X.g) for (var si = 0; si < X.g.n; si++) { var st0 = slotSvgText(X.g, si, X.noun); if (st0) svgFiles.push({ name: slotName(X.noun, si) + '.svg', data: enc.encode(st0) }); }
-        var files = imgs.map(function (i) { return { name: i.name + '.png', data: i.png }; }).concat(svgFiles).concat([{ name: 'dimensions.csv', data: enc.encode('﻿' + csvOf(T.rows) + '\r\n') }, { name: 'marking-sheet.html', data: enc.encode(html) }, { name: 'README.txt', data: enc.encode(title + ' (' + now + ')\r\n' + T.head + '\r\nAll sizes in millimetres.\r\n\r\nboard.png : the board with every mark and dimension\r\n' + (kind === 'cut' ? '' : 'closeup-*.png and closeup-*.svg : edge-to-edge close-up of every groove, one image per slot (start, slot, gap, angle); the svg files are vector and open in any editor\r\n') + 'dimensions.csv : the table, opens in Excel or Sheets\r\nmarking-sheet.html : drawing and table on one page, open it and print\r\n') }]);
+        var files = imgs.map(function (i) { return { name: i.name + '.png', data: i.png }; }).concat(svgFiles).concat([{ name: 'dimensions.csv', data: enc.encode('﻿' + csvOf(T.rows) + '\r\n') }, { name: 'marking-sheet.html', data: enc.encode(html) }, { name: 'README.txt', data: enc.encode(title + ' (' + now + ')\r\n' + T.head + '\r\nAll sizes in millimetres.\r\n\r\nboard.png : the board with every mark and dimension\r\n' + (kind === 'cut' ? '' : 'closeup-*.png and closeup-*.svg : edge-to-edge close-up of every groove, one image per slot (start, slot, gap, angle); the svg files are vector and open in any editor\r\n' + 'board-mirror-opposite-stringer.png and mirror-closeup-*.png : the OPPOSITE stringer (mirror image of the board and of each close-up). Numbers are the same, measured from the floor end.\r\n') + 'dimensions.csv : the table, opens in Excel or Sheets\r\nmarking-sheet.html : drawing and table on one page, open it and print\r\n') }]);
         var blob = zipStore(files), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (kind === 'cut' ? 'mark-and-cut' : 'mark-and-route') + '-' + now + '.zip'; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
         if (btn) btn.textContent = label;
       }).catch(function (e) { if (btn) btn.textContent = label; alert('Export failed: ' + (e && e.message || e)); });
@@ -58112,12 +58143,12 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       var dat = GS.datum === 'blank' ? g.xD : 0, fm = function (v) { return LN(v); }, sel = Math.min(GS.sel, g.n - 1), r = '';
       for (var k = 0; k < g.n; k++) {
         var h = g.hs[k], hh = g.P / 2, c0 = g.xAt(h, 0) - dat, s0 = g.xAt(h - hh, 0) - dat, e0 = g.xAt(h + hh, 0) - dat, c1 = g.xAt(h, g.Ws) - g.xD, s1 = g.xAt(h - hh, g.Ws) - g.xD, e1 = g.xAt(h + hh, g.Ws) - g.xD;
-        r += '<tr' + (k === sel ? ' style="background:rgba(255,90,90,.16)"' : (k % 2 ? ' style="background:rgba(130,170,240,.07)"' : '')) + '><td style="font-weight:700;color:#ffb27a">' + noun + (k + 1) + '</td><td><b>' + fm(c0) + '</b></td><td>' + fm(s0) + ' → ' + fm(e0) + '</td><td><b>' + fm(c1) + '</b></td><td>' + fm(s1) + ' → ' + fm(e1) + '</td><td>' + fm(h) + '</td></tr>';
+        r += '<tr data-row="' + k + '"' + (k === sel ? ' style="background:rgba(255,90,90,.16)"' : (k % 2 ? ' style="background:rgba(130,170,240,.07)"' : '')) + '><td style="font-weight:700;color:#ffb27a">' + noun + (k + 1) + '</td><td><b>' + fm(c0) + '</b></td><td>' + fm(s0) + ' → ' + fm(e0) + '</td><td><b>' + fm(c1) + '</b></td><td>' + fm(s1) + ' → ' + fm(e1) + '</td><td>' + fm(h) + '</td></tr>';
       }
       return '<h5 style="margin-top:10px">③ Marking table — all distances from the ' + (GS.datum === 'blank' ? 'floor end of the blank' : 'floor-cut corner') + ' (' + unit() + ')</h5><div style="overflow:auto;max-height:280px"><table style="width:100%;border-collapse:collapse;font:13px ui-monospace,Menlo,Consolas,monospace"><tr style="position:sticky;top:0;background:#101a2b;text-align:left"><th>Mark</th><th>Bottom edge: centre</th><th>start → end</th><th>Top edge: centre</th><th>start → end</th><th>Height h</th></tr>' + r + '</table></div><div class="note" style="margin-top:4px">Mark the centre on each edge, join the two marks with a straightedge, then mark the groove width either side (start / end). Top-edge distances are from the top-left corner of the blank.</div>';
     }
     function routeWire(el, X) {
-      var g = X.g, k = Math.min(GS.sel, g.n - 1), fsS = Math.max(g.Htot / 38, 12), fsF = 1.2 * Math.max(Math.max(g.Ws * 0.2, g.blankL / 110), 6);
+      var g = X.g, k = Math.min(GS.sel, g.n - 1), fsS = Math.max(g.Htot / 38, 12), fsF = Math.min(1.45 * Math.max(Math.max(g.Ws * 0.2, g.blankL / 110), 6), 0.235 * g.pitch);
       var si = sideSVG(g, { fs: fsS, sel: k, noun: X.noun }), fi = layoutSVG(g, { fs: fsF, mirror: GS.mirror, sel: k, edges: GS.edges, datum: GS.datum, noun: X.noun });
       si.fs = fsS; fi.fs = fsF; si.onsel = fi.onsel = function (i) { GS.sel = i; redraw(); };
       var sw = el.querySelector('[data-pz=side]'), fw = el.querySelector('[data-pz=flat]'); sw.querySelector('svg').innerHTML = si.svg; fw.querySelector('svg').innerHTML = fi.svg;
@@ -58149,19 +58180,24 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     function cutInner(X) {
       var c = X.c, G = X.G, dn = GS.cdatum === 'foot' ? 'foot end' : 'top end', rows = '', i;
       var dat = function (u) { return GS.cdatum === 'foot' ? u : G.Lb - u; };
-      for (i = 0; i < c.n; i++) rows += '<tr><td><b>' + (i + 1) + '</b></td><td>' + LF(dat(G.nos[i][0])) + '</td><td>' + (i < c.n - 1 ? LF(dat(G.ins[i][0])) : '–') + '</td><td>' + (i < c.n - 1 ? LU(c.g) : '–') + '</td><td>' + LU(c.r) + '</td></tr>';
+      for (i = 0; i < c.n; i++) rows += '<tr data-row="' + i + '"><td><b>' + (i + 1) + '</b></td><td>' + LF(dat(G.nos[i][0])) + '</td><td>' + (i < c.n - 1 ? LF(dat(G.ins[i][0])) : '–') + '</td><td>' + (i < c.n - 1 ? LU(c.g) : '–') + '</td><td>' + LU(c.r) + '</td></tr>';
       var head = ctrlRow('<b>Mark &amp; cut the notched stringer</b><span style="flex:1"></span><label class="note">Measure from <select data-r="cdatum" style="width:auto"><option value="foot"' + (GS.cdatum === 'foot' ? ' selected' : '') + '>Foot end of the board</option><option value="top"' + (GS.cdatum === 'top' ? ' selected' : '') + '>Top end of the board</option></select></label><label class="note"><input type="checkbox" data-r="cmirror"' + (GS.cmirror ? ' checked' : '') + '> Mirror (opposite stringer)</label>') +
         ctrlRow(measButtons('cut') + '<button class="btn" data-r="zfit">Fit</button>');
       return head + woodRow() + '<h5>Board laid flat: marks run along the edge of the board</h5>' + pzBox('cut', 'flat') +
         '<div class="two"><div><h5 style="margin-top:8px">Steps, measured from the ' + dn + '</h5><div class="box"><table><tr><th>Step</th><th>Nosing mark (top edge)</th><th>Inside corner</th><th>Tread cut</th><th>Riser cut</th></tr>' + rows + '</table></div></div>' +
-        '<div><h5 style="margin-top:8px">How to mark and cut</h5><div class="box"><ol class="gd" style="margin:0;padding-left:18px"><li>Use a straight board ' + LU(G.Lb) + ' long and ' + LU(c.sw) + ' wide (the dashed rectangle). Its top edge carries the nosing marks.</li>' +
-        '<li>Mark the first nosing ' + LU(G.first) + ' from the foot end, then every ' + LU(G.p) + ' along the top edge (the pitch distance).</li>' +
-        '<li>At each mark, set a framing square to riser ' + LU(c.r) + ' and going ' + LU(c.g) + ' and draw the tread line and the riser line. The inside corners fall ' + LU(c.T) + ' above the bottom edge (the throat).</li>' +
-        '<li>Cut the foot level (θ ' + (c.th * deg).toFixed(2) + '° to the edge) and the top plumb line at the position shown, then cut the notches, stopping at the inside corners.</li>' +
-        '<li>The opposite stringer is the mirror image: tick Mirror. Use the first stringer as the pattern for the second.</li></ol></div></div></div>';
+        '<div><h5 style="margin-top:8px">How to mark and cut</h5><div class="box"><table><tr><th>#</th><th>What to do</th><th>Measure</th></tr>' +
+        '<tr><td>1</td><td style="text-align:left">Straight board (its top edge carries the nosing marks)</td><td>' + LU(G.Lb) + ' × ' + LU(c.sw) + '</td></tr>' +
+        '<tr><td>2</td><td style="text-align:left">First nosing mark, from the foot (bottom) end</td><td>' + LU(G.first) + '</td></tr>' +
+        '<tr><td>3</td><td style="text-align:left">Next marks along the top edge (pitch distance)</td><td>every ' + LU(G.p) + '</td></tr>' +
+        '<tr><td>4</td><td style="text-align:left">Framing square at each mark: riser</td><td>' + LU(c.r) + '</td></tr>' +
+        '<tr><td>5</td><td style="text-align:left">Framing square at each mark: going (tread)</td><td>' + LU(c.g) + '</td></tr>' +
+        '<tr><td>6</td><td style="text-align:left">Inside corners sit above the bottom edge (throat)</td><td>' + LU(c.T) + '</td></tr>' +
+        '<tr><td>7</td><td style="text-align:left">Foot (bottom) end: level cut, angle to the edge</td><td>θ ' + (c.th * deg).toFixed(2) + '°</td></tr>' +
+        '<tr><td>8</td><td style="text-align:left">Top end: plumb cut at the position shown, then cut the notches and stop at the inside corners</td><td>–</td></tr>' +
+        '<tr><td>9</td><td style="text-align:left">Opposite stringer: the mirror image (tick Mirror)</td><td>–</td></tr></table></div></div></div>';
     }
     function cutWire(el, X) {
-      var c = X.c, fs = Math.max(X.G.Lb / 95, 8), info = cutSVG(c, X.G, { fs: fs, mirror: GS.cmirror, datum: GS.cdatum }); info.fs = fs;
+      var c = X.c, fs = Math.max(X.G.Lb / 66, 11), info = cutSVG(c, X.G, { fs: fs, mirror: GS.cmirror, datum: GS.cdatum }); info.fs = fs;
       var w = el.querySelector('[data-pz=cut]'); w.querySelector('svg').innerHTML = info.svg; wirePZ(w, 'cut', info); X._bb = { cut: info.bbox };
       X._redraw = function () { el.innerHTML = cutInner(X); cutWire(el, X); };
     }
@@ -58217,6 +58253,20 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       TL.forEach(function (l) { [l[0], l[1]].forEach(function (p) { for (var i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p[i]); mx[i] = Math.max(mx[i], p[i]); } }); });
       if (!faces.length) return;
       var cen = [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2], rad = Math.hypot(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]) / 2 || 1;
+      var dims3 = function (c, pr) {
+        var d = GS.d3, v = D.vals[D.cur]; if (!d || !v) return; var s0 = stepsOf(v), n = Math.max(2, v.n | 0), Rr = s0.g * (n - 1), Hh = s0.r * n, w = v.w, off = Math.max(120, 0.07 * Math.max(Rr, Hh)), A, B, e1, e2, lab;
+        if (d === 'w') { A = [-off, 0, 0]; B = [-off, w, 0]; e1 = [[0, 0, 0], A]; e2 = [[0, w, 0], B]; lab = 'overall width ' + fmtL(w); }
+        else if (d === 'R') { A = [0, -off, 0]; B = [Rr, -off, 0]; e1 = [[0, 0, 0], A]; e2 = [[Rr, 0, 0], B]; lab = 'total run ' + fmtL(Rr); }
+        else { A = [-off, 0, 0]; B = [-off, 0, Hh]; e1 = [[0, 0, 0], A]; e2 = [[0, 0, Hh], B]; lab = 'total rise ' + fmtL(Hh); }
+        var a = pr(A), b = pr(B), col = '#ffd23d';
+        c.save(); c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 1.6; c.setLineDash([4, 3]);
+        [e1, e2].forEach(function (e) { var p = pr(e[0]), q = pr(e[1]); c.beginPath(); c.moveTo(p[0], p[1]); c.lineTo(q[0], q[1]); c.stroke(); });
+        c.setLineDash([]); c.lineWidth = 2.6; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke();
+        var ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+        [[a, 1], [b, -1]].forEach(function (z) { var P = z[0], sg = z[1]; c.beginPath(); c.moveTo(P[0], P[1]); c.lineTo(P[0] + sg * 13 * Math.cos(ang - 0.4), P[1] + sg * 13 * Math.sin(ang - 0.4)); c.lineTo(P[0] + sg * 13 * Math.cos(ang + 0.4), P[1] + sg * 13 * Math.sin(ang + 0.4)); c.closePath(); c.fill(); });
+        c.font = 'bold 14px system-ui,Arial'; var tw = c.measureText(lab).width, mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, rot = ang; if (rot > Math.PI / 2) rot -= Math.PI; if (rot < -Math.PI / 2) rot += Math.PI;
+        c.translate(mx, my); c.rotate(rot); c.fillStyle = 'rgba(11,15,20,.88)'; c.fillRect(-tw / 2 - 6, -25, tw + 12, 22); c.fillStyle = col; c.fillText(lab, -tw / 2, -9); c.restore();
+      };
       var draw2d = function () {
         ctx = ctx || cv.getContext('2d'); if (!ctx) return;
         var dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
@@ -58230,6 +58280,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         ctx.lineJoin = 'round'; out.forEach(function (f) { ctx.beginPath(); f.q.forEach(function (p, i) { if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); }); ctx.closePath();
           if (!S.wire) { ctx.fillStyle = 'rgb(' + Math.round(f.c[0] * f.l) + ',' + Math.round(f.c[1] * f.l) + ',' + Math.round(f.c[2] * f.l) + ')'; ctx.fill(); }
           ctx.strokeStyle = S.wire ? 'rgba(' + f.c.join(',') + ',.9)' : 'rgba(0,0,0,.5)'; ctx.lineWidth = S.wire ? 1 : 0.8; ctx.stroke(); });
+        dims3(ctx, function (p) { var q = tr(p); return [q[0], q[1]]; });
         ctx.lineWidth = 1.4; TL.forEach(function (l) { var a = tr(l[0]), b = tr(l[1]); ctx.strokeStyle = 'rgb(' + (PAL[l[2]] || PAL.c).join(',') + ')'; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); });
         var ax = [[1, 0, 0, '#ff6b6b', 'X'], [0, 1, 0, '#6bff9a', 'Y'], [0, 0, 1, '#6bb6ff', 'Z']], o = tr(cen); ax.forEach(function (a) { var e = tr([cen[0] + a[0] * rad * 0.4, cen[1] + a[1] * rad * 0.4, cen[2] + a[2] * rad * 0.4]); ctx.strokeStyle = a[3]; ctx.beginPath(); ctx.moveTo(34, H - 34); ctx.lineTo(34 + (e[0] - o[0]) * 0.5, H - 34 + (e[1] - o[1]) * 0.5); ctx.stroke(); ctx.fillStyle = a[3]; ctx.font = '11px system-ui'; ctx.fillText(a[4], 34 + (e[0] - o[0]) * 0.5 + 3, H - 34 + (e[1] - o[1]) * 0.5); });
       };
@@ -58285,6 +58336,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         gl.uniform3f(gl.getUniformLocation(prog.l, 'ucol'), S.wire ? 1 : 0.05, S.wire ? 0.6 : 0.06, S.wire ? 0.3 : 0.08); gl.drawArrays(gl.LINES, 0, nL);
         (bufT || []).forEach(function (g) { gl.bindBuffer(gl.ARRAY_BUFFER, g.b); gl.vertexAttribPointer(lp, 3, gl.FLOAT, false, 12, 0); gl.uniform3f(gl.getUniformLocation(prog.l, 'ucol'), g.c[0] / 255, g.c[1] / 255, g.c[2] / 255); gl.drawArrays(gl.LINES, 0, g.n); });
         var c2 = ov.getContext('2d'); ov.width = Math.round(W * dpr); ov.height = Math.round(H * dpr); ov.style.height = H + 'px'; ov.style.top = cv.offsetTop + 'px'; c2.setTransform(dpr, 0, 0, dpr, 0, 0);
+        dims3(c2, function (p) { var x = p[0] - cen[0], y = p[1] - cen[1], z = p[2] - cen[2], x1 = x * cy - y * sy, y1 = x * sy + y * cy; return [W / 2 + S.px + x1 * k, H / 2 + S.py - (z * cp + y1 * sp) * k]; });
         var tr = function (p) { var x = p[0], y = p[1], z = p[2], x1 = x * cy - y * sy, y1 = x * sy + y * cy; return [x1, -(z * cp + y1 * sp)]; };
         [[1, 0, 0, '#ff6b6b', 'X'], [0, 1, 0, '#6bff9a', 'Y'], [0, 0, 1, '#6bb6ff', 'Z']].forEach(function (a) { var e = tr([a[0], a[1], a[2]]); c2.strokeStyle = a[3]; c2.beginPath(); c2.moveTo(34, H - 34); c2.lineTo(34 + e[0] * 26, H - 34 + e[1] * 26); c2.stroke(); c2.fillStyle = a[3]; c2.font = '11px system-ui'; c2.fillText(a[4], 34 + e[0] * 26 + 3, H - 34 + e[1] * 26); });
       };
@@ -58298,10 +58350,36 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
       cv.addEventListener('wheel', function (e) { e.preventDefault(); S.zoom = Math.max(0.2, Math.min(12, S.zoom * (e.deltaY > 0 ? 0.88 : 1.14))); draw(); }, { passive: false });
       cv.addEventListener('dblclick', function () { S.zoom = 1; set(0.65, 0.5); });
+      GS.o3redraw = function () { draw(); };
       draw();
     }
 
     /* ---------- the tool ---------- */
+    function toySync(v, keys) {
+      try {
+        var inp = document.querySelector('#dsg .inp'); if (!inp) return; var t = D.by.stair;
+        keys.forEach(function (k) { var el = inp.querySelector('[data-k="' + k + '"]'); if (!el || document.activeElement === el) return; var f = (t.fields || []).find(function (z) { return z.k === k; }); el.value = f && f.t === 'len' ? fmtN(v[k]) : String(v[k]); });
+      } catch (eS) { /* ok */ }
+    }
+    function toyApply(v) {
+      var ft = Math.max(5, v.foot), ov = Math.max(0, v.ovh || 0), r, g;
+      if (v.mode === 'step') { v.g1 = ft; r = v.r1; g = ft; }
+      else { v.n = Math.max(2, Math.round(v.R / ft) + 1); var s = stepsOf(v); r = s.r; g = s.g; }
+      v.tw = Math.round((g + ov) * 100) / 100;
+      var keys = ['n', 'tw', 'g1'];
+      if (v.type === 'stair') { v.sw = Math.ceil(r * g / Math.hypot(r, g) + 35); keys.push('sw'); }
+      toySync(v, keys);
+    }
+    function toyChecks(v, out) {
+      var s = stepsOf(v), r = v.mode === 'step' ? v.r1 : s.r, g = v.mode === 'step' ? v.g1 : s.g, ang = Math.atan2(r, g) * 180 / Math.PI, ck = [];
+      out.checks = (out.checks || []).filter(function (c) { return !/^(Riser|Going|2 ×|Pitch|Throat behind)/.test(c[1]); });
+      ck.push(['w', 'TOY BUILD, not for people. The comfort rules for a real stair (riser, going, pitch) are switched off.']);
+      ck.push([r > 140 ? 'x' : '', 'Toy steps: riser ' + fmtL(r) + (r > 140 ? ' is taller than 140 mm, small feet will struggle' : ' (limit 140 mm)') + ', foot room ' + fmtL(g) + ', angle ' + ang.toFixed(1) + '°']);
+      ck.push([(v.ovh || 0) > 30 ? 'x' : '', 'Tread overhang ' + fmtL(v.ovh || 0) + (v.ovh > 30 ? ' is more than 30 mm past the last screw, the tread may tip or split' : ' (limit 30 mm)')]);
+      ck.push([g < 30 ? 'x' : '', 'Tread seat on the stringer: ' + fmtL(g) + (g < 30 ? ', under 30 mm, too little to fix' : ', at least 30 mm for 2 screws each side')]);
+      if (v.type === 'stair') { var th = v.sw - r * g / Math.hypot(r, g); ck.push([th < 35 ? 'x' : '', 'Wood left under the notches ' + fmtL(th) + (th < 35 ? ': under 35 mm, the stringer may split. Use a wider board.' : ' (toy limit 35 mm)')]); }
+      out.checks = ck.concat(out.checks); out.kpi = (out.kpi || []).concat([['Build', 'TOY']]);
+    }
     var SHOW_S = function (v) { return isS(v); }, SHOW_L = function (v) { return !isS(v); }, SHOW_H = function (v) { return isH(v); };
     var DEF = {
       stair: { H: 2700, R: 3600, n: 15, w: 900, sw: 286, st: 45, tt: 38, gd: 10 }, ladder: { H: 2700, R: 900, n: 9, w: 400, sw: 95, st: 32, tt: 28, gd: 8 }
@@ -58367,15 +58445,19 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         else if (st && hh) { for (i = 1; i < n; i++) { var xl1 = gC.hs[i - 1] / tn + X0; box(xl1 - lipS - g - v.ov, xl1 - lipS, v.st - v.gd, w - v.st + v.gd, i * r - v.tt, i * r, 'c'); } plates(poly); }
         else if (hh) { plates(poly); for (i = 0; i < n; i++) { var xr1 = gC.hs[i] / tn + X0 - dxw / 2; box(xr1 - v.rd / 2, xr1 + v.rd / 2, v.st - v.gd, w - v.st + v.gd, gC.hs[i] - v.tt / 2, gC.hs[i] + v.tt / 2, 'c'); } }
         else { plates(q); for (i = 1; i <= n; i++) { var cx = R * i / (n + 1), cz = H * i / (n + 1); box(cx - v.rd / 2, cx + v.rd / 2, v.st, w - v.st, cz - v.tt / 2, cz + v.tt / 2, 'c'); } }
-        var LD = st && v.lnd === 'yes' ? Math.max(100, v.ld || 0) : 0, lzt = n * r, LWd = Math.max(w, v.lw || 0), lyo = (LWd - w) / 2;
+        var LD = st && v.lnd === 'yes' ? Math.max(100, v.ld || 0) : 0, lzt = n * r, LWd = Math.max(w, v.lw || 0), lyo = (LWd - w) / 2, ldz = (st && !hh) ? v.tt : 0;
         if (LD) {
           var lxs = 0, pw = Math.min(90, w / 4); sc.boxes.forEach(function (b) { lxs = Math.max(lxs, b[1]); });
-          box(lxs, lxs + LD, -lyo, w + lyo, lzt - v.tt, lzt, 'c', 'Landing deck');
-          box(lxs + LD - pw, lxs + LD, -lyo, -lyo + pw, 0, lzt - v.tt, 'o', 'Landing post 1'); box(lxs + LD - pw, lxs + LD, w + lyo - pw, w + lyo, 0, lzt - v.tt, 'o', 'Landing post 2');
-          sv.rect(lxs, lzt - v.tt, LD, v.tt, 'c', 'fb'); sv.rect(lxs + LD - pw, 0, pw, lzt - v.tt, 'o'); sv.line(lxs, 0, lxs + LD + 300 * K, 0, 'g');
-          sv.dim(lxs, lzt, lxs + LD, lzt, 'landing ' + L(LD) + ' (step ' + n + ')', 160 * K);
-          cuts.push({ n: 'Landing deck', q: 1, l: LWd, w: LD, t: v.tt, m: 'timber' }, { n: 'Landing post', q: 2, l: lzt - v.tt, w: pw, t: pw, m: 'timber' });
-          out.checks.push(['w', 'Landing: step ' + n + ' is the platform (' + (n - 1) + ' treads + the landing). The model adds a deck and two corner posts; frame the landing back to the wall or add joists for a real build.']);
+          box(lxs, lxs + LD, -lyo, w + lyo, lzt - v.tt + ldz, lzt + ldz, 'c', 'Landing deck');
+          box(lxs + LD - pw, lxs + LD, -lyo, -lyo + pw, 0, lzt - v.tt + ldz, 'o', 'Landing post 1'); box(lxs + LD - pw, lxs + LD, w + lyo - pw, w + lyo, 0, lzt - v.tt + ldz, 'o', 'Landing post 2');
+          sv.rect(lxs, lzt - v.tt + ldz, LD, v.tt, 'c', 'fb'); sv.rect(lxs + LD - pw, 0, pw, lzt - v.tt + ldz, 'o'); sv.line(lxs, 0, lxs + LD + 300 * K, 0, 'g');
+          var bd = Math.min(v.sw, 150), zb = lzt - v.tt + ldz, bl = Math.max(50, LD - pw);
+          box(lxs, lxs + bl, 0, v.st, zb - bd, zb, 'o', 'Landing bearer A'); box(lxs, lxs + bl, w - v.st, w, zb - bd, zb, 'o', 'Landing bearer B');
+          sv.rect(lxs, zb - bd, bl, bd, 'o');
+          cuts.push({ n: 'Landing bearer (stringer end to post)', q: 2, l: bl, w: bd, t: v.st, m: 'timber' });
+          sv.dim(lxs, lzt + ldz, lxs + LD, lzt + ldz, 'landing ' + L(LD) + ' (step ' + n + ')', 160 * K);
+          cuts.push({ n: 'Landing deck', q: 1, l: LWd, w: LD, t: v.tt, m: 'timber' }, { n: 'Landing post', q: 2, l: lzt - v.tt + ldz, w: pw, t: pw, m: 'timber' });
+          out.checks.push(['w', 'Landing: step ' + n + ' is the platform (' + (n - 1) + ' treads + the landing). The model adds a deck, two corner posts and two bearer boards under the deck (stringer end to post); frame the landing back to the wall or add joists for a real build.']);
         }
         /* ---------- cut list and build ---------- */
         var Lst = st ? Math.hypot(R, H) : Ls + 150;
@@ -58579,15 +58661,26 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         { h: 'Board length' },
         { k: 'lel', l: 'Stringer long edge (0 = minimum)', t: 'len', v: 0, show: function (v) { return !(v.type === 'stair'); }, tip: 'Type the long edge you want. Anything beyond the minimum is left as extra length above the top groove, to trim on site.' },
         { k: 'stk', l: 'Stock board length (0 = not set)', t: 'len', v: 0, tip: 'Length of the board you will cut the stringer from. The tool checks the fit and shows the waste.' },
-        { h: 'Load' }, { k: 'P', l: 'Point load on one tread', t: 'num', v: 1.5, u: 'kN' }
+        { h: 'Load' }, { k: 'P', l: 'Point load on one tread', t: 'num', v: 1.5, u: 'kN' },
+        { h: 'Toy build', show: isS },
+        { k: 'toy', l: 'Toy build (not for people)', t: 'chk', v: false, show: isS, tip: 'Switch on to design a toy: you type the foot room you want on each step and the steps, tread board and stringer board follow. Off = a normal stair with the usual comfort checks.' },
+        { k: 'foot', l: 'Foot room per step (going)', t: 'len', v: 0, show: function (v) { return isS(v) && v.toy; }, tip: 'Flat part of each step where a foot lands. Type it and the number of steps follows (total rise and run stay as you typed them). In Riser and going mode it sets the going.' },
+        { k: 'ovh', l: 'Tread overhang past the stringer', t: 'len', v: 30, show: function (v) { return isS(v) && v.toy; }, tip: 'How far the tread board sticks out past the going. Tread board width = foot room + this. Keep it to about 30 mm (2.5 x a 12 mm board) so the screws still hold.' }
       ],
       act: function (id, o, v, Dz) { if (id === 'fit' && o.fit && o.fit.stock) v.lel = o.fit.stock; else if (id === 'min') v.lel = 0; Dz.refresh(); },
       onsel: function (v, k) {
         var C;
+        if (k === 'toy' && v.toy && !(v.foot > 0) && isS(v)) { var s00 = stepsOf(v); v.foot = Math.round(s00.g * 10) / 10; }
         if (k === 'type') { C = (v.type === 'ladder' || v.type === 'ladderH') ? DEF.ladder : DEF.stair; v.H = C.H; v.R = C.R; v.n = C.n; v.w = C.w; v.sw = C.sw; v.st = C.st; v.tt = C.tt; v.gd = C.gd; v.gbm = 0; v.gtm = 0; v.glip = 0; v.lel = 0; var s0 = stepsOf(v); v.r1 = Math.round(s0.r * 100) / 100; v.g1 = Math.round(s0.g * 100) / 100; }
         if (k === 'mode') { if (v.mode === 'step') { var s1 = stepsOf(v); v.r1 = Math.round(s1.r * 100) / 100; v.g1 = Math.round(s1.g * 100) / 100; } else { var nn = Math.max(2, v.n | 0); v.H = isS(v) ? nn * v.r1 : (nn + 1) * v.r1; v.R = isS(v) ? (nn - 1) * v.g1 : (nn + 1) * v.g1; } }
       },
-      compute: function (v) { return composeLayout(v); }
+      compute: function (v) {
+        var toy = !!v.toy && isS(v);
+        if (toy && v.foot > 0) toyApply(v);
+        var out = composeLayout(v);
+        if (toy) toyChecks(v, out);
+        return out;
+      }
     });
   
     /* ---------- 3D for every designer: scene builders + auto tab ---------- */
@@ -61256,6 +61349,93 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     if (to && (p.contains(to) || (to.closest && to.closest('#toolbar > .grp.cg-single > .ghead')))) return;
     clearTimeout(tOut); tOut = setTimeout(function () { var q = pop(); if (q && !q.matches(':hover') && !document.querySelector('#toolbar > .grp.cg-single > .ghead:hover')) q.remove(); }, 350);
   }, true);
+})();
+</script>
+
+<script>
+window.AAKAR_VERSION = '1.0.0';
+(function () {
+  var F = { mm: 1, cm: 10, m: 1000, 'in': 25.4, ft: 304.8 }, NUM = '(-?\\d+(?:\\.\\d+)?)', NUMP = '(\\d+(?:\\.\\d+)?)';
+  function du() { var s = document.querySelector('#dsg select[data-a=unit]'); return s && F[s.value] ? s.value : 'mm'; }
+  function rnd(v, d) { var k = Math.pow(10, d); return String(Math.round(v * k) / k); }
+  function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+  function frac(inch) { var neg = inch < 0; inch = Math.abs(inch); var w = Math.floor(inch), f = Math.round((inch - w) * 16); if (f === 16) { w++; f = 0; } var t = ''; if (f) { var g = gcd(f, 16); t = (f / g) + '/' + (16 / g); } return (neg ? '-' : '') + (w && t ? w + ' ' + t : (t || String(w))) + '"'; }
+  function ftin(inch) { var neg = inch < 0, a = Math.abs(inch), ft = Math.floor(a / 12), rem = a - ft * 12; if (Math.round(rem * 16) / 16 >= 12) { ft++; rem = 0; } return (neg ? '-' : '') + ft + "' " + frac(rem); }
+  function rows(mm) { return [['mm', rnd(mm, 2)], ['cm', rnd(mm / 10, 3)], ['m', rnd(mm / 1000, 4)], ['in', rnd(mm / 25.4, 3)], ['in (nearest 1/16)', frac(mm / 25.4)], ['ft - in', ftin(mm / 25.4)]]; }
+  /* ---- hover ---- */
+  var tip = null, last = null;
+  function tipEl() { if (!tip) { tip = document.createElement('div'); tip.id = 'aakUT'; tip.style.cssText = 'position:fixed;z-index:2147483000;pointer-events:none;background:#10161e;color:#e6edf6;border:1px solid #ffd23d;border-radius:8px;padding:7px 11px;font:12px/1.5 system-ui,Arial,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.6);display:none;max-width:320px'; document.body.appendChild(tip); } return tip; }
+  var RX = new RegExp('^(?:[A-Za-z][A-Za-z ]{0,11}\\s)?' + NUM + '\\s*(mm|cm|m|in|ft)?$');
+  function valueOf(el) {
+    var isSvg = el instanceof SVGElement, txt;
+    if (el.tagName === 'INPUT' && el.dataset && el.dataset.len === '1') txt = (el.value || '').trim() + ' ' + du();
+    else if (isSvg) { if (el.tagName !== 'text' && el.tagName !== 'tspan') return null; txt = (el.textContent || '').trim(); }
+    else { if (el.children.length) return null; txt = (el.textContent || '').trim(); }
+    if (!txt || txt.length > 30) return null;
+    var m = RX.exec(txt); if (!m) return null;
+    var u = m[2]; if (!u) { if (!isSvg) return null; u = du(); }
+    if (/\u00b0/.test(txt)) return null;
+    var v = parseFloat(m[1]); if (!isFinite(v)) return null;
+    return { v: v, u: u, mm: v * F[u], txt: txt };
+  }
+  document.addEventListener('mouseover', function (e) {
+    var d = document.getElementById('dsg'); if (!d || !d.contains(e.target)) return;
+    var pcx = document.getElementById('aakCalc'); if (pcx && document.body.contains(pcx) && getComputedStyle(pcx).display !== 'none') { if (tip) tip.style.display = 'none'; last = null; return; }
+    var r = valueOf(e.target); if (!r) { if (last) { tipEl().style.display = 'none'; last = null; } return; }
+    last = e.target; var t = tipEl(), rs = rows(r.mm);
+    t.innerHTML = '<div style="color:#ffd23d;font-weight:700;margin-bottom:3px">' + rnd(r.v, 3) + ' ' + r.u + '</div>' + rs.filter(function (x) { return x[0] !== r.u; }).map(function (x) { return '<div style="display:flex;gap:14px;justify-content:space-between"><span style="color:#9fb3d1">' + x[0] + '</span><b>' + x[1] + '</b></div>'; }).join('');
+    t.style.display = 'block'; place(e);
+  });
+  function place(e) { var t = tipEl(), x = e.clientX + 14, y = e.clientY + 16; if (x + 260 > innerWidth) x = e.clientX - 270; if (y + 150 > innerHeight) y = e.clientY - 150; t.style.left = Math.max(4, x) + 'px'; t.style.top = Math.max(4, y) + 'px'; }
+  document.addEventListener('mousemove', function (e) { if (last && tip && tip.style.display === 'block') place(e); });
+  document.addEventListener('mouseout', function (e) { if (e.target === last && tip) { tip.style.display = 'none'; last = null; } });
+  /* ---- calculator / converter pop-up ---- */
+  function evalExpr(src) {
+    var s0 = String(src).trim(); if (!s0) return null;
+    s0 = s0.replace(/,/g, '').replace(/÷/g, '/').replace(/×/g, '*');
+    s0 = s0.replace(new RegExp(NUMP + '\\s*(?:ft|\')\\s*' + NUM + '\\s*(?:in|")', 'g'), function (a, f, i) { return '@' + (parseFloat(f) * 304.8 + parseFloat(i) * 25.4) + '@'; });
+    s0 = s0.replace(/(\d+)\s+(\d+)\/(\d+)(?=\s*(?:mm|cm|ft|in|m|"|'))/g, function (a, w, n, d) { return String(+w + n / d); });
+    s0 = s0.replace(new RegExp(NUMP + '\\s*(mm|cm|ft|in|m|"|\')(?![a-z])', 'g'), function (a, n, u) { return '@' + (parseFloat(n) * F[u === '"' ? 'in' : u === "'" ? 'ft' : u]) + '@'; });
+    var dun = F[du()];
+    s0 = s0.replace(/@([0-9.eE+\-]+)@|(\d+(?:\.\d+)?)/g, function (a, q, n) { return q ? '(' + q + ')' : '(' + n + '*' + dun + ')'; });
+    if (/[^0-9.eE+\-*\/() ]/.test(s0)) return null;
+    try { var v = Function('"use strict";return (' + s0 + ')')(); return typeof v === 'number' && isFinite(v) ? v : null; } catch (e) { return null; }
+  }
+  var pop = null;
+  function copy(t) { try { navigator.clipboard.writeText(t); } catch (e) { /* ignore */ } }
+  function rowsHtml(mm) { return rows(mm).map(function (x) { return '<div class="r" data-c="' + x[1] + '" title="Click to copy" style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1d2733;cursor:pointer"><span style="color:#9fb3d1">' + x[0] + '</span><b style="font-family:ui-monospace,monospace;color:#fff">' + x[1] + '</b></div>'; }).join(''); }
+  function open(tab) {
+    if (pop) pop.remove(); pop = document.createElement('div'); pop.id = 'aakCalc';
+    pop.style.cssText = 'position:fixed;right:24px;top:52px;width:340px;z-index:2147483001;background:#10161e;color:#e6edf6;border:1px solid #3a4a60;border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.6);font:13px system-ui,Arial,sans-serif';
+    var du0 = du();
+    pop.innerHTML = '<div id="aakCH" style="display:flex;gap:6px;align-items:center;padding:8px 10px;cursor:move;border-bottom:1px solid #1d2733"><button data-t="calc" class="aT">Calculator</button><button data-t="conv" class="aT">Convert</button><span style="flex:1"></span><button data-x="1" style="background:none;border:0;color:#9fb3d1;font-size:16px;cursor:pointer" title="Close (Esc)">✕</button></div>' +
+      '<div id="aakCB" style="padding:10px 12px"></div>';
+    var st = document.createElement('style'); st.textContent = '#aakCalc .aT{padding:3px 10px;border-radius:6px;border:1px solid #3a4a60;background:none;color:#9fb3d1;cursor:pointer;font:inherit}#aakCalc .aT.on{background:#ff8a3d;color:#1a0f06;border-color:#ff8a3d;font-weight:700}#aakCalc input,#aakCalc select{background:#0b0f14;color:#fff;border:1px solid #3a4a60;border-radius:6px;padding:6px 8px;font:14px ui-monospace,monospace}'; pop.appendChild(st);
+    document.body.appendChild(pop); show(tab || 'calc');
+    var hd = pop.querySelector('#aakCH'), dx = 0, dy = 0, drag = false;
+    hd.addEventListener('mousedown', function (e) { if (e.target.closest('button')) return; drag = true; var r = pop.getBoundingClientRect(); dx = e.clientX - r.left; dy = e.clientY - r.top; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) { if (!drag || !pop) return; pop.style.left = (e.clientX - dx) + 'px'; pop.style.top = (e.clientY - dy) + 'px'; pop.style.right = 'auto'; });
+    document.addEventListener('mouseup', function () { drag = false; });
+    pop.addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && b.dataset.x) { pop.remove(); pop = null; return; } if (b && b.dataset.t) { show(b.dataset.t); return; } var r = e.target.closest('.r'); if (r) copy(r.dataset.c); });
+  }
+  function show(tab) {
+    var B = pop.querySelector('#aakCB'); pop.querySelectorAll('.aT').forEach(function (b) { b.classList.toggle('on', b.dataset.t === tab); }); var u0 = du();
+    if (tab === 'calc') {
+      B.innerHTML = '<div style="color:#9fb3d1;font-size:11px;letter-spacing:.06em;margin-bottom:4px">CALCULATOR (KNOWS UNITS)</div><input id="aakE" style="width:100%;box-sizing:border-box" placeholder="e.g. 103.2 + 313.9 + 3ft 2in" autocomplete="off"><div id="aakR" style="color:#4ddb7a;font:700 18px ui-monospace,monospace;margin:6px 0">&nbsp;</div><div id="aakL"></div><div style="color:#9fb3d1;font-size:12px;margin-top:6px">Numbers without a unit use ' + u0 + '. Use mm, cm, m, in, ft, 3ft 2in, 4 1/16. Click a row to copy it.</div>';
+      var inp = B.querySelector('#aakE'); inp.addEventListener('input', function () { var v = evalExpr(inp.value), R = B.querySelector('#aakR'), L = B.querySelector('#aakL'); if (v == null) { R.textContent = inp.value.trim() ? '…' : '\u00a0'; L.innerHTML = ''; return; } R.textContent = '= ' + rnd(v, 3) + ' mm'; L.innerHTML = rowsHtml(v); }); inp.focus();
+    } else {
+      B.innerHTML = '<div style="color:#9fb3d1;font-size:11px;letter-spacing:.06em;margin-bottom:4px">CONVERT</div><div style="display:flex;gap:6px;margin-bottom:6px"><input id="aakV" style="flex:1;min-width:0" value="" placeholder="value"><select id="aakU">' + Object.keys(F).map(function (k) { return '<option' + (k === u0 ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select></div><div id="aakL"></div>';
+      var vi = B.querySelector('#aakV'), us = B.querySelector('#aakU'), up = function () { var n = evalExpr(vi.value + ' ' + us.value); B.querySelector('#aakL').innerHTML = n == null ? '' : rowsHtml(n); }; vi.addEventListener('input', up); us.addEventListener('change', up); vi.focus();
+    }
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('#dsg button[data-a=calc], #dsg button[data-a=conv]'); if (!b) return; e.stopPropagation(); open(b.dataset.a === 'conv' ? 'conv' : 'calc'); }, true);
+  window.addEventListener('keydown', function (e) { if (e.key === 'Escape' && pop) { pop.remove(); pop = null; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  /* hovering a table row lights the same marks in the drawing */
+  var hlRow = null; function hlClear() { document.querySelectorAll('#dsg svg g.rowhl').forEach(function (g) { g.style.opacity = ''; }); hlRow = null; }
+  document.addEventListener('mouseover', function (e) { var tr = e.target.closest && e.target.closest('#dsg tr[data-row]'); if (!tr) { if (hlRow !== null) hlClear(); return; } var i = tr.dataset.row; if (i === hlRow) return; hlClear(); hlRow = i; document.querySelectorAll('#dsg [data-pz] svg g.rowhl[data-row="' + i + '"]').forEach(function (g) { g.style.opacity = 1; }); });
+  var hs2 = document.createElement('style'); hs2.textContent = '#dsg tr[data-row]:hover td{background:rgba(255,225,77,.2)!important}'; document.head.appendChild(hs2);
+  var hs = document.createElement('style'); hs.textContent = '#dsg header>span.note{flex:1 1 160px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'; document.head.appendChild(hs);
+  window.AAKAR_UNITS = { rows: rows, evalExpr: evalExpr, open: open };
 })();
 </script>
 </body>
