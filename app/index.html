@@ -57799,22 +57799,23 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       return svg.__mzs = { S: S, box: isFinite(x0) && x1 > x0 && y1 > y0 ? { x0: x0, x1: x1, y0: y0, y1: y1 } : null };
     }
     function mzHL(svg, pts, fs, on) {
-      var M = mzSegs(svg), s = '', eps = fs * 0.06 + 1e-6, near = function (x, y, q) { return Math.hypot(x - q.x, y - q.y) < eps; }, ve = 'vector-effect="non-scaling-stroke"';
-      if (on && M.S.length) { var seen = {}, cnt = 0; M.S.forEach(function (sg) { [[sg[0], sg[1]], [sg[2], sg[3]]].forEach(function (p) { var k = Math.round(p[0] * 100) + ',' + Math.round(p[1] * 100); if (seen[k] || cnt > 600) return; seen[k] = 1; cnt++; s += '<circle fill="none" stroke="#ffd23d" stroke-opacity=".5" stroke-width="1" ' + ve + ' cx="' + p[0] + '" cy="' + p[1] + '" r="' + fs * 0.22 + '"/>'; }); }); }
+      svg.classList.toggle('mzon', !!pts.length); var M = mzSegs(svg), s = '', eps = fs * 0.06 + 1e-6, near = function (x, y, q) { return Math.hypot(x - q.x, y - q.y) < eps; }, ve = 'vector-effect="non-scaling-stroke"';
+      if (false) { var seen = {}, cnt = 0; M.S.forEach(function (sg) { [[sg[0], sg[1]], [sg[2], sg[3]]].forEach(function (p) { var k = Math.round(p[0] * 100) + ',' + Math.round(p[1] * 100); if (seen[k] || cnt > 600) return; seen[k] = 1; cnt++; s += '<circle fill="none" stroke="#ffd23d" stroke-opacity=".5" stroke-width="1" ' + ve + ' cx="' + p[0] + '" cy="' + p[1] + '" r="' + fs * 0.22 + '"/>'; }); }); }
       pts.forEach(function (q) {
         var inc = M.S.filter(function (sg) { return near(sg[0], sg[1], q) || near(sg[2], sg[3], q); });
         inc.forEach(function (sg) { s += '<line stroke="#ff8a3d" stroke-width="3.4" stroke-linecap="round" ' + ve + ' x1="' + sg[0] + '" y1="' + sg[1] + '" x2="' + sg[2] + '" y2="' + sg[3] + '"/>'; });
-        s += '<circle fill="none" stroke="#ffd23d" stroke-width="2" ' + ve + ' cx="' + q.x + '" cy="' + q.y + '" r="' + fs * 0.75 + '"/>';
+        s += '<circle fill="none" stroke="#ffd23d" stroke-width="2" ' + ve + ' cx="' + q.x + '" cy="' + q.y + '" r="' + fs * 0.5 + '"/>';
         var nm = inc.length >= 2 ? 'vertex' : (inc.length === 1 ? 'point on an edge' : 'point');
-        s += '<text fill="#ffd23d" font-weight="700" font-size="' + fs * 0.95 + '" x="' + (q.x + fs * 1.0) + '" y="' + (q.y - fs * 1.0) + '">' + nm + '</text>';
+        s += '<text class="mzx" fill="#ffd23d" font-weight="700" font-size="' + fs * 0.72 + '" x="' + (q.x + fs * 0.8) + '" y="' + (q.y - fs * 0.8) + '">' + nm + '</text>';
         var b = M.box, lim = b ? Math.min(b.x1 - b.x0, b.y1 - b.y0) * 0.75 : 0; if (b) {
-          [[b.y0, 'top edge'], [b.y1, 'bottom edge']].forEach(function (e) { var d = Math.abs(q.y - e[0]); if (d > eps && d <= lim) s += '<line stroke="#9fd0ff" stroke-width="1.3" stroke-dasharray="5 4" ' + ve + ' x1="' + q.x + '" y1="' + q.y + '" x2="' + q.x + '" y2="' + e[0] + '"/><text fill="#9fd0ff" font-size="' + fs * 0.9 + '" x="' + (q.x + fs * 0.4) + '" y="' + ((q.y + e[0]) / 2) + '">' + esc(LN(d) + ' from ' + e[1]) + '</text>'; });
-          [[b.x0, 'left edge'], [b.x1, 'right edge']].forEach(function (e) { var d = Math.abs(q.x - e[0]); if (d > eps && d <= lim) s += '<line stroke="#9fd0ff" stroke-width="1.3" stroke-dasharray="5 4" ' + ve + ' x1="' + q.x + '" y1="' + q.y + '" x2="' + e[0] + '" y2="' + q.y + '"/><text fill="#9fd0ff" font-size="' + fs * 0.9 + '" text-anchor="middle" x="' + ((q.x + e[0]) / 2) + '" y="' + (q.y - fs * 0.35) + '">' + esc(LN(d) + ' from ' + e[1]) + '</text>'; });
+          [[b.y0, 'top edge'], [b.y1, 'bottom edge']].forEach(function (e) { var d = Math.abs(q.y - e[0]); if (d > eps && d <= lim) s += '<line stroke="#9fd0ff" stroke-width="1.3" stroke-dasharray="5 4" ' + ve + ' x1="' + q.x + '" y1="' + q.y + '" x2="' + q.x + '" y2="' + e[0] + '"/><text class="mzx" fill="#9fd0ff" font-size="' + fs * 0.72 + '" x="' + (q.x + fs * 0.4) + '" y="' + ((q.y + e[0]) / 2) + '">' + esc(LN(d) + ' from ' + e[1]) + '</text>'; });
+          [[b.x0, 'left edge'], [b.x1, 'right edge']].forEach(function (e) { var d = Math.abs(q.x - e[0]); if (d > eps && d <= lim) s += '<line stroke="#9fd0ff" stroke-width="1.3" stroke-dasharray="5 4" ' + ve + ' x1="' + q.x + '" y1="' + q.y + '" x2="' + e[0] + '" y2="' + q.y + '"/><text class="mzx" fill="#9fd0ff" font-size="' + fs * 0.72 + '" text-anchor="middle" x="' + ((q.x + e[0]) / 2) + '" y="' + (q.y - fs * 0.35) + '">' + esc(LN(d) + ' from ' + e[1]) + '</text>'; });
         }
       });
       return s;
     }
     D.mzHL = mzHL;
+    (function () { var st = document.createElement('style'); st.textContent = '#dsg svg .mzx,#dsg svg .mzt{paint-order:stroke;stroke:#0b0f14;stroke-width:3.2px;stroke-linejoin:round;stroke-opacity:.92}#dsg svg.mzon text:not(.mzx):not(.mzt){opacity:.3}#dsg svg.mzon:hover text:not(.mzx):not(.mzt){opacity:.55}'; document.head.appendChild(st); })();
     (function () {
       var st = document.createElement('style'); st.textContent = '#dsg tr[data-pk]{cursor:default}#dsg tr.pkon{background:rgba(255,210,61,.18)}#dsg svg.pkloc.pkdim [data-pk]{opacity:.22}#dsg svg.pkloc.pkdim [data-pk].pkon{opacity:1;stroke:#fff;stroke-width:3}'; document.head.appendChild(st);
       var cur = null, esc2 = function (k) { return String(k).replace(/"/g, '\\\\"'); };
@@ -58094,6 +58095,13 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       var dat = function (u) { return o.datum === 'foot' ? u : G.Lb - u; }, lab = function (u) { return LN(dat(u)); };
       woodLayer(p, [0, 0, G.Lb, sw], G.outline, fs);
       poly([[0, 0], [G.Lb, 0], [G.Lb, sw], [0, sw]], 'blank'); poly(G.outline, GS.wood !== 'off' ? 'outline wd' : 'outline');
+      (function () {
+        var tb = G.topB, nt = G.nos[n - 1], wTop = Math.abs(nt[0] - tb[0]), wFoot = G.foot[0], ln2 = function (a, b) { p.out.push('<line x1="' + f1(X(a[0])) + '" y1="' + f1(Y(a[1])) + '" x2="' + f1(X(b[0])) + '" y2="' + f1(Y(b[1])) + '" stroke="#ff4d4d" stroke-width="2.6" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'); },
+          tx = function (u, v, t, an) { p.out.push('<text x="' + f1(X(u)) + '" y="' + f1(Y(v)) + '" font-size="' + f1(fs * 0.72) + '" fill="#ff9a9a" text-anchor="' + (an || 'middle') + '" style="paint-order:stroke;stroke:#0b0f14;stroke-width:3px">' + t + '</text>'); };
+        ln2(nt, tb); ln2([0, c.T], G.foot);
+        if (wTop > 3 * fs) tx((nt[0] + tb[0]) / 2 + 0.15 * wTop, sw * 0.18, 'offcut', 'middle');
+        if (wFoot > 3 * fs) tx(wFoot * 0.28, c.T * 0.2, 'offcut', 'middle');
+      })();
       var rowT = sw + 1.4 * fs, rowB = -1.8 * fs;
       T(o.datum === 'foot' ? 0 : G.Lb, rowT + 3.7 * fs, '0', 'dim0'); ln(o.datum === 'foot' ? 0 : G.Lb, sw, o.datum === 'foot' ? 0 : G.Lb, rowT + 3.0 * fs, 'ext');
       for (i = 0; i < n; i++) {
@@ -58112,9 +58120,9 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       for (i = 0; i < n - 1; i++) { hxl(G.nos[i], G.ins[i], 'hx-g hx-R'); hxl(G.ins[i], G.nos[i + 1], 'hx-r hx-H'); }
       for (i = 0; i < n; i++) hxl([G.nos[i][0], sw], [G.nos[i][0], sw + 0.7 * fs], 'hx-n');
       hxl([xr, 0], [xr, sw], 'hx-sw');
-      var thr = (sw - c.T); T(G.Lb / 2, c.T - 1.2 * fs, 'throat ' + LN(c.T) + ' (inside corners to the bottom edge)', 'cap');
+      var thr = (sw - c.T); 
       { var r = Math.min(4 * fs, G.foot[0] * 0.8 + fs), pts = [], thd = c.th * deg; for (i = 0; i <= 20; i++) { var an = (thd * i / 20) * Math.PI / 180; pts.push([G.foot[0] + r * Math.cos(Math.PI - an), r * Math.sin(Math.PI - an)]); } }
-      T(0, rowB - 4.6 * fs, 'tread ' + LN(c.g) + ' (run ÷ ' + (n - 1) + ')   ·   riser ' + LN(c.r) + ' (rise ÷ ' + n + ')   ·   foot cut (level) θ ' + (c.th * deg).toFixed(2) + '°', 'red', 'start');
+      T(0, rowB - 4.6 * fs, 'tread ' + LN(c.g) + ' (run ÷ ' + (n - 1) + ')   ·   riser ' + LN(c.r) + ' (rise ÷ ' + n + ')   ·   foot cut (level) θ ' + (c.th * deg).toFixed(2) + '°   ·   wood left under every notch ' + LN(c.T) + ' (bottom edge to inside corner), above ' + LN(sw - c.T), 'red', 'start');
       T(G.topB[0], rowB - 3.0 * fs, 'top plumb cut ↑', 'cap');
       for (i = 0; i < n; i++) {
         var uq = G.nos[i][0]; p.out.push('<g class="rowhl" data-row="' + i + '">'); ln(uq, -0.4 * fs, uq, rowT + 3.4 * fs, 'hxl'); p.out.push('<circle cx="' + f1(X(uq)) + '" cy="' + f1(Y(sw)) + '" r="' + f1(fs * 0.55) + '"/>'); T(uq, rowT + (i % 2 ? 2.3 : 0.9) * fs, lab(uq), 'hxt', 'middle', 1.25 * fs);
@@ -58122,6 +58130,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         p.out.push('</g>');
       }
       for (i = 0; i < n - 1; i++) {
+        if (i !== 0) continue;
         var iv = G.ins[i][0]; ln(iv, 0, iv, c.T, 'dl'); p.arrow(iv, 0, 0, -1, p.as); p.arrow(iv, c.T, 0, 1, p.as); ln(iv + 0.6 * fs, sw, iv + 0.6 * fs, c.T, 'ext'); p.arrow(iv + 0.6 * fs, c.T, 0, -1, p.as); p.arrow(iv + 0.6 * fs, sw, 0, 1, p.as);
         if (i === 0 || i === n - 2 || i === Math.floor((n - 2) / 2)) { T(iv - 0.5 * fs, c.T / 2 - 0.3 * fs, LN(c.T), 'dim', 'end'); T(iv + 1.1 * fs, (sw + c.T) / 2 - 0.3 * fs, LN(sw - c.T), 'dim', 'start'); }
       }
@@ -58140,7 +58149,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       var g = '<g class="mz">' + D.mzHL(svg, m, fs, GS.meas), r = fs * 0.28, A = m[0], B = m[1];
       if (B) g += '<line class="mzl" x1="' + A.x + '" y1="' + A.y + '" x2="' + B.x + '" y2="' + B.y + '"/><line class="mzs" x1="' + A.x + '" y1="' + A.y + '" x2="' + B.x + '" y1="' + A.y + '"/><line class="mzs" x1="' + B.x + '" y1="' + A.y + '" x2="' + B.x + '" y2="' + B.y + '"/>';
       m.forEach(function (q) { g += '<circle class="mzp" cx="' + q.x + '" cy="' + q.y + '" r="' + r + '"/>'; });
-      if (B) { var dx = Math.abs(B.x - A.x), dy = Math.abs(B.y - A.y), d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * deg; g += '<text class="t mzt" x="' + (A.x + B.x) / 2 + '" y="' + ((A.y + B.y) / 2 - fs * 0.6) + '" font-size="' + fs * 1.05 + '" text-anchor="middle">' + esc(LN(d) + ' ' + unit()) + '</text>'; }
+      if (B) { var dx = Math.abs(B.x - A.x), dy = Math.abs(B.y - A.y), d = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * deg; g += '<text class="t mzt" x="' + (A.x + B.x) / 2 + '" y="' + ((A.y + B.y) / 2 - fs * 0.6) + '" font-size="' + fs * 0.95 + '" text-anchor="middle">' + esc(LN(d) + ' ' + unit()) + '</text>'; }
       svg.insertAdjacentHTML('beforeend', g + '</g>');
     }
     function readMeas(key) {
@@ -58215,7 +58224,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       keys.forEach(function (k) { var w = el.querySelector('[data-pz=' + k[0] + ']'), svg = w && w.querySelector('svg'), bb = (X._bb || {})[k[0]]; if (svg && bb) jobs.push(svgPng(svg, bb, 2400).then(function (r) { r.name = k[1]; return r; })); });
       try {
         var mkSvg = function (str) { var e = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); e.innerHTML = str; return e; };
-        if (kind === 'cut') { var mi = cutSVG(X.c, X.G, { fs: Math.max(X.G.Lb / 66, 11), mirror: !GS.cmirror, datum: GS.cdatum }); jobs.push(svgPng(mkSvg(mi.svg), mi.bbox, 2400).then(function (r) { r.name = 'board-mirror-opposite-stringer'; return r; })); }
+        if (kind === 'cut') { var mi = cutSVG(X.c, X.G, { fs: Math.max(X.G.Lb / 84, 9), mirror: !GS.cmirror, datum: GS.cdatum }); jobs.push(svgPng(mkSvg(mi.svg), mi.bbox, 2400).then(function (r) { r.name = 'board-mirror-opposite-stringer'; return r; })); }
         else if (X.g) {
           var gg = X.g, fsF2 = Math.min(1.45 * Math.max(Math.max(gg.Ws * 0.2, gg.blankL / 110), 6), 0.235 * gg.pitch), mi2 = layoutSVG(gg, { fs: fsF2, mirror: !GS.mirror, sel: Math.min(GS.sel, gg.n - 1), edges: GS.edges, datum: GS.datum, noun: X.noun });
           jobs.push(svgPng(mkSvg(mi2.svg), mi2.bbox, 2400).then(function (r) { r.name = 'board-mirror-opposite-stringer'; return r; }));
@@ -58333,7 +58342,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
         '<tr><td>9</td><td style="text-align:left">Opposite stringer: the mirror image (tick Mirror)</td><td>–</td></tr></table></div></div></div>' + partsBox(c);
     }
     function cutWire(el, X) {
-      var c = X.c, fs = Math.max(X.G.Lb / 66, 11), info = cutSVG(c, X.G, { fs: fs, mirror: GS.cmirror, datum: GS.cdatum }); info.fs = fs;
+      var c = X.c, fs = Math.max(X.G.Lb / 84, 9), info = cutSVG(c, X.G, { fs: fs, mirror: GS.cmirror, datum: GS.cdatum }); info.fs = fs;
       var w = el.querySelector('[data-pz=cut]'); w.querySelector('svg').innerHTML = info.svg; wirePZ(w, 'cut', info); X._bb = { cut: info.bbox };
       X._redraw = function () { el.innerHTML = cutInner(X); cutWire(el, X); };
     }
