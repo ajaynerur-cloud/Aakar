@@ -119,4 +119,16 @@ run('quadric tools', () => { const K = AK.kernel, Rr = 7, A = N.revolve([N.arc(O
   chk('torus tool', K.cut(A, K.translate(K.torus(6, 2), [8, 0, 0])), 1288.1669952881705, 1e-7);
   const e = N.interp(Array.from({ length: 17 }, (_, i) => [12 * Math.cos(2 * PI * i / 16), 8 * Math.sin(2 * PI * i / 16), 0]), 3), P = N.extrude(e, [0, 0, 20]); w = [Math.cos(0.1), 0.15, Math.sin(0.1)]; n = Math.hypot(...w); w = w.map((q) => q / n);
   chk('cylinder through the side of a freeform prism', K.cut(P, K.translate(K.transform(K.translate(K.cylinder(2.5, 80), [0, 0, -40]), rot(w), O), [1, 0.5, 10])), 5570.926196179, 1e-7); });
+// the rest of the curved-tool cases: bowl deeper than a hemisphere (wall region contains a pole), flat ends clipped by the tool, slanted blind pocket with a floor, two curved cuts one after the other
+run('quadric tools: ends, floors, poles, chaining', () => { const K = AK.kernel, Rr = 7, A = N.revolve([N.arc(O, X, Z, Rr, -PI / 2, PI / 2), N.line([0, 0, Rr], [0, 0, -Rr])], O, Z);
+  const rot = (w) => { const ang = Math.acos(w[2]); let k = [-w[1], w[0], 0]; const n = Math.hypot(...k); if (n < 1e-12) return [1, 0, 0, 0, 1, 0, 0, 0, 1]; k = k.map((x) => x / n); const cs = Math.cos(ang), sn = Math.sin(ang), [x, y, z] = k; return [cs + x * x * (1 - cs), x * y * (1 - cs) - z * sn, x * z * (1 - cs) + y * sn, y * x * (1 - cs) + z * sn, cs + y * y * (1 - cs), y * z * (1 - cs) - x * sn, z * x * (1 - cs) - y * sn, z * y * (1 - cs) + x * sn, cs + z * z * (1 - cs)]; };
+  const unit3 = (w) => { const n = Math.hypot(...w); return w.map((q) => q / n); }, cylAt = (w, r, len, o) => K.translate(K.transform(K.cylinder(r, len), rot(unit3(w)), O), o);
+  const chk = (n, res, ex, tol) => { const v = K.volume(res); T(n + ' stays native', !!res.topo); T(n + ' volume', rel(v, ex) < tol, rel(v, ex).toExponential(1)); T(n + ' closed', N.check(res, false).ok); };
+  { const d = 6, r = 4, lens = PI * (Rr + r - d) ** 2 * (d * d + 2 * d * r - 3 * r * r + 2 * d * Rr + 6 * r * Rr - 3 * Rr * Rr) / (12 * d); chk('bowl deeper than a hemisphere', K.cut(A, K.translate(K.sphere(r), [0, -d, 0])), 4 / 3 * PI * Rr ** 3 - lens, 1e-7); }
+  const e = N.interp(Array.from({ length: 17 }, (_, i) => [12 * Math.cos(2 * PI * i / 16), 8 * Math.sin(2 * PI * i / 16), 0]), 3), P = N.extrude(e, [0, 0, 20]);
+  chk('cylinder crossing an end and the side', K.cut(P, cylAt([0.05, 0.02, 1], 3, 60, [10.5, 0.5, -20])), 5793.550870722218, 1e-7);
+  chk('slanted blind pocket with a floor', K.cut(P, cylAt([0.2, 0.1, 1], 2, 30, [1, 0.5, 8])), 5877.368451071452, 1e-7);
+  const r1 = K.cut(A, cylAt([0.2, 1, 0.1], 1.5, 60, add3([3, 0, 1], mulv(unit3([0.2, 1, 0.1]), -30)))), r2 = K.cut(r1, cylAt([-0.3, 0.2, 1], 1.2, 60, add3([-3, 1, 0], mulv(unit3([-0.3, 0.2, 1]), -30))));
+  chk('two curved cuts in a row', r2, 1292.687196524032, 1e-7); });
+function add3(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; } function mulv(a, s) { return a.map((q) => q * s); }
 console.log(pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);

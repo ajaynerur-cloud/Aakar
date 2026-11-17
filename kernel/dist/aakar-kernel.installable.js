@@ -2150,118 +2150,164 @@ G.AakarKernel = AK;
     } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
   }
 
-  /** EXACT: a quadric tool (sphere, torus, cylinder, cone; any placement, slanted too) cutting the curved sides of a freeform solid.  The sides are trimmed by the tool surface, and the tool's own wall becomes a trimmed NURBS face whose region comes from the traced intersection curves.  Limits: the flat ends of the solid must stay clear of the tool and the tool must reach beyond the solid along its axis (no floor). */
-  function cutQuadricTool(a, b) {
-    try {
-      if (!isN(a) || isN(b) || !AK._t || a.faces.some((f) => f.kind === 'trim')) return (globalThis.__cpdbg && console.log('quad bail 1'), null);
-      const body = AK._t.evaluate(b, AK._t.RES_EXACT).body, qs = body.faces.filter((f) => f.surf.kind !== 'plane'); if (qs.length !== 1 || !['sphere', 'torus', 'cylinder', 'cone'].includes(qs[0].surf.kind)) return (globalThis.__cpdbg && console.log('quad bail 2'), null);
-      const Q = qs[0].surf, kind = Q.kind, w0 = unit(Q.z), tcaps = body.faces.filter((f) => f.surf.kind === 'plane'), tOf = (P) => dot(sub(P, Q.o), w0);
-      let tc0 = -Infinity, tc1 = Infinity; if (kind === 'cylinder' || kind === 'cone') { if (tcaps.length !== 2) return (globalThis.__cpdbg && console.log('quad bail 3'), null); const ts = tcaps.map((f) => tOf(f.surf.o)); tc0 = Math.min(...ts); tc1 = Math.max(...ts); }
-      const test = kind === 'sphere' ? Q.o : kind === 'torus' ? add(Q.o, mul(unit(Q.x), Q.R)) : add(Q.o, mul(w0, (tc0 + tc1) / 2)), sg = Q.f(test) < 0 ? 1 : -1;
-      const con = { val: (P) => -sg * Q.f(P), grad: (P) => mul(Q.grad(P), -sg) };
-      // point cloud of the solid
-      const cloud = [], sides = [], flats = []; let scale = 1;
-      a.faces.forEach((f) => { if (f.kind === 'cap') return; if (f.kind === 'plan') { flats.push(f); f.loops.forEach((l) => l.forEach((c) => cSample(c, 24).forEach((q) => cloud.push(q)))); } else { sides.push(...splitClosedFace(f)); const [u0, u1, v0, v1] = sDom(f.surf); for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) cloud.push(sEval(f.surf, u0 + (u1 - u0) * i / 12, v0 + (v1 - v0) * j / 12)); f.surf.P.forEach((r) => r.forEach((q) => { scale = Math.max(scale, len(q)); })); } });
-      const capsF = a.faces.filter((f) => f.kind === 'cap'); capsF.forEach((f) => { const [u0, u1, v0, v1] = sDom(f.surf); for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) cloud.push(sEval(f.surf, u0 + (u1 - u0) * i / 8, v0 + (v1 - v0) * j / 8)); });
-      if (!cloud.length) return (globalThis.__cpdbg && console.log('quad bail 4'), null);
-      // flat ends must be clear of the tool
-      const minD = (P) => { let m = Infinity; for (const q of cloud) { const d = len(sub(q, P)); if (d < m) m = d; } return m; };
-      for (const f of flats.concat(capsF)) { const pts = []; if (f.kind === 'plan') { f.loops.forEach((l) => l.forEach((c) => cSample(c, 24).forEach((q) => pts.push(q)))); } else { const [u0, u1, v0, v1] = sDom(f.surf); for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) pts.push(sEval(f.surf, u0 + (u1 - u0) * i / 8, v0 + (v1 - v0) * j / 8)); }
-        if (pts.some((P) => con.val(P) > -1e-6 * scale)) return (globalThis.__cpdbg && console.log('quad bail 5'), null);
-        // inside the end face: sample the polygon's bounding grid
-        const mn = [0, 1, 2].map((i) => Math.min(...pts.map((q) => q[i]))), mx = [0, 1, 2].map((i) => Math.max(...pts.map((q) => q[i]))); for (let i = 0; i <= 10; i++) for (let j = 0; j <= 10; j++) for (let k = 0; k <= 10; k++) { const P = [mn[0] + (mx[0] - mn[0]) * i / 10, mn[1] + (mx[1] - mn[1]) * j / 10, mn[2] + (mx[2] - mn[2]) * k / 10]; if (Math.abs(f.n ? dot(f.n, sub(P, pts[0])) : 1) < 1e-9 * scale && con.val(P) > 0) return (globalThis.__cpdbg && console.log('quad bail 6'), null); } }
-      const prj = (P) => dot(sub(P, Q.o), w0); let tA0 = Infinity, tA1 = -Infinity; cloud.forEach((P) => { tA0 = Math.min(tA0, prj(P)); tA1 = Math.max(tA1, prj(P)); });
-      const pad = 0.05 * (tA1 - tA0) + 1e-6 * scale; if ((kind === 'cylinder' || kind === 'cone') && !(tc0 < tA0 - pad && tc1 > tA1 + pad)) return (globalThis.__cpdbg && console.log('quad bail 7'), null);
-      // trim the sides
-      const faces = [], contours = []; let trimmed = false;
-      for (const f of sides) { const r = trimSurfaceByPlanes(f.surf, f.sign, [{ kind: 'keep', planes: [con] }], f.tag + 'q'); if (r.mode === 'all') faces.push(f); else if (r.mode === 'trim') { faces.push(...r.faces); contours.push(...r.contours); trimmed = true; } }
-      if (!trimmed || !contours.length) return (globalThis.__cpdbg && console.log('quad bail 8'), null);
-      flats.forEach((f) => faces.push(f)); const grp = {}; capsF.forEach((f) => { const k = f.tag.split('_')[0]; (grp[k] = grp[k] || []).push(f); }); Object.keys(grp).forEach((k) => { const fs = grp[k].sort((x, y) => Number(x.tag.split('_')[1]) - Number(y.tag.split('_')[1])); faces.push(planFace([fs.map((f) => sRow(f.surf, 1))], fs[0].n, k)); });
-      const loops = chainLoops(contours, 1e-7 * scale); if (!loops) return (globalThis.__cpdbg && console.log('quad bail 9'), null);
-      // the tool wall: a NURBS patch of the tool surface whose seam and poles lie well away from the solid
-      const perp = (w) => planBasis(w), curveClear = (pts) => { let m = Infinity; for (const P of pts) m = Math.min(m, minD(P)); return m; };
+  // ---- helpers for the curved-tool cut
+  const evalOps = (ops, P) => { let m = -Infinity; for (const o of ops) { const vs = o.planes.map((q) => (q.val ? q.val(P) : dot(q.n, P) - q.d)), v = o.kind === 'keep' ? vs[0] : Math.min(...vs); if (v > m) m = v; } return m; };
+  const nearestParam = (c, P) => { const [a, b] = dom(c); let t = a, bd = Infinity; for (let i = 0; i <= 400; i++) { const tt = a + (b - a) * i / 400, d = len(sub(cEval(c, tt), P)); if (d < bd) { bd = d; t = tt; } } let lo = Math.max(a, t - (b - a) / 400), hi = Math.min(b, t + (b - a) / 400); for (let it = 0; it < 60; it++) { const m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3; if (len(sub(cEval(c, m1), P)) < len(sub(cEval(c, m2), P))) hi = m2; else lo = m1; } t = (lo + hi) / 2; return { t, d: len(sub(cEval(c, t), P)) }; };
+  const splitAtPoints = (c, pts, tolD) => { const [a, b] = dom(c), ts = []; pts.forEach((P) => { const r = nearestParam(c, P); if (r.d < tolD) ts.push(r.t); }); const uniq = [...new Set(ts.map((x) => +x.toFixed(11)))].sort((x, y) => x - y).filter((t) => t > a + 1e-9 * (b - a) && t < b - 1e-9 * (b - a)); const out = []; let cur = c; for (const t of uniq) { const sp = cSplit(cur, t); out.push(sp[0]); cur = sp[1]; } out.push(cur); return out; };
+  const inLoops2 = (P, f, e1, e2, o) => { let c = 0; const p = [dot(sub(P, o), e1), dot(sub(P, o), e2)]; f.loops.forEach((l) => { const poly = []; l.forEach((cc) => cSample(cc, 64).slice(0, -1).forEach((q) => poly.push([dot(sub(q, o), e1), dot(sub(q, o), e2)]))); for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const A0 = poly[i], B0 = poly[j]; if ((A0[1] > p[1]) !== (B0[1] > p[1]) && p[0] < (B0[0] - A0[0]) * (p[1] - A0[1]) / (B0[1] - A0[1]) + A0[0]) c ^= 1; } }); return !!c; };
+  /** a flat face clipped by the region where evalOps(ops) < 0 : the boundary curves are cut where they meet the tool, the tool's section curves inside the face close the outlines */
+  function clipFlatByOps(f, ops, tag, scale) {
+    const n = f.n, [e1, e2] = planBasis(n), o = f.o; let s0 = Infinity, s1 = -Infinity, t0 = Infinity, t1 = -Infinity;
+    f.loops.forEach((l) => l.forEach((c) => cSample(c, 48).forEach((q) => { const s = dot(sub(q, o), e1), t = dot(sub(q, o), e2); s0 = Math.min(s0, s); s1 = Math.max(s1, s); t0 = Math.min(t0, t); t1 = Math.max(t1, t); })));
+    const pad = 0.05 * Math.max(s1 - s0, t1 - t0) + 1e-6 * scale; s0 -= pad; s1 += pad; t0 -= pad; t1 += pad; const cor = (s, t) => add(o, add(mul(e1, s), mul(e2, t)));
+    const patch = { p: 1, q: 1, U: [0, 0, 1, 1], V: [0, 0, 1, 1], P: [[cor(s0, t0), cor(s0, t1)], [cor(s1, t0), cor(s1, t1)]], w: [[1, 1], [1, 1]] }, r = trimSurfaceByPlanes(patch, 1, ops, tag);
+    if (r.mode === 'all') return { mode: 'all' }; if (r.mode === 'none') return { mode: 'none' };
+    const bKept = [], roots = []; let dropped = false;
+    f.loops.forEach((l) => l.forEach((c) => { const [a, b] = dom(c), Fc = (t) => evalOps(ops, cEval(c, t)), N0 = 240, ts = []; let prev = Fc(a);
+      for (let i = 1; i <= N0; i++) { const t = a + (b - a) * i / N0, v = Fc(t); if ((prev < 0) !== (v < 0)) { let lo = a + (b - a) * (i - 1) / N0, hi = t, flo = prev; for (let it = 0; it < 100; it++) { const m = (lo + hi) / 2, fm = Fc(m); if ((fm < 0) === (flo < 0)) { lo = m; flo = fm; } else hi = m; } const rt = (lo + hi) / 2; ts.push(rt); roots.push(cEval(c, rt)); } prev = v; }
+      let cur = c; const subs = []; ts.forEach((t) => { const sp = cSplit(cur, t); subs.push(sp[0]); cur = sp[1]; }); subs.push(cur);
+      subs.forEach((sc) => { const m = cEval(sc, (dom(sc)[0] + dom(sc)[1]) / 2); if (evalOps(ops, m) < 0) bKept.push(sc); else dropped = true; }); }));
+    const sKept = []; r.contours.forEach((c, i) => { splitAtPoints(c, roots, 1e-6 * (1 + scale)).forEach((sc) => { const m = cEval(sc, (dom(sc)[0] + dom(sc)[1]) / 2); if (inLoops2(m, f, e1, e2, o) && curveLen(sc) > 1e-9 * (1 + scale)) sKept.push({ c: sc, k: r.ctags[i] }); }); });
+    if (!dropped && !sKept.length) return { mode: 'all' }; if (!bKept.length && !sKept.length) return { mode: 'none' };
+    const loops = chainLoops(bKept.concat(sKept.map((x) => x.c)), 1e-7 * (1 + scale)); if (!loops) return null;
+    return { mode: 'clip', faces: facesFromLoops(loops, n, tag + 'k'), sections: sKept, off: null, nPlanes: r.nPlanes };
+  }
+  /** a tool body from the exact kernel: one curved face (sphere, torus, cylinder, cone) and its flat ends */
+  function quadSpec(b) {
+    const body = AK._t.evaluate(b, AK._t.RES_EXACT).body, qs = body.faces.filter((f) => f.surf.kind !== 'plane'); if (qs.length !== 1 || !['sphere', 'torus', 'cylinder', 'cone'].includes(qs[0].surf.kind)) return null;
+    const Q = qs[0].surf, kind = Q.kind, w0 = unit(Q.z), tcaps = body.faces.filter((f) => f.surf.kind === 'plane'); let caps = [];
+    if (kind === 'cylinder' || kind === 'cone') { if (tcaps.length !== 2) return null; caps = tcaps.map((f) => ({ o: f.surf.o, t: dot(sub(f.surf.o, Q.o), w0) })).sort((x, y) => x.t - y.t); } else if (tcaps.length) return null;
+    const test = kind === 'sphere' ? Q.o : kind === 'torus' ? add(Q.o, mul(unit(Q.x), Q.R)) : add(Q.o, mul(w0, (caps[0].t + caps[1].t) / 2)), sg = Q.f(test) < 0 ? 1 : -1;
+    return { Q, kind, w0, caps, sg, con: { val: (P) => -sg * Q.f(P), grad: (P) => mul(Q.grad(P), -sg) } };
+  }
+  /** EXACT: curved tools (sphere, torus, cylinder, cone; any placement, slanted too) cutting a freeform solid: every curved side and every flat end is trimmed/clipped by the tool, the tool's own wall becomes a trimmed NURBS face (closed by the traced intersection curves), a blind end gets a flat floor.  Several tools are cut together from the original solid. */
+  function cutQuadricTools(root, bodies) {
+    const bail = (m) => { if (globalThis.__cpdbg) console.log('quad bail', m); return null; };
+    if (!isN(root) || root.faces.some((f) => f.kind === 'trim')) return null;
+    const specs = bodies.map(quadSpec); if (specs.some((x) => !x)) return null;
+    const cloud = [], sides = [], flats = []; let scale = 1;
+    root.faces.forEach((f) => { if (f.kind === 'cap') return; if (f.kind === 'plan') { flats.push(f); f.loops.forEach((l) => l.forEach((c) => cSample(c, 24).forEach((q) => cloud.push(q)))); } else { sides.push(...splitClosedFace(f)); const [u0, u1, v0, v1] = sDom(f.surf); for (let i = 0; i <= 12; i++) for (let j = 0; j <= 12; j++) cloud.push(sEval(f.surf, u0 + (u1 - u0) * i / 12, v0 + (v1 - v0) * j / 12)); f.surf.P.forEach((r) => r.forEach((q) => { scale = Math.max(scale, len(q)); })); } });
+    const capsF = root.faces.filter((f) => f.kind === 'cap'), grp = {}; capsF.forEach((f) => { const [u0, u1, v0, v1] = sDom(f.surf); for (let i = 0; i <= 8; i++) for (let j = 0; j <= 8; j++) cloud.push(sEval(f.surf, u0 + (u1 - u0) * i / 8, v0 + (v1 - v0) * j / 8)); const k = f.tag.split('_')[0]; (grp[k] = grp[k] || []).push(f); });
+    Object.keys(grp).forEach((k) => { const fs = grp[k].sort((x, y) => Number(x.tag.split('_')[1]) - Number(y.tag.split('_')[1])); flats.push(planFace([fs.map((f) => sRow(f.surf, 1))], fs[0].n, k)); });
+    if (!cloud.length) return null;
+    // point in solid by ray parity on a tessellation
+    const tris = mesh(root, 14), insideA = (P) => { let votes = 0; for (const d0 of [[0.3, 0.5, 0.81], [-0.6, 0.2, 0.77], [0.1, -0.9, 0.42]]) { const d = unit(d0); let hits = 0; for (const [a, b, c] of tris) { const e1 = sub(b, a), e2 = sub(c, a), h = cross(d, e2), det = dot(e1, h); if (Math.abs(det) < 1e-14) continue; const f = 1 / det, s = sub(P, a), u = f * dot(s, h); if (u < 0 || u > 1) continue; const q = cross(s, e1), v = f * dot(d, q); if (v < 0 || u + v > 1) continue; if (f * dot(e2, q) > 1e-12) hits++; } if (hits % 2) votes++; } return votes >= 2; };
+    const minD = (P) => { let m = Infinity; for (const q of cloud) { const d = len(sub(q, P)); if (d < m) m = d; } return m; };
+    // tool ends: beyond the solid (open) or inside it (a floor)
+    for (const sp of specs) { sp.blind = -1; sp.tA0 = Infinity; sp.tA1 = -Infinity; cloud.forEach((P) => { const t = dot(sub(P, sp.Q.o), sp.w0); sp.tA0 = Math.min(sp.tA0, t); sp.tA1 = Math.max(sp.tA1, t); }); sp.pad = 0.05 * (sp.tA1 - sp.tA0) + 1e-6 * scale;
+      if (sp.caps.length) { const st = [0, 1].map((i) => { const c = sp.caps[i], ct = add(sp.Q.o, mul(sp.w0, c.t)); if (i === 0 ? c.t < sp.tA0 - sp.pad : c.t > sp.tA1 + sp.pad) return 'open'; return insideA(ct) ? 'floor' : 'bad'; }); if (st.includes('bad')) return bail('tool end touches the surface of the solid'); if (st[0] === 'floor' && st[1] === 'floor') return bail('tool inside the solid'); sp.blind = st[0] === 'floor' ? 0 : st[1] === 'floor' ? 1 : -1; }
+      const planes = [sp.con]; if (sp.blind >= 0) { const c = sp.caps[sp.blind], nIn = sp.blind === 0 ? sp.w0 : mul(sp.w0, -1), p0 = add(sp.Q.o, mul(sp.w0, c.t)); planes.push({ n: nIn, d: dot(nIn, p0) }); sp.floorN = nIn; sp.floorO = p0; }
+      sp.op = { kind: 'tool', planes }; }
+    const ops = specs.map((s) => s.op), off = []; { let k = 0; ops.forEach((o) => { off.push(k); k += o.planes.length; }); }
+    const faces = [], pool = [], addPool = (c, k) => { let oi = 0; while (oi + 1 < off.length && off[oi + 1] <= k) oi++; pool.push({ c, oi, pi: k - off[oi] }); };
+    let touched = false;
+    for (const f of sides) { const r = trimSurfaceByPlanes(f.surf, f.sign, ops, f.tag + 'q'); if (r.mode === 'all') faces.push(f); else if (r.mode === 'trim') { touched = true; faces.push(...r.faces); r.contours.forEach((c, i) => addPool(c, r.ctags[i])); } else touched = true; }
+    for (const f of flats) { const r = clipFlatByOps(f, ops, f.tag + 'q', scale); if (!r) return bail('flat end clip'); if (r.mode === 'all') faces.push(f); else if (r.mode === 'clip') { touched = true; faces.push(...r.faces); r.sections.forEach((x) => addPool(x.c, x.k)); } else touched = true; }
+    if (!touched || !pool.length) return null;
+    // ---- walls
+    const planA = faces.filter((f) => f.kind === 'plan');
+    specs.forEach((sp, idx) => {
+      sp.wallCurves = pool.filter((x) => x.oi === idx && x.pi === 0).map((x) => x.c); sp.floorCurves = pool.filter((x) => x.oi === idx && x.pi === 1).map((x) => x.c); });
+    const replaceList = [];
+    for (let idx = 0; idx < specs.length; idx++) {
+      const sp = specs[idx], Q = sp.Q, kind = sp.kind, w0 = sp.w0; if (!sp.wallCurves.length && !sp.floorCurves.length) continue; if (sp.floorCurves.length) return bail('floor meets the surface of the solid');
+      const loops = chainLoops(sp.wallCurves, 1e-7 * scale); if (!loops) return bail('wall loops do not close');
+      const perp = (w) => planBasis(w), clearOf = (pts) => { let m = Infinity; for (const P of pts) m = Math.min(m, minD(P)); return m; };
       let W = null;
-      if (kind === 'sphere') { let best = -1, bw = null, br = null; const N0 = 64; for (let i = 0; i < N0; i++) { const z = 1 - 2 * (i + 0.5) / N0, rr = Math.sqrt(1 - z * z), ph = i * 2.399963229728653, w = [rr * Math.cos(ph), rr * Math.sin(ph), z], [e1, e2] = perp(w);
-          for (let k = 0; k < 12; k++) { const th = 2 * Math.PI * k / 12, ref = add(mul(e1, Math.cos(th)), mul(e2, Math.sin(th))), pts = []; for (let m = 0; m <= 16; m++) { const al = -Math.PI / 2 + Math.PI * m / 16; pts.push(add(Q.o, add(mul(ref, Q.r * Math.cos(al)), mul(w, Q.r * Math.sin(al))))); } const sc = curveClear(pts); if (sc > best) { best = sc; bw = w; br = ref; } } }
-        if (!(best > 0)) return (globalThis.__cpdbg && console.log('quad bail 10'), null); W = revolve([arc(Q.o, br, bw, Q.r, -Math.PI / 2, Math.PI / 2), line(add(Q.o, mul(bw, Q.r)), add(Q.o, mul(bw, -Q.r)))], Q.o, bw).faces[0]; }
-      else if (kind === 'cylinder' || kind === 'cone') { const [e1, e2] = perp(w0); let best = -1, br = null; const t0 = tA0 - pad, t1 = tA1 + pad, rho = (t) => (kind === 'cone' ? Q.r + Q.k * t : Q.r); if (rho(t0) < 1e-6 * Q.r || rho(t1) < 1e-6 * Q.r) return (globalThis.__cpdbg && console.log('quad bail 11'), null);
-        for (let k = 0; k < 24; k++) { const th = 2 * Math.PI * k / 24, ref = add(mul(e1, Math.cos(th)), mul(e2, Math.sin(th))), pts = []; for (let m = 0; m <= 16; m++) { const t = t0 + (t1 - t0) * m / 16; pts.push(add(add(Q.o, mul(w0, t)), mul(ref, rho(t)))); } const sc = curveClear(pts); if (sc > best) { best = sc; br = ref; } }
-        if (!(best > 0)) return (globalThis.__cpdbg && console.log('quad bail 12'), null); const y2 = cross(w0, br), ring = (t) => circle(add(Q.o, mul(w0, t)), br, y2, rho(t)); W = (kind === 'cylinder' ? extrude(ring(t0), mul(w0, t1 - t0)) : loft([ring(t0), ring(t1)])).faces[0]; }
-      else { const [e1, e2] = perp(w0); let best = -1, br = null, bp = 0; for (let k = 0; k < 12; k++) { const th = 2 * Math.PI * k / 12, ref = add(mul(e1, Math.cos(th)), mul(e2, Math.sin(th)));
-          for (let q = 0; q < 12; q++) { const ph = 2 * Math.PI * q / 12, xd = add(mul(ref, Math.cos(ph)), mul(w0, Math.sin(ph))), pts = []; for (let m = 0; m < 24; m++) { const al = 2 * Math.PI * m / 24; pts.push(add(Q.o, add(mul(ref, Q.R + Q.r * Math.cos(ph) * Math.cos(al) - 0), mul(w0, 0)))); void al; }
-            const pts2 = []; for (let m = 0; m < 24; m++) { const al = 2 * Math.PI * m / 24, rr = Q.R + Q.r * Math.cos(al + ph); pts2.push(add(Q.o, add(mul(ref, rr), mul(w0, Q.r * Math.sin(al + ph))))); } const pts3 = []; for (let m = 0; m < 24; m++) { const be = 2 * Math.PI * m / 24, rr = Q.R + Q.r * Math.cos(ph), r2 = [Math.cos(be), Math.sin(be)]; pts3.push(add(Q.o, add(add(mul(e1, rr * r2[0]), mul(e2, rr * r2[1])), mul(w0, Q.r * Math.sin(ph))))); void xd; }
-            const sc = Math.min(curveClear(pts2), curveClear(pts3)); if (sc > best) { best = sc; br = ref; bp = ph; } } }
-        if (!(best > 0)) return (globalThis.__cpdbg && console.log('quad bail 13'), null); const xd = add(mul(br, Math.cos(bp)), mul(w0, Math.sin(bp))), yd = add(mul(br, -Math.sin(bp)), mul(w0, Math.cos(bp))); W = revolve([circle(add(Q.o, mul(br, Q.R)), xd, yd, Q.r)], Q.o, w0).faces[0]; }
-      if (!W) return (globalThis.__cpdbg && console.log('quad bail 14'), null);
-      // wall region: loops mapped into the wall's parameter plane
-      const [wu0, wu1, wv0, wv1] = sDom(W.surf), WS = W.surf, periodic = len(sub(sEval(WS, wu0, (wv0 + wv1) / 2), sEval(WS, wu1, (wv0 + wv1) / 2))) < 1e-9 * (1 + scale), G = [];
-      for (let i = 0; i <= 40; i++) for (let j = 0; j <= 40; j++) G.push([wu0 + (wu1 - wu0) * i / 40, wv0 + (wv1 - wv0) * j / 40]);
-      const mkToUV = (SS, per) => { const [a0, a1, c0, c1] = sDom(SS), GG = [], GGP = []; for (let i = 0; i <= 40; i++) for (let j = 0; j <= 40; j++) { const q = [a0 + (a1 - a0) * i / 40, c0 + (c1 - c0) * j / 40]; GG.push(q); GGP.push(sEval(SS, q[0], q[1])); }
+      if (kind === 'sphere') { const cand = [], N0 = 64; for (let i = 0; i < N0; i++) { const z = 1 - 2 * (i + 0.5) / N0, rr = Math.sqrt(1 - z * z), ph = i * 2.399963229728653, w = [rr * Math.cos(ph), rr * Math.sin(ph), z], [e1, e2] = perp(w); for (let k = 0; k < 12; k++) { const th = 2 * Math.PI * k / 12, ref = add(mul(e1, Math.cos(th)), mul(e2, Math.sin(th))), pts = []; for (let m = 0; m <= 16; m++) { const al = -Math.PI / 2 + Math.PI * m / 16; pts.push(add(Q.o, add(mul(ref, Q.r * Math.cos(al)), mul(w, Q.r * Math.sin(al))))); } cand.push({ sc: clearOf(pts), w, ref, pts }); } }
+        cand.sort((x, y) => y.sc - x.sc); let pick = cand[0]; for (const cd of cand.slice(0, 10)) { if (!cd.pts.some((P) => insideA(P))) { pick = cd; break; } }
+        W = revolve([arc(Q.o, pick.ref, pick.w, Q.r, -Math.PI / 2, Math.PI / 2), line(add(Q.o, mul(pick.w, Q.r)), add(Q.o, mul(pick.w, -Q.r)))], Q.o, pick.w).faces[0]; }
+      else if (kind === 'cylinder' || kind === 'cone') { const [e1, e2] = perp(w0), t0 = sp.blind === 0 ? sp.caps[0].t : sp.tA0 - sp.pad, t1 = sp.blind === 1 ? sp.caps[1].t : sp.tA1 + sp.pad, rho = (t) => (kind === 'cone' ? Q.r + Q.k * t : Q.r); if (rho(t0) < 1e-6 * Q.r || rho(t1) < 1e-6 * Q.r) return bail('cone apex');
+        const cand = []; for (let k = 0; k < 24; k++) { const th = 2 * Math.PI * k / 24, ref = add(mul(e1, Math.cos(th)), mul(e2, Math.sin(th))), pts = []; for (let m = 0; m <= 16; m++) { const t = t0 + (t1 - t0) * m / 16; pts.push(add(add(Q.o, mul(w0, t)), mul(ref, rho(t)))); } cand.push({ sc: clearOf(pts), ref, pts }); }
+        cand.sort((x, y) => y.sc - x.sc); let pick = cand[0]; for (const cd of cand.slice(0, 8)) { if (!cd.pts.some((P) => insideA(P))) { pick = cd; break; } }
+        const y2 = cross(w0, pick.ref), ring = (t) => circle(add(Q.o, mul(w0, t)), pick.ref, y2, rho(t)); W = (kind === 'cylinder' ? extrude(ring(t0), mul(w0, t1 - t0)) : loft([ring(t0), ring(t1)])).faces[0]; }
+      else { const [e1, e2] = perp(w0), cand = []; for (let k = 0; k < 12; k++) { const th = 2 * Math.PI * k / 12, ref = add(mul(e1, Math.cos(th)), mul(e2, Math.sin(th)));
+          for (let q = 0; q < 12; q++) { const ph = 2 * Math.PI * q / 12, p2 = [], p3 = []; for (let m = 0; m < 24; m++) { const al = 2 * Math.PI * m / 24, rr = Q.R + Q.r * Math.cos(al + ph); p2.push(add(Q.o, add(mul(ref, rr), mul(w0, Q.r * Math.sin(al + ph))))); const be = al, rr3 = Q.R + Q.r * Math.cos(ph); p3.push(add(Q.o, add(add(mul(e1, rr3 * Math.cos(be)), mul(e2, rr3 * Math.sin(be))), mul(w0, Q.r * Math.sin(ph))))); } cand.push({ sc: Math.min(clearOf(p2), clearOf(p3)), ref, ph, pts: p2.concat(p3) }); } }
+        cand.sort((x, y) => y.sc - x.sc); let pick = cand[0]; for (const cd of cand.slice(0, 8)) { if (!cd.pts.some((P) => insideA(P))) { pick = cd; break; } }
+        const xd = add(mul(pick.ref, Math.cos(pick.ph)), mul(w0, Math.sin(pick.ph))), yd = add(mul(pick.ref, -Math.sin(pick.ph)), mul(w0, Math.cos(pick.ph))); W = revolve([circle(add(Q.o, mul(pick.ref, Q.R)), xd, yd, Q.r)], Q.o, w0).faces[0]; }
+      if (kind === 'sphere') { const S0 = W.surf; W = { surf: { p: S0.q, q: S0.p, U: S0.V, V: S0.U, P: S0.P[0].map((_, j) => S0.P.map((r) => r[j])), w: S0.w[0].map((_, j) => S0.w.map((r) => r[j])) } }; }   // revolve: u runs along the profile, v around the axis; make u the periodic one
+      const WS = W.surf, [wu0, wu1, wv0, wv1] = sDom(WS), span = wu1 - wu0, spanV = wv1 - wv0, midV = (wv0 + wv1) / 2, midU = (wu0 + wu1) / 2;
+      const periodic = len(sub(sEval(WS, wu0, midV), sEval(WS, wu1, midV))) < 1e-9 * (1 + scale), periodicV = len(sub(sEval(WS, midU, wv0), sEval(WS, midU, wv1))) < 1e-9 * (1 + scale);
+      const mkToUV = (SS, per, perV) => { const [a0, a1, c0, c1] = sDom(SS), GG = [], GGP = []; for (let i = 0; i <= 40; i++) for (let j = 0; j <= 40; j++) { const q = [a0 + (a1 - a0) * i / 40, c0 + (c1 - c0) * j / 40]; GG.push(q); GGP.push(sEval(SS, q[0], q[1])); }
+        const wrapU = (u) => ((u - a0) % (a1 - a0) + (a1 - a0)) % (a1 - a0) + a0, wrapV = (v) => ((v - c0) % (c1 - c0) + (c1 - c0)) % (c1 - c0) + c0;
         return (P, seed) => { let uv = seed; if (!uv) { let bd = Infinity; GGP.forEach((g, i) => { const d = len(sub(g, P)); if (d < bd) { bd = d; uv = GG[i]; } }); } let [u, v] = uv;
-          for (let it = 0; it < 60; it++) { const e = sEval(SS, per ? ((u - a0) % (a1 - a0) + (a1 - a0)) % (a1 - a0) + a0 : u, v, true), r = sub(P, e.p), a11 = dot(e.u, e.u), a12 = dot(e.u, e.v), a22 = dot(e.v, e.v), b1 = dot(r, e.u), b2 = dot(r, e.v), det = a11 * a22 - a12 * a12; if (Math.abs(det) < 1e-24) break; const du = (b1 * a22 - b2 * a12) / det, dv = (a11 * b2 - a12 * b1) / det; u = per ? u + du : Math.min(a1, Math.max(a0, u + du)); v = Math.min(c1, Math.max(c0, v + dv)); if (Math.abs(du) < 1e-15 && Math.abs(dv) < 1e-15) break; }
-          if (per) u = ((u - a0) % (a1 - a0) + (a1 - a0)) % (a1 - a0) + a0; return [u, v]; }; };
-      const toUVw = mkToUV(WS, periodic);
-      /** uv samples of a 3D curve lying on the surface, u unwrapped (continuous) when the surface is periodic in u; start offset forces the first u near 0 when startAtZero */
-      const uvSeq = (toUV, per, c, n, startAtZero) => { const out = []; let seed = null, off = 0, prev = null; for (let i = 0; i <= n; i++) { const t = dom(c)[0] + (dom(c)[1] - dom(c)[0]) * i / n; let uv = toUV(cEval(c, t), seed); seed = uv; let u = uv[0]; if (per) { if (i === 0 && startAtZero && u > 0.5 * (wu0 + wu1)) off = -(wu1 - wu0); else if (prev !== null) { const du = u - prev; if (du > 0.5 * (wu1 - wu0)) off -= wu1 - wu0; else if (du < -0.5 * (wu1 - wu0)) off += wu1 - wu0; } prev = u; u += off; } out.push([u, uv[1]]); } return out; };
+          for (let it = 0; it < 60; it++) { const e = sEval(SS, per ? wrapU(u) : u, perV ? wrapV(v) : v, true), r = sub(P, e.p), a11 = dot(e.u, e.u), a12 = dot(e.u, e.v), a22 = dot(e.v, e.v), b1 = dot(r, e.u), b2 = dot(r, e.v), det = a11 * a22 - a12 * a12; if (Math.abs(det) < 1e-24) break; const du = (b1 * a22 - b2 * a12) / det, dv = (a11 * b2 - a12 * b1) / det; u = per ? u + du : Math.min(a1, Math.max(a0, u + du)); v = perV ? v + dv : Math.min(c1, Math.max(c0, v + dv)); if (Math.abs(du) < 1e-15 && Math.abs(dv) < 1e-15) break; }
+          return [per ? wrapU(u) : u, perV ? wrapV(v) : v]; }; };
+      const toUVw = mkToUV(WS, periodic, periodicV);
+      const uvSeq = (toUV, per, perV, c, n, startAtZero) => { const out = []; let seed = null, offU = 0, offV = 0, pu = null, pv = null; for (let i = 0; i <= n; i++) { const t = dom(c)[0] + (dom(c)[1] - dom(c)[0]) * i / n, uv = toUV(cEval(c, t), seed); seed = uv; let u = uv[0], v = uv[1];
+          if (per) { if (i === 0 && startAtZero && u > midU) offU = -span; else if (pu !== null) { const du = u - pu; if (du > span / 2) offU -= span; else if (du < -span / 2) offU += span; } pu = u; u += offU; }
+          if (perV) { if (pv !== null) { const dv = v - pv; if (dv > spanV / 2) offV -= spanV; else if (dv < -spanV / 2) offV += spanV; } pv = v; v += offV; }
+          out.push([u, v]); } return out; };
       const shoe = (pts) => { let s2 = 0; for (let i = 0; i < pts.length; i++) { const p0 = pts[i], q0 = pts[(i + 1) % pts.length]; s2 += p0[0] * q0[1] - q0[0] * p0[1]; } return s2 / 2; };
       const inPoly = (p, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const A0 = poly[i], B0 = poly[j]; if ((A0[1] > p[1]) !== (B0[1] > p[1]) && p[0] < (B0[0] - A0[0]) * (p[1] - A0[1]) / (B0[1] - A0[1]) + A0[0]) c = !c; } return c; };
-      const span = wu1 - wu0, mkUvC = (pts) => interp(pts.map((q) => [q[0], q[1], 0]), 3);
-      const info = loops.map((lp) => { const seqs = lp.map((c) => uvSeq(toUVw, periodic, c, 48, false)); let off = 0; const poly = []; seqs.forEach((q, k) => { if (k > 0) { const last = poly[poly.length - 1]; off = last[0] - q[0][0]; off = Math.round(off / span) * span; } q.slice(0, -1).forEach((p) => poly.push([p[0] + (k > 0 ? off : 0), p[1]])); });
-        // continuity across pieces: re-unwrap whole polygon
-        for (let i = 1; i < poly.length; i++) { while (poly[i][0] - poly[i - 1][0] > span / 2) poly[i][0] -= span; while (poly[i][0] - poly[i - 1][0] < -span / 2) poly[i][0] += span; }
-        const first = poly[0], lastP = poly[poly.length - 1]; let wnd = 0; if (periodic) { let d = first[0] - lastP[0]; wnd = Math.round(-d / span); const wrapLast = [lastP[0], lastP[1]]; void wrapLast; }
-        return { lp, poly, area: shoe(poly), wnd }; });
-      const wsign = (() => { const e0 = sEval(WS, (wu0 + wu1) / 2, (wv0 + wv1) / 2, true), nrm = cross(e0.u, e0.v); return dot(nrm, con.grad(e0.p)) > 0 ? 1 : -1; })();
-      const sgnOf = wsign, closeN = 600;
-      const oriented = (lp, ccw, area) => (area > 0) === ccw ? lp : lp.slice().reverse().map((c) => cReverse(c));
-      const pieceOf = (c, SS, toUV, per, start0) => { const pts = uvSeq(toUV, per, c, closeN, start0); return { type: 'c', uvC: mkUvC(pts), c3: c, plane: -1 }; };
+      const mkUvC = (pts) => interp(pts.map((q) => [q[0], q[1], 0]), 3), closeN = 600;
+      const info = loops.map((lp) => { const poly = []; lp.forEach((c, k) => { const q = uvSeq(toUVw, periodic, periodicV, c, 48, false); let offU = 0, offV = 0; if (k > 0) { const last = poly[poly.length - 1]; offU = periodic ? Math.round((last[0] - q[0][0]) / span) * span : 0; offV = periodicV ? Math.round((last[1] - q[0][1]) / spanV) * spanV : 0; } q.slice(0, -1).forEach((p) => poly.push([p[0] + offU, p[1] + offV])); });
+        for (let i = 1; i < poly.length; i++) { if (periodic) { while (poly[i][0] - poly[i - 1][0] > span / 2) poly[i][0] -= span; while (poly[i][0] - poly[i - 1][0] < -span / 2) poly[i][0] += span; } if (periodicV) { while (poly[i][1] - poly[i - 1][1] > spanV / 2) poly[i][1] -= spanV; while (poly[i][1] - poly[i - 1][1] < -spanV / 2) poly[i][1] += spanV; } }
+        const f0 = poly[0], l0 = poly[poly.length - 1], step = (() => { const a = poly[poly.length - 1], b = poly[0]; return [b[0] - a[0], b[1] - a[1]]; })(); const wndU = periodic ? Math.round(-(l0[0] - f0[0] + step[0]) / span * -1) : 0, wndV = periodicV ? Math.round((l0[1] - f0[1] + step[1]) / spanV) : 0; void wndU;
+        // winding = total unwrapped displacement around the closed loop
+        let totU = 0, totV = 0; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; let du = b[0] - a[0], dv = b[1] - a[1]; if (periodic) { while (du > span / 2) du -= span; while (du < -span / 2) du += span; } if (periodicV) { while (dv > spanV / 2) dv -= spanV; while (dv < -spanV / 2) dv += spanV; } totU += du; totV += dv; }
+        return { lp, poly, area: shoe(poly), wnd: periodic ? Math.round(totU / span) : 0, wndV: periodicV ? Math.round(totV / spanV) : 0 }; });
+      if (info.some((x) => x.wndV !== 0)) return bail('loop winds around the tube');
+      const wsign = (() => { const e0 = sEval(WS, midU, midV, true), nrm = cross(e0.u, e0.v); return dot(nrm, sp.con.grad(e0.p)) > 0 ? 1 : -1; })();
       const flat = info.filter((x) => x.wnd === 0), wrap = info.filter((x) => x.wnd !== 0);
-      if (wrap.length % 2 !== 0) return (globalThis.__cpdbg && console.log('quad bail wrap odd'), null);
-      // loops that do not wind around the tool: plain trimmed discs (with nested holes)
-      flat.forEach((x, i) => { x.depth = flat.filter((y, j) => j !== i && Math.abs(y.area) > Math.abs(x.area) && inPoly(x.poly[0], y.poly)).length; if (x.poly.some((p) => p[0] < wu0 - 1e-9 || p[0] > wu1 + 1e-9)) x.cross = true; });
-      if (flat.some((x) => x.cross)) return (globalThis.__cpdbg && console.log('quad bail loop crosses the seam'), null);
-      flat.filter((x) => x.depth % 2 === 0).forEach((o, k) => { const holes = flat.filter((h) => h.depth % 2 === 1 && inPoly(h.poly[0], o.poly)); const mkL = (x, ccw) => ({ pieces: oriented(x.lp, ccw, x.area).map((c) => pieceOf(c, WS, toUVw, periodic, false)) });
-        faces.push({ kind: 'trim', surf: WS, sign: sgnOf, tag: 'quad_wall' + k, loops: [mkL(o, true)].concat(holes.map((h) => mkL(h, false))) }); });
-      // loops that wind once around the tool (a tube between two of them): cut each at the seam of the wall
+      if (flat.length && wrap.length) return bail('mixed loops');
+      const orientedLoop = (lp, ccw, area) => ((area > 0) === ccw ? lp : lp.slice().reverse().map((c) => cReverse(c)));
+      const pieceOf = (c, toUV, per, perV, start0) => ({ type: 'c', uvC: mkUvC(uvSeq(toUV, per, perV, c, closeN, start0)), c3: c, plane: -1 });
+      const bord = (side, A0, B0) => { const bc = borderCurves(WS)[side], vert = side % 2 === 1, ta = vert ? A0[1] : A0[0], tb = vert ? B0[1] : B0[0], lo2 = Math.min(ta, tb), hi2 = Math.max(ta, tb); let c3 = null; if (hi2 - lo2 > 1e-13) { const sc = cSub(bc.c, lo2, hi2); if (curveLen(sc) > 1e-10) c3 = ta <= tb ? sc : cReverse(sc); } return { type: 'b', side, a: A0, b: B0, c3 }; };
+      // plain discs
+      if (flat.length) { flat.forEach((x, i) => { x.depth = flat.filter((y, j) => j !== i && Math.abs(y.area) > Math.abs(x.area) && inPoly(x.poly[0], y.poly)).length; if (x.poly.some((p) => (periodic && (p[0] < wu0 - 1e-9 || p[0] > wu1 + 1e-9)) || p[1] < wv0 - 1e-9 || p[1] > wv1 + 1e-9)) x.cross = true; });
+        if (flat.some((x) => x.cross)) return bail('loop crosses the wall seam');
+        let k = 0; for (const o of flat.filter((x) => x.depth % 2 === 0)) { const holes = flat.filter((h) => h.depth % 2 === 1 && inPoly(h.poly[0], o.poly)); const cen = [o.poly.reduce((a, p) => a + p[0], 0) / o.poly.length, o.poly.reduce((a, p) => a + p[1], 0) / o.poly.length]; const pin = inPoly(cen, o.poly) ? cen : o.poly[0]; void pin;
+          const mkL = (x, ccw) => ({ pieces: orientedLoop(x.lp, ccw, x.area).map((c) => pieceOf(c, toUVw, periodic, periodicV, false)) }); faces.push({ kind: 'trim', surf: WS, sign: wsign, tag: 'quad_wall' + idx + '_' + (k++), loops: [mkL(o, true)].concat(holes.map((h) => mkL(h, false))) }); } }
+      // loops around the tool: strips between consecutive loops (or the ends of the wall), kept where they lie inside the solid
       if (wrap.length) {
-        const fixed = [], replace = [];   // fixed: {path:[curves running u 0->1], v}
+        const entries = [];
         for (const x of wrap) {
-          // locate the seam crossing along the loop
-          const cs = x.lp.slice(); let found = null;
-          for (let ci = 0; ci < cs.length && !found; ci++) { const c = cs[ci], seq = uvSeq(toUVw, periodic, c, 200, false), pv = []; seq.forEach((q) => pv.push(q[0])); for (let k = 1; k < seq.length; k++) { const a = Math.floor((seq[k - 1][0] - wu0) / span + 1e-12), b = Math.floor((seq[k][0] - wu0) / span + 1e-12); if (a !== b) { // bracket
-                const [d0, d1] = dom(c); let lo = d0 + (d1 - d0) * (k - 1) / 200, hi = d0 + (d1 - d0) * k / 200; const lvl = Math.max(a, b); const uAt = (t, sd) => { const uv = toUVw(cEval(c, t), sd); return uv; };
-                // continuous unwrapped u along [lo,hi]: compare to the seam by the sign of (raw u shifted)
-                const base = seq[k - 1][0]; const unw = (t, sd) => { const uv = uAt(t, sd); let u = uv[0]; while (u - base > span / 2) u -= span; while (u - base < -span / 2) u += span; return u; };
-                const target = wu0 + lvl * span; let sd = null; for (let it = 0; it < 80; it++) { const mid = (lo + hi) / 2, um = unw(mid, sd); sd = null; if ((um - target) * (base - target) > 0) lo = mid; else hi = mid; }
-                found = { ci, t: (lo + hi) / 2 }; break; } } }
-          if (!found) return (globalThis.__cpdbg && console.log('quad bail no seam crossing'), null);
-          // rotate the loop to start at the crossing
-          const c = cs[found.ci], [d0, d1] = dom(c), parts = []; const Pc = cEval(c, found.t); const sp = found.t - d0 > 1e-9 * (d1 - d0) && d1 - found.t > 1e-9 * (d1 - d0) ? cSplit(c, found.t) : null;
-          let seqCurves; if (sp) { seqCurves = [sp[1]].concat(cs.slice(found.ci + 1), cs.slice(0, found.ci), [sp[0]]); replace.push({ orig: c, parts: [sp[0], sp[1]], P: Pc }); } else seqCurves = cs.slice(found.ci).concat(cs.slice(0, found.ci));
-          void parts;
-          // direction: u must increase from 0 to 1
-          let path = seqCurves; { const seq = []; path.forEach((cc) => uvSeq(toUVw, periodic, cc, 24, false).forEach((q) => seq.push(q))); let off = 0, tot = 0; for (let i = 1; i < seq.length; i++) { let du = seq[i][0] - seq[i - 1][0]; while (du > span / 2) du -= span; while (du < -span / 2) du += span; tot += du; } if (tot < 0) path = path.slice().reverse().map((cc) => cReverse(cc)); void off; }
-          const uv0 = toUVw(cEval(path[0], dom(path[0])[0]), null); fixed.push({ path, v: uv0[1], P: Pc });
-        }
-        fixed.sort((a, b) => a.v - b.v);
-        for (let k = 0; k + 1 < fixed.length; k += 2) { const lo = fixed[k], hi = fixed[k + 1];
-          const pcs = []; lo.path.forEach((cc, ci) => pcs.push(pieceOf(cc, WS, toUVw, periodic, ci === 0)));
-          // the pieces' u are unwrapped relative to the previous piece: re-offset so the whole path runs 0 -> 1
-          const fixU = (arr, startU, dirSign) => { let cur = startU; arr.forEach((pc) => { const U = pc.uvC; const uS = cEval(U, dom(U)[0])[0]; const shift = Math.round((cur - uS) / span) * span; if (shift) pc.uvC = curve(U.p, U.U, U.P.map((q) => [q[0] + shift, q[1], q[2]]), U.w); cur = cEval(pc.uvC, dom(pc.uvC)[1])[0]; }); void dirSign; };
-          fixU(pcs, wu0, 1);
-          const vLoStart = cEval(pcs[0].uvC, dom(pcs[0].uvC)[0])[1], vLoEnd = cEval(pcs[pcs.length - 1].uvC, dom(pcs[pcs.length - 1].uvC)[1])[1];
-          const hiRev = hi.path.slice().reverse().map((cc) => cReverse(cc)), hpcs = []; hiRev.forEach((cc, ci) => hpcs.push(pieceOf(cc, WS, toUVw, periodic, false)));
-          fixU(hpcs, wu1, -1);
-          const vHiStart = cEval(hpcs[0].uvC, dom(hpcs[0].uvC)[0])[1], vHiEnd = cEval(hpcs[hpcs.length - 1].uvC, dom(hpcs[hpcs.length - 1].uvC)[1])[1];
-          const bord = (side, A0, B0) => { const bc = borderCurves(WS)[side], vert = side % 2 === 1, ta = vert ? A0[1] : A0[0], tb = vert ? B0[1] : B0[0], lo2 = Math.min(ta, tb), hi2 = Math.max(ta, tb); let c3 = null; if (hi2 - lo2 > 1e-13) { const sc = cSub(bc.c, lo2, hi2); c3 = ta <= tb ? sc : cReverse(sc); } return { type: 'b', side, a: A0, b: B0, c3 }; };
-          const ring = pcs.concat([bord(1, [wu1, vLoEnd], [wu1, vHiStart])], hpcs, [bord(3, [wu0, vHiEnd], [wu0, vLoStart])]);
-          faces.push({ kind: 'trim', surf: WS, sign: sgnOf, tag: 'quad_wall_t' + k, loops: [{ pieces: ring }] }); }
-        // the solid's faces must meet the wall along the same edges: cut their contour pieces at the same points
-        for (const rp of replace) { let done = false; for (const f of faces) { if (f.kind !== 'trim' || done) continue; for (const lp of f.loops) { const idx = lp.pieces.findIndex((pc) => { if (pc.type !== 'c') return false; const m0 = cEval(pc.c3, (dom(pc.c3)[0] + dom(pc.c3)[1]) / 2), m1 = cEval(rp.orig, (dom(rp.orig)[0] + dom(rp.orig)[1]) / 2); return len(sub(m0, m1)) < 1e-7 * (1 + scale) && Math.abs(curveLen(pc.c3) - curveLen(rp.orig)) < 1e-7 * (1 + scale); }); if (idx < 0) continue;
-              const pc = lp.pieces[idx], toA = mkToUV(f.surf, false), [e0, e1] = dom(pc.c3); const same = len(sub(cEval(pc.c3, e0), cEval(rp.orig, dom(rp.orig)[0]))) < 1e-7 * (1 + scale); let t = null, bd = Infinity; for (let i = 0; i <= 2000; i++) { const tt = e0 + (e1 - e0) * i / 2000, d = len(sub(cEval(pc.c3, tt), rp.P)); if (d < bd) { bd = d; t = tt; } } let lo3 = Math.max(e0, t - (e1 - e0) / 2000), hi3 = Math.min(e1, t + (e1 - e0) / 2000); for (let it = 0; it < 60; it++) { const m1 = lo3 + (hi3 - lo3) / 3, m2 = hi3 - (hi3 - lo3) / 3; if (len(sub(cEval(pc.c3, m1), rp.P)) < len(sub(cEval(pc.c3, m2), rp.P))) hi3 = m2; else lo3 = m1; } t = (lo3 + hi3) / 2; void same;
-              const sp2 = cSplit(pc.c3, t), mk = (c3) => ({ type: 'c', uvC: mkUvC(uvSeq(toA, false, c3, closeN, false)), c3, plane: -1 }); lp.pieces.splice(idx, 1, mk(sp2[0]), mk(sp2[1])); done = true; break; } } } }
-      const res = { kind: 'skin', op: 'cut', faces, topo: { type: 'brep' } }, c = check(res, false); if (globalThis.__cpdbg) console.log('quad check', JSON.stringify(c), massProps(a, 1).volume, faces.map((f) => f.kind + ':' + f.tag).join()); if (!c.ok || !(c.volume > 0) || !(c.volume < massProps(a, 1).volume)) return (globalThis.__cpdbg && console.log('quad bail 15'), null); return res;
-    } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return (globalThis.__cpdbg && console.log('quad bail 16'), null); }
+          let found = null; const cs = x.lp.slice();
+          for (let ci = 0; ci < cs.length && !found; ci++) { const c = cs[ci], seq = uvSeq(toUVw, periodic, false, c, 240, false); for (let k = 1; k < seq.length; k++) { const a = Math.floor((seq[k - 1][0] - wu0) / span + 1e-12), b = Math.floor((seq[k][0] - wu0) / span + 1e-12); if (a === b) continue;
+              const [d0, d1] = dom(c); let lo = d0 + (d1 - d0) * (k - 1) / 240, hi = d0 + (d1 - d0) * k / 240; const base = seq[k - 1][0], target = wu0 + Math.max(a, b) * span; const unw = (t) => { let u = toUVw(cEval(c, t), null)[0]; while (u - base > span / 2) u -= span; while (u - base < -span / 2) u += span; return u; };
+              for (let it = 0; it < 80; it++) { const mid = (lo + hi) / 2; if ((unw(mid) - target) * (base - target) > 0) lo = mid; else hi = mid; } found = { ci, t: (lo + hi) / 2 }; break; } }
+          if (!found) return bail('no seam crossing');
+          const c = cs[found.ci], [d0, d1] = dom(c), Pc = cEval(c, found.t), proper = found.t - d0 > 1e-9 * (d1 - d0) && d1 - found.t > 1e-9 * (d1 - d0), sp2 = proper ? cSplit(c, found.t) : null; let seqC;
+          if (sp2) { seqC = [sp2[1]].concat(cs.slice(found.ci + 1), cs.slice(0, found.ci), [sp2[0]]); replaceList.push({ orig: c, P: Pc }); } else seqC = cs.slice(found.ci).concat(cs.slice(0, found.ci));
+          let path = seqC, tot = 0; { const sq = []; path.forEach((cc) => uvSeq(toUVw, periodic, false, cc, 24, false).forEach((q) => sq.push(q))); for (let i = 1; i < sq.length; i++) { let du = sq[i][0] - sq[i - 1][0]; while (du > span / 2) du -= span; while (du < -span / 2) du += span; tot += du; } if (tot < 0) path = path.slice().reverse().map((cc) => cReverse(cc)); }
+          let vHalf = null, bd = Infinity; x.poly.forEach((p) => { const fr = ((p[0] - wu0) % span + span) % span / span, d = Math.abs(fr - 0.5); if (d < bd) { bd = d; vHalf = p[1]; } });
+          entries.push({ path, vHalf }); }
+        entries.sort((a, b) => a.vHalf - b.vHalf);
+        const bounds = [{ border: 0, v: wv0 }].concat(entries, [{ border: 2, v: wv1 }]);
+        // inside-ness of the first strip, then alternate
+        const mid0 = (bounds[0].v + bounds[1].vHalf) / 2, probe = sEval(WS, midU, mid0); let inside = insideA(probe);
+        const flips = []; for (let k = 0; k + 1 < bounds.length; k++) { flips.push(inside); inside = !inside; }
+        const lastIn = insideA(sEval(WS, midU, (bounds[bounds.length - 1].v + bounds[bounds.length - 2].vHalf) / 2)); if (lastIn !== flips[flips.length - 1]) return bail('strip parity');
+        let sk = 0;
+        for (let k = 0; k + 1 < bounds.length; k++) { if (!flips[k]) continue; const lo = bounds[k], hi = bounds[k + 1], ring = [];
+          const lowPieces = lo.path ? lo.path.map((cc, ci) => pieceOf(cc, toUVw, periodic, periodicV, ci === 0)) : null, hiRev = hi.path ? hi.path.slice().reverse().map((cc) => cReverse(cc)) : null, hiPieces = hiRev ? hiRev.map((cc) => pieceOf(cc, toUVw, periodic, periodicV, false)) : null;
+          const fixU = (arr, startU) => { let cur = startU; arr.forEach((pc) => { const U = pc.uvC, uS = cEval(U, dom(U)[0])[0], shift = Math.round((cur - uS) / span) * span; if (shift) pc.uvC = curve(U.p, U.U, U.P.map((q) => [q[0] + shift, q[1], q[2]]), U.w); cur = cEval(pc.uvC, dom(pc.uvC)[1])[0]; }); };
+          if (lowPieces) fixU(lowPieces, wu0); if (hiPieces) fixU(hiPieces, wu1);
+          const endV = (arr, atStart) => (atStart ? cEval(arr[0].uvC, dom(arr[0].uvC)[0])[1] : cEval(arr[arr.length - 1].uvC, dom(arr[arr.length - 1].uvC)[1])[1]);
+          const vLoStart = lowPieces ? endV(lowPieces, true) : wv0, vLoEnd = lowPieces ? endV(lowPieces, false) : wv0, vHiStart = hiPieces ? endV(hiPieces, true) : wv1, vHiEnd = hiPieces ? endV(hiPieces, false) : wv1;
+          if (lowPieces) ring.push(...lowPieces); else ring.push(bord(0, [wu0, wv0], [wu1, wv0]));
+          ring.push(bord(1, [wu1, vLoEnd], [wu1, vHiStart])); if (hiPieces) ring.push(...hiPieces); else ring.push(bord(2, [wu1, wv1], [wu0, wv1])); ring.push(bord(3, [wu0, vHiEnd], [wu0, vLoStart]));
+          faces.push({ kind: 'trim', surf: WS, sign: wsign, tag: 'quad_wall' + idx + '_s' + (sk++), loops: [{ pieces: ring }] }); }
+        // the solid's faces meet the wall along the same edges: cut their contour pieces at the same points
+        for (const rp of replaceList.splice(0)) { let done = false;
+          for (const f of faces) { if (done) break;
+            if (f.kind === 'trim') { for (const lp of f.loops) { const idx2 = lp.pieces.findIndex((pc) => { if (pc.type !== 'c') return false; const r0 = nearestParam(pc.c3, rp.P); return r0.d < 1e-7 * (1 + scale) && curveLen(pc.c3) > 0; }); if (idx2 < 0) continue; const pc = lp.pieces[idx2], toA = mkToUV(f.surf, false, false), r0 = nearestParam(pc.c3, rp.P), [e0, e1] = dom(pc.c3); if (r0.t <= e0 + 1e-9 * (e1 - e0) || r0.t >= e1 - 1e-9 * (e1 - e0)) { done = true; break; }
+                const sp3 = cSplit(pc.c3, r0.t), mk = (c3) => ({ type: 'c', uvC: mkUvC(uvSeq(toA, false, false, c3, closeN, false)), c3, plane: -1 }); lp.pieces.splice(idx2, 1, mk(sp3[0]), mk(sp3[1])); done = true; break; } }
+            else if (f.kind === 'plan') { for (const lp of f.loops) { const idx2 = lp.findIndex((c) => nearestParam(c, rp.P).d < 1e-7 * (1 + scale)); if (idx2 < 0) continue; const c = lp[idx2], r0 = nearestParam(c, rp.P), [e0, e1] = dom(c); if (r0.t <= e0 + 1e-9 * (e1 - e0) || r0.t >= e1 - 1e-9 * (e1 - e0)) { done = true; break; } const sp3 = cSplit(c, r0.t); lp.splice(idx2, 1, sp3[0], sp3[1]); done = true; break; } } } }
+      }
+      // the floor of a blind end: the flat disc closed by the wall's own border circle
+      if (sp.blind >= 0) { const side = sp.blind === 0 ? 0 : 2, bcv = borderCurves(WS)[side].c; faces.push(planFace([[bcv]], sp.floorN, 'quad_floor' + idx)); }
+    }
+    void planA;
+    if (!faces.length) return null; const res = { kind: 'skin', op: 'cut', faces, topo: { type: 'brep' } }, c = check(res, false); if (globalThis.__cpdbg) console.log('quad check', JSON.stringify(c), faces.map((f) => f.kind + ':' + f.tag).join());
+    if (!c.ok || !(c.volume > 0) || !(c.volume < massProps(root, 1).volume)) return bail('check failed'); return res;
+  }
+  function cutQuadricTool(a, b) {
+    try {
+      if (!isN(a) || isN(b) || !AK._t) return null; const root = a.qsrc ? a.qsrc.root : a, bodies = (a.qsrc ? a.qsrc.bodies : []).concat([b]);
+      const r = cutQuadricTools(root, bodies); if (r) r.qsrc = { root, bodies }; return r;
+    } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
   }
   const cutExact = (a, b) => cutPrism(a, b) || cutSkewCylinder(a, b) || cutPlanarTool(a, b) || cutQuadricTool(a, b);
   /** EXACT cut of an extruded freeform solid by a prism (box, cylinder, any extrusion of lines and arcs) whose axis is parallel to the extrusion and which passes right through it, lying inside the profile:
@@ -2370,7 +2416,7 @@ G.AakarKernel = AK;
       loops.push(pieces.map((pc) => ({ kind: pc.segs[0].kind, side: pc.segs[0].side, keys: [pc.segs[0].from].concat(pc.segs.map((s) => s.to)) })));
     }
     // geometry of every piece
-    const contours = [], uvOf = (key) => pos.get(key), shoe = (pts) => { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; } return a / 2; };
+    const contours = [], ctags = [], uvOf = (key) => pos.get(key), shoe = (pts) => { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; } return a / 2; };
     const project = (uv, kp) => { const q = planes[kp]; let [u, v] = uv; for (let it = 0; it < 30; it++) { const e = sEval(S, u, v, true), f = cv(q, e.p), nrm = cg(q, e.p); if (Math.abs(f) < 1e-14 * (1 + fmax)) break; const gu = dot(nrm, e.u), gv = dot(nrm, e.v), g2 = gu * gu + gv * gv; if (g2 < 1e-30) break; u = Math.min(u1, Math.max(u0, u - f * gu / g2)); v = Math.min(v1, Math.max(v0, v - f * gv / g2)); } return [u, v]; };
     const kink = (A, B, ka, kb) => { let u = (A[0] + B[0]) / 2, v = (A[1] + B[1]) / 2; for (let it = 0; it < 40; it++) { const e = sEval(S, u, v, true), fa = cv(planes[ka], e.p), fb = cv(planes[kb], e.p), na = cg(planes[ka], e.p), nb = cg(planes[kb], e.p); if (Math.abs(fa) < 1e-14 * (1 + fmax) && Math.abs(fb) < 1e-14 * (1 + fmax)) break;
         const a1 = dot(na, e.u), a2 = dot(na, e.v), b1 = dot(nb, e.u), b2 = dot(nb, e.v), det = a1 * b2 - a2 * b1; if (Math.abs(det) < 1e-18) return null; u = Math.min(u1, Math.max(u0, u - (fa * b2 - fb * a2) / det)); v = Math.min(v1, Math.max(v0, v - (a1 * fb - b1 * fa) / det)); }
@@ -2384,7 +2430,7 @@ G.AakarKernel = AK;
           runs.forEach((run) => { let pts = run.pts; for (let r = 0; r < (planes[run.k].val ? 5 : 3); r++) { const nw = [pts[0]]; for (let k = 0; k + 1 < pts.length; k++) nw.push(project([(pts[k][0] + pts[k + 1][0]) / 2, (pts[k][1] + pts[k + 1][1]) / 2], run.k), pts[k + 1]); pts = nw; }
             const P3 = pts.map((q) => sEval(S, q[0], q[1])), keep = [0]; for (let k = 1; k < pts.length; k++) if (len(sub(P3[k], P3[keep[keep.length - 1]])) > 1e-10 * (1 + len(P3[k]))) keep.push(k); if (keep.length < 2) return; { const ds = []; for (let k = 1; k < keep.length; k++) ds.push(len(sub(P3[keep[k]], P3[keep[k - 1]]))); const med = ds.slice().sort((x, y) => x - y)[ds.length >> 1], k2 = [keep[0]]; for (let k = 1; k < keep.length; k++) { const d = len(sub(P3[keep[k]], P3[k2[k2.length - 1]])); if (k === keep.length - 1 || d > 0.35 * med) k2.push(keep[k]); } if (k2.length >= 2) { keep.length = 0; keep.push(...k2); } }
             const q3 = keep.map((k) => P3[k]), quv = keep.map((k) => pts[k]), deg = Math.min(3, q3.length - 1), c3 = interp(q3, deg), uvC = interp(quv.map((q) => [q[0], q[1], 0]), deg);
-            pieces.push({ type: 'c', uvC, c3, plane: run.k }); contours.push(c3); quv.forEach((q) => poly.push(q)); }); }
+            pieces.push({ type: 'c', uvC, c3, plane: run.k }); contours.push(c3); ctags.push(run.k); quv.forEach((q) => poly.push(q)); }); }
         else { const A = uvOf(pc.keys[0]), B = uvOf(pc.keys[pc.keys.length - 1]), bc = borderCurves(S)[pc.side], vert = pc.side % 2 === 1, ta = vert ? A[1] : A[0], tb = vert ? B[1] : B[0], lo = Math.min(ta, tb), hi = Math.max(ta, tb); poly.push(A, B);
           let c3 = null; if (hi - lo > 1e-13) { const sc = cSub(bc.c, lo, hi), L = curveLen(sc); if (L > 1e-10) c3 = ta <= tb ? sc : cReverse(sc); }
           pieces.push({ type: 'b', side: pc.side, a: A, b: B, c3 }); }
@@ -2394,7 +2440,7 @@ G.AakarKernel = AK;
     const outers = built.filter((l) => l.area > 0), holes = built.filter((l) => l.area <= 0);
     const inPoly = (p, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
     const faces = outers.map((o, k) => ({ kind: 'trim', surf: S, sign, tag: tag + '_t' + k, loops: [o].concat(holes.filter((h) => inPoly(h.poly[0], o.poly)).sort((a, b) => 0)).map((l) => ({ pieces: l.pieces })) }));
-    return { mode: 'trim', faces, contours };
+    return { mode: 'trim', faces, contours, ctags, off, nPlanes: planes.length };
   }
   /** loops of 3D curve pieces from unordered pieces, joined by matching end points */
   function chainLoops(pieces, tol) {
