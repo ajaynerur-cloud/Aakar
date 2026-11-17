@@ -77,10 +77,14 @@ class Body {
     return { min: mn, max: mx };
   }
   xf(T) {
-    if (T.det() <= 0) throw new Error('mirror transforms are not supported');
+    if (!(Math.abs(T.det()) > 1e-300)) throw new Error('a singular (flattening) transform is not allowed'); const mir = T.det() < 0;
     const vmap = new Map(), emap = new Map();
-    const faces = this.faces.map(f => new Face(f.surf.xf(T), f.rev, f.loops.map(l => l.map(c => { let e = emap.get(c.edge); if (!e) { e = c.edge.xf(T, vmap); emap.set(c.edge, e); } return { edge: e, fwd: c.fwd }; }))));
-    this.faces.forEach((f, i) => { if (f.tris) faces[i].tris = f.tris.map(t => t.map(p => T.p(p))); });
+    const faces = this.faces.map(f => { const nf = new Face(f.surf.xf(T), f.rev, f.loops.map(l => l.map(c => { let e = emap.get(c.edge); if (!e) { e = c.edge.xf(T, vmap); emap.set(c.edge, e); } return { edge: e, fwd: c.fwd }; }))); if (f.vrange) { nf.vrange = f.vrange; nf.urange = f.urange; } return nf; });
+    this.faces.forEach((f, i) => { if (f.tris) { faces[i].tris = f.tris.map(t => { const q = t.map(p => T.p(p)); return mir ? q.reverse() : q; }); } });
+    if (mir) faces.forEach((nf) => {      // a reflection reverses handedness: walk every loop the other way so the outward normal stays outward, and mirror the angle range (the frame's y axis is re-derived as z x x)
+      nf.loops = nf.loops.map(l => l.slice().reverse().map(c => ({ edge: c.edge, fwd: !c.fwd })));
+      if (nf.urange && Array.isArray(nf.urange) && nf.urange.length === 2) nf.urange = [-nf.urange[1], -nf.urange[0]];
+    });
     return new Body(faces);
   }
 }

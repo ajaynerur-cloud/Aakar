@@ -2665,7 +2665,9 @@ body.aaktouch #aakNavPill{display:flex}
   function transformSolid(s, xfP, xfN, mirror) {
     const V = s.V.map(xfP);
     const F = s.F.map(f => { const n = v3.norm(xfN(f.n)), q = xfP(v3.scale(f.n, f.d)); return { n, d: v3.dot(n, q), loops: f.loops.map(l => mirror ? l.slice().reverse() : l.slice()), group: f.group }; });
-    const o = new CAD.Solid(V, F); if (s._tn) o._tn = s._tn; return o;
+    const o = new CAD.Solid(V, F); if (s._tn) o._tn = s._tn;
+    try { if (CAD.exact && CAD.exact.xfTag) CAD.exact.xfTag(s, o, xfP); } catch (e) { /* the faceted solid stays as it is */ }
+    return o;
   }
 
   // ---------------- document & regeneration
@@ -2779,7 +2781,7 @@ body.aaktouch #aakNavPill{display:flex}
     const tb = tools.map(t => t.bbox());
     return [...st.bodies.values()].filter(b => { const bb = b.solid.bbox(); return tb.some(t => [0, 1, 2].every(k => bb.min[k] <= t.max[k] + 1e-9 && bb.max[k] >= t.min[k] - 1e-9)); }).map(b => b.key);
   }
-  function putBodies(st, key, name, solids, src, bim) { solids.forEach((s, i) => { const k = i === 0 ? key : key + '.' + (i + 1); st.bodies.set(k, { key: k, name: i === 0 ? name : name + ' (' + (i + 1) + ')', solid: s, src, bim: bim || null }); }); }
+  function putBodies(st, key, name, solids, src, bim) { solids.forEach((s, i) => { if (CAD.exact && CAD.exact.lazyPoly) CAD.exact.lazyPoly(s); const k = i === 0 ? key : key + '.' + (i + 1); st.bodies.set(k, { key: k, name: i === 0 ? name : name + ' (' + (i + 1) + ')', solid: s, src, bim: bim || null }); }); }
   function applyOp(st, f, tools, op, targets) {
     if (!tools.length) throw new Error('Nothing to build');
     let keys = (Array.isArray(targets) && targets.length) ? targets.filter(k => st.bodies.has(k)) : overlapKeys(st, tools);
@@ -2798,7 +2800,7 @@ body.aaktouch #aakNavPill{display:flex}
     return st;
   }
   function bodyOf(st, key) { const b = st.bodies.get(key); if (!b) throw new Error('Body not found (it may have been deleted or renamed upstream)'); return b; }
-  function setSolid(st, b, solid) { st.bodies.set(b.key, Object.assign({}, b, { solid })); }
+  function setSolid(st, b, solid) { if (CAD.exact && CAD.exact.lazyPoly) CAD.exact.lazyPoly(solid); st.bodies.set(b.key, Object.assign({}, b, { solid })); }
   function itemOf(st, key, kind) { const it = st.items.get(key); if (!it || (kind && it.kind !== kind)) throw new Error((kind || 'Item') + ' not found (deleted or after this feature)'); return it; }
 
   function exec(doc, f, st) {
@@ -30070,11 +30072,14 @@ self.__H['img.trace'] = async (p, prog) => {
     };
     SOL.PRIM[name].__exact = true;
   });
+  function lazyRec(s, fn) {
+    try { Object.defineProperty(s, '__recipe', { configurable: true, enumerable: false, get() { let r = null; try { r = fn(); } catch (e) { r = null; } if (!r) { try { r = X.polyRecipe(s); } catch (e) { r = null; } } Object.defineProperty(s, '__recipe', { value: r, writable: true, configurable: true, enumerable: false }); if (r) X.recipes++; return r; }, set(v) { Object.defineProperty(s, '__recipe', { value: v, writable: true, configurable: true, enumerable: false }); } }); } catch (e) { /* ignore */ }
+  }
   function annotate(name, args, res) {
     if (!res || res.length !== 1 || rec(res[0])) return;
-    if (name === 'boolean') { const a = rec(args[1]), b = rec(args[2]); if (a && b) tag(res[0], { op: args[0], a, b }); }
-    else if (name === 'booleanMany') { const A = args[1], B = Array.isArray(args[2]) ? args[2] : [args[2]]; if (A.length === 1 && rec(A[0]) && B.every(rec)) { let r = rec(A[0]); B.forEach((x) => { r = { op: args[0], a: r, b: rec(x) }; }); tag(res[0], r); } }
-    else if (name === 'unionAll') { const L = args[0]; if (L.length >= 2 && L.every(rec)) { let r = rec(L[0]); for (let i = 1; i < L.length; i++) r = { op: 'union', a: r, b: rec(L[i]) }; tag(res[0], r); } }
+    if (name === 'boolean') lazyRec(res[0], () => { const a = rec(args[1]), b = rec(args[2]); return a && b ? { op: args[0], a, b } : null; });
+    else if (name === 'booleanMany') { const A = args[1], B = Array.isArray(args[2]) ? args[2] : [args[2]]; if (A.length === 1) lazyRec(res[0], () => { if (!(rec(A[0]) && B.every(rec))) return null; let r = rec(A[0]); B.forEach((x) => { r = { op: args[0], a: r, b: rec(x) }; }); return r; }); }
+    else if (name === 'unionAll') { const L = args[0]; if (L.length >= 2) lazyRec(res[0], () => { if (!L.every(rec)) return null; let r = rec(L[0]); for (let i = 1; i < L.length; i++) r = { op: 'union', a: r, b: rec(L[i]) }; return r; }); }
   }
   ['boolean', 'booleanMany', 'unionAll'].forEach((name) => {
     const orig = CAD.csg[name]; if (!orig || orig.__exact) return;
@@ -30088,6 +30093,43 @@ self.__H['img.trace'] = async (p, prog) => {
     CAD.csg[name].__exact = true;
   });
   X.recipeOf = rec; X.tag = tag;
+  /** every untagged solid whose faces are all flat gets a recipe on demand (nothing is computed until a recipe is asked for): the exact polyhedron is checked
+   *  against the solid (volume, planarity, closed manifold) and refused if anything differs. Curved (faceted) solids never get one: they stay faceted. */
+  X.polyRecipe = function (s) {
+    const k = X.kernel; if (X.state !== 'ready' || !k || !k.polyhedron || !s || !s.F || !s.V || s.F.length < 4 || s.F.length > 500) return null;
+    const used = new Map(), verts = [], idx = (i) => { let j = used.get(i); if (j == null) { j = verts.length; used.set(i, j); verts.push(s.V[i].slice()); } return j; };
+    const sc = Math.max(1e-9, s.scale ? s.scale() : 100), faces = [];
+    for (const f of s.F) {
+      if (f.group || !f.loops || !f.loops.length) return null;
+      const lp = f.loops.map((l) => l.map(idx)); faces.push({ n: f.n.slice(), loops: lp });
+      for (const l of f.loops) for (const i of l) if (Math.abs(v3.dot(f.n, s.V[i]) - f.d) > 1e-6 * sc) return null;
+    }
+    const r = { op: 'poly', verts, faces };
+    try {
+      const h = X.replay(r), v = k.volume(h), vs = Math.abs(s.volume()); if (!(v > 0) || Math.abs(v - vs) > 1e-6 * Math.max(1, vs)) return null;
+      const vd = k.validate ? k.validate(h) : null; if (vd && (vd.ok === false)) return null;
+    } catch (e) { return null; }
+    return r;
+  };
+  X.lazyPoly = function (s) {
+    try {
+      if (!s || !s.F || Object.getOwnPropertyDescriptor(s, '__recipe')) return s;
+      Object.defineProperty(s, '__recipe', { configurable: true, enumerable: false, get() { if (X.state !== 'ready') return null; const r = X.polyRecipe(s); Object.defineProperty(s, '__recipe', { value: r, writable: true, configurable: true, enumerable: false }); if (r) X.recipes++; return r; }, set(v) { Object.defineProperty(s, '__recipe', { value: v, writable: true, configurable: true, enumerable: false }); } });
+    } catch (e) { /* ignore */ }
+    return s;
+  };
+  /** carry a recipe through a rigid / mirror / uniform-scale map: probe the map on the origin and the three axes, and refuse anything that is not exactly such a map */
+  X.xfTag = function (src, dst, xfP) {
+    const r0 = rec(src); if (!r0 || countOps(r0) > 60) return dst;
+    const t = xfP([0, 0, 0]), c = [xfP([1, 0, 0]), xfP([0, 1, 0]), xfP([0, 0, 1])].map((p) => v3.sub(p, t)), s = v3.len(c[0]);
+    if (!(s > 1e-9) || !t.every(Number.isFinite)) return dst;
+    const tol = 1e-9 * Math.max(1, s);
+    if (Math.abs(v3.len(c[1]) - s) > tol || Math.abs(v3.len(c[2]) - s) > tol || Math.abs(v3.dot(c[0], c[1])) > tol * s || Math.abs(v3.dot(c[1], c[2])) > tol * s || Math.abs(v3.dot(c[0], c[2])) > tol * s) return dst;
+    const probe = xfP([0.37, -0.52, 0.81]), want = v3.add(t, v3.add(v3.scale(c[0], 0.37), v3.add(v3.scale(c[1], -0.52), v3.scale(c[2], 0.81))));
+    if (v3.dist(probe, want) > 1e-7 * Math.max(1, s)) return dst;   // not affine
+    tag(dst, { op: 'xf', a: r0, R: [c[0][0], c[1][0], c[2][0], c[0][1], c[1][1], c[2][1], c[0][2], c[1][2], c[2][2]], t });
+    return dst;
+  };
   /** a full revolution of one sketch region as a kernel recipe; null when the outline has splines/ellipses, touches the axis wrongly, or crosses it */
   X.revolveRecipe = function (reg, sk, pl, axis, ang) {
     const er = X.extrudeRecipe(reg, sk, pl, 0, 1); if (!er) return null;
@@ -30171,6 +30213,8 @@ self.__H['img.trace'] = async (p, prog) => {
     else if (r.op === 'intersect' || r.op === 'common') h = k.common(replay(k, r.a, memo), replay(k, r.b, memo));
     else if (r.op === 'extrude') { if (!k.extrude || !k.transform) throw new Error('this kernel cannot build extrusions'); h = k.transform(k.extrude(r.loops, r.h), r.R, r.t); }
     else if (r.op === 'revolve') { if (!k.revolve || !k.transform) throw new Error('this kernel cannot build revolutions'); h = k.transform(k.revolve(r.loops, r.ang), r.R, r.t); }
+    else if (r.op === 'poly') { if (!k.polyhedron) throw new Error('this kernel cannot build polyhedra'); h = k.polyhedron(r.verts, r.faces); }
+    else if (r.op === 'xf') { if (!k.transform) throw new Error('this kernel cannot transform bodies'); h = k.transform(replay(k, r.a, memo), r.R, r.t); }
     else throw new Error('unknown recipe step ' + r.op);
     memo.set(key, h); return h;
   }
@@ -30245,7 +30289,8 @@ self.__H['img.trace'] = async (p, prog) => {
         pts.forEach((q) => g.pts.push(q)); le.segs.forEach(([a, q]) => { g.len += v3.dist(V[a], V[q]); });
       } else {
         const pf = planar(fa) && !planar(fb) ? fa : planar(fb) && !planar(fa) ? fb : -1, cf = pf === fa ? fb : fa; if (pf < 0) return null;
-        let g = circ.get(pf); if (!g) { g = { pf, cf: [], pts: [], len: 0 }; circ.set(pf, g); }
+        const pk = faceOf(pf).n.map((x) => Math.round(x * 1e6)).join(',') + '|' + Math.round(faceOf(pf).d * 1e5);   // coplanar pieces of one face count as one plane
+        let g = circ.get(pk); if (!g) { g = { pf, cf: [], pts: [], len: 0 }; circ.set(pk, g); }
         g.cf.push(cf); pts.forEach((q) => g.pts.push(q)); le.segs.forEach(([a, q]) => { g.len += v3.dist(V[a], V[q]); });
       }
     }
@@ -30257,14 +30302,15 @@ self.__H['img.trace'] = async (p, prog) => {
     }
     for (const g of circ.values()) {
       const n = faceOf(g.pf).n, c0 = g.pts.reduce((a, q) => v3.add(a, q), [0, 0, 0]).map((x) => x / g.pts.length), ds = g.pts.map((q) => v3.len(v3.sub(q, c0))), R = ds.reduce((a, b) => a + b, 0) / ds.length;
-      if (!(R > 1e-9) || ds.some((d) => Math.abs(d - R) > 2e-3 * R)) return null; if (g.pts.some((q) => Math.abs(v3.dot(v3.sub(q, c0), n)) > 1e-4 * Math.max(1, R))) return null;
+      if (!(R > 1e-9) || ds.some((d) => Math.abs(d - R) > 6e-3 * R)) return null; if (g.pts.some((q) => Math.abs(v3.dot(v3.sub(q, c0), n)) > 1e-4 * Math.max(1, R))) return null;
       if (g.len < 0.97 * 2 * Math.PI * R) return null;    // only part of the circle is selected
-      const cn = faceOf(g.cf[0]).n; if (g.cf.some((fi) => Math.abs(v3.dot(faceOf(fi).n, n)) > 1e-3)) return null;
+      const cn = faceOf(g.cf[0]).n; if (g.cf.some((fi) => Math.abs(v3.dot(faceOf(fi).n, n)) > 2e-2)) return null;
       const rad = v3.norm(v3.sub(g.pts[0], c0)), boss = v3.dot(faceOf(g.cf[0]).n, rad) > 0; void cn;
       out.push({ kind: 'circle', c: c0.slice(), n: n.slice(), R, boss });
     }
     return out.length ? out : null;
   }
+  X.roundSpecs = roundSpecs;
   X.roundTry = function (s, les, type, size) {
     try {
       if (!X.exactRounds || !X.useExactBooleans || X.state !== 'ready' || !X.kernel || !X.kernel.roundEdge || !(size > 0)) return null;
@@ -30303,6 +30349,19 @@ self.__H['img.trace'] = async (p, prog) => {
   X.report = function () {
     if (X.state !== 'ready') throw new Error('The exact kernel is not loaded');
     return bodiesNow().map((b) => { const r = rec(b.solid), faceted = Math.abs(b.solid.volume()); if (!r) return { name: b.name, exact: false, faceted }; try { const h = X.replay(r), v = X.kernel.volume(h); return { name: b.name, exact: true, faceted, volume: v, area: X.kernel.area(h), diff: (faceted - v) / v * 100, ops: countOps(r) }; } catch (e) { return { name: b.name, exact: false, faceted, error: e.message }; } });
+  };
+  /** is OpenCascade installed next to the app? (optional; never required). Looks, initialises a throw-away instance and runs the conformance tests; the active engine is not changed. */
+  X.occt = { checked: false }; X.openPanelRefresh = () => { try { renderPanel(); } catch (e) { /* ignore */ } };
+  X.occtCheck = async function () {
+    const o = X.occt = { checked: true, at: new Date().toLocaleTimeString(), found: false, reason: '', passed: 0, total: 0 };
+    try {
+      if (!G.AakarOcctBinding && desktop()) { try { const mod = await import(X.moduleUrl); const init = mod.init || (mod.default && mod.default.init); if (init) G.AakarOcctBinding = { name: mod.name || 'occt', version: mod.version || '', init }; } catch (e) { o.reason = e.message || String(e); } }
+      if (!G.AakarOcctBinding) { try { await loadScript('occt/aakar-occt.js'); } catch (e) { o.reason = 'folder occt/ not found next to this file'; } }
+      if (!G.AakarOcctBinding) { o.reason = o.reason || 'no binding'; renderPanel(); return o; }
+      const k = await G.AakarOcctBinding.init({ base: desktop() ? X.moduleUrl.replace(/[^/]*$/, '') : 'occt/' }); o.found = true; o.name = G.AakarOcctBinding.name; o.version = G.AakarOcctBinding.version || '';
+      const r = conformance(k, 1e-4); o.passed = r.filter((x) => x.ok).length; o.total = r.length; o.reason = r.filter((x) => !x.ok).map((x) => x.name).join('; ');
+    } catch (e) { o.reason = e.message || String(e); }
+    renderPanel(); return o;
   };
   X.exportStep = function (opts) {
     if (X.state !== 'ready') throw new Error('The exact kernel is not loaded');
@@ -30346,18 +30405,24 @@ self.__H['img.trace'] = async (p, prog) => {
       if (X.builtin) h += '<div class="row"><b>Engine</b><button class="btn sm' + (X.name === 'AakarKernel' ? ' primary' : '') + '" data-a="eng-ak" title="Built in, offline, no WebAssembly">AakarKernel</button><button class="btn sm' + (/^OpenCascade/.test(X.name || '') ? ' primary' : '') + '" data-a="eng-oc" title="Needs the OpenCascade binding in the occt folder">OpenCascade</button></div>';
       h += '<div class="row"><label><input type="checkbox" data-k="bool" ' + (X.useExactBooleans ? 'checked' : '') + '> Use the exact kernel for booleans of exact bodies</label></div><div class="row"><button class="btn sm primary" data-a="report">Exact vs faceted report</button><button class="btn sm" data-a="step">Export exact STEP</button><button class="btn sm" data-a="test">Run self-test</button>' + (X.kernel && X.kernel.massProps ? '<button class="btn sm" data-a="props" title="Volume, area, centroid, inertia and B-rep structure">Exact properties</button>' : '') + '</div>';
       if (X.lastProps) h += '<h5>Exact properties</h5><table><tr><th>Body</th><th>Volume</th><th>Area</th><th>Centroid</th><th>Faces</th><th>Edges</th><th>Valid</th></tr>' + X.lastProps.map((r) => '<tr><td>' + esc(r.name) + '</td><td class="n">' + r.volume.toFixed(3) + '</td><td class="n">' + (isFinite(r.area) ? r.area.toFixed(3) : '—') + '</td><td class="n">' + (r.centroid || []).map((x) => (isFinite(x) ? x.toFixed(2) : '—')).join(', ') + '</td><td>' + (r.info ? Object.keys(r.info.faces).map((k) => r.info.faces[k] + ' ' + k).join(', ') : '') + '</td><td>' + (r.info ? Object.keys(r.info.edges).map((k) => r.info.edges[k] + ' ' + k).join(', ') : '') + '</td><td class="' + (r.valid == null ? '' : r.valid ? 'ok' : 'bad') + '">' + (r.valid == null ? '—' : r.valid ? '✓' : '✗') + '</td></tr>' + (!r.inertia ? '' : '<tr><td colspan="7" class="note">inertia about the centroid, unit density: Ixx ' + r.inertia[0][0].toFixed(1) + ' · Iyy ' + r.inertia[1][1].toFixed(1) + ' · Izz ' + r.inertia[2][2].toFixed(1) + ' · Ixy ' + r.inertia[0][1].toFixed(1) + ' · Iyz ' + r.inertia[1][2].toFixed(1) + ' · Izx ' + r.inertia[2][0].toFixed(1) + (r.approximate ? ' · ' + r.approximate + ' face(s) integrated on facets' : '') + '</td></tr>')).join('') + '</table>';
-      if (X.lastReport) h += '<table><tr><th>Body</th><th>Exact</th><th>Volume (exact)</th><th>Faceted</th><th>Δ</th></tr>' + X.lastReport.map((r) => '<tr><td>' + esc(r.name) + '</td><td>' + (r.exact ? '✓' : '—') + '</td><td class="n">' + (r.volume != null ? r.volume.toFixed(2) : '—') + '</td><td class="n">' + r.faceted.toFixed(2) + '</td><td class="n">' + (r.diff != null ? r.diff.toFixed(2) + ' %' : '') + '</td></tr>').join('') + '</table>';
+      if (X.lastReport) h += '<table><tr><th>Body</th><th>Exact</th><th>Volume (exact)</th><th>Faceted</th><th>Δ</th></tr>' + X.lastReport.map((r) => '<tr><td>' + esc(r.name) + '</td><td title="' + (r.exact ? 'Built from true surfaces by the exact kernel' : 'This body has no exact recipe (curved shell, loft, sweep, imported mesh ...): its numbers come from the faceted mesh') + '">' + (r.exact ? '✓ exact' : 'mesh fallback') + '</td><td class="n">' + (r.volume != null ? r.volume.toFixed(2) : '—') + '</td><td class="n">' + r.faceted.toFixed(2) + '</td><td class="n">' + (r.diff != null ? r.diff.toFixed(2) + ' %' : '') + '</td></tr>').join('') + '</table>';
       if (X.lastTest) h += '<h5>Self-test · ' + X.lastTest.passed + ' / ' + X.lastTest.total + '</h5><table>' + X.lastTest.results.map((r) => '<tr><td class="' + (r.ok ? 'ok' : 'bad') + '">' + (r.ok ? '✓' : '✗') + '</td><td>' + esc(r.name) + '</td><td class="n">' + esc(r.detail) + '</td></tr>').join('') + '</table>';
     }
+    if (X.state === 'ready' && X.checkInstalledKernel) { const o = X.installed || {}; h += '<h5>Installed AakarKernel (optional)</h5><div class="row"><button class="btn sm" data-a="inst-chk" title="Looks for the folder kernel/ next to this file. The GitHub build puts a newer AakarKernel there and the exe carries it.">Check</button><button class="btn sm' + (/installed/.test(X.name || '') ? ' primary' : '') + '" data-a="inst-use"' + (o.found ? '' : ' disabled') + '>Use installed</button><button class="btn sm' + (X.name === 'AakarKernel' ? ' primary' : '') + '" data-a="inst-ak" title="The kernel inside this file">Use built-in</button><span class="note">' + (!o.checked ? 'not checked yet.' : o.found ? 'installed ' + esc(o.version) + (o.newer ? ' (newer than the built-in ' + esc((X.builtin || {}).version || '') + ')' : ' (not newer than the built-in)') + ' · ' + esc(o.at) : 'none installed (' + esc(o.reason || '') + '). The built-in AakarKernel ' + esc((X.builtin || {}).version || '') + ' is used. · ' + esc(o.at)) + '</span></div>'; }
+    { const o = X.occt; h += '<h5>OpenCascade (optional)</h5><div class="row"><button class="btn sm" data-a="occt" title="Looks for an OpenCascade build next to this file and tests it. The built-in AakarKernel keeps working either way.">Check OpenCascade</button><span class="note">' + (!o.checked ? 'not checked yet. Everything above runs on the built-in AakarKernel, offline.' : o.found ? esc(o.name || 'OpenCascade') + ' ' + esc(o.version || '') + ': ' + o.passed + ' of ' + o.total + ' tests passed' + (o.reason ? ' (' + esc(o.reason) + ')' : '') + ' · ' + esc(o.at) : 'not installed (' + esc(o.reason) + '). Not needed: the built-in AakarKernel is used. · ' + esc(o.at)) + '</span></div>'; }
     h += '<details><summary class="note" style="cursor:pointer">Log</summary><div class="note">' + (X.log.slice(-8).map(esc).join('<br>') || '—') + '</div></details>';
     pn.body.innerHTML = h; const A = (a) => pn.body.querySelector('[data-a=' + a + ']'), bt = pn.body.querySelector('[data-k=bool]');
     if (A('retry')) A('retry').onclick = () => { X.state = 'absent'; X.load(); };
+    if (A('occt')) A('occt').onclick = () => { A('occt').disabled = true; X.occtCheck(); };
+    if (A('inst-chk')) A('inst-chk').onclick = () => { A('inst-chk').disabled = true; X.checkInstalledKernel().then(() => renderPanel()); };
+    if (A('inst-ak')) A('inst-ak').onclick = () => { X.useAakarKernel(true); renderPanel(); try { F.invalidate(st.doc, 0); P.regenerate(); } catch (e) { /* ignore */ } };
+    if (A('inst-use')) A('inst-use').onclick = () => { try { X.useInstalledKernel(true); toast('Installed AakarKernel ' + X.version + ' is active'); } catch (e) { toast(e.message, true); } renderPanel(); };
     if (A('report')) A('report').onclick = () => { try { X.lastReport = X.report(); } catch (e) { toast(e.message, true); } renderPanel(); };
     if (A('props')) A('props').onclick = () => { try { X.lastProps = X.properties(); } catch (e) { toast(e.message, true); } renderPanel(); };
     if (A('eng-ak')) A('eng-ak').onclick = () => { X.useAakarKernel(true); renderPanel(); try { F.invalidate(st.doc, 0); P.regenerate(); } catch (e) { /* ignore */ } };
     if (A('eng-oc')) A('eng-oc').onclick = () => { X.useOpenCascade().then((ok) => { toast(ok ? 'OpenCascade is active' : 'OpenCascade is not installed — AakarKernel stays active', !ok); renderPanel(); }); };
     if (A('test')) A('test').onclick = () => { try { const t = X.selfTest(); toast('Self-test: ' + t.passed + ' of ' + t.total + ' passed', t.passed !== t.total); } catch (e) { toast(e.message, true); } };
-    if (A('step')) A('step').onclick = () => { try { const o = X.exportStep({ name: 'Aakar_Model' }); if (o.text) CAD.io.download('model_exact.step', o.text, 'application/step'); else { o.files.forEach((t, i) => CAD.io.download('model_exact_' + (i + 1) + '.step', t, 'application/step')); if (o.facetedStep) CAD.io.download('model_faceted.step', o.facetedStep, 'application/step'); } toast('Exported ' + o.exact + ' exact bod' + (o.exact === 1 ? 'y' : 'ies') + (o.faceted ? ' + ' + o.faceted + ' faceted' : '')); } catch (e) { toast(e.message, true); } };
+    if (A('step')) A('step').onclick = () => { try { const o = X.exportStep({ name: 'Aakar_Model' }); if (o.text) CAD.io.download('model_exact.step', o.text, 'application/step'); else { o.files.forEach((t, i) => CAD.io.download('model_exact_' + (i + 1) + '.step', t, 'application/step')); if (o.facetedStep) CAD.io.download('model_faceted.step', o.facetedStep, 'application/step'); } toast('Exported ' + o.exact + ' exact bod' + (o.exact === 1 ? 'y' : 'ies') + (o.faceted ? ' + ' + o.faceted + ' mesh fallback (curved or imported, no exact recipe)' : '')); } catch (e) { toast(e.message, true); } };
     if (bt) bt.onchange = () => { X.useExactBooleans = bt.checked; if (X.chip) X.chip(); try { G.localStorage.setItem('aakar.exact.booleans', bt.checked ? '1' : '0'); } catch (e) { /* ignore */ } try { F.invalidate(st.doc, 0); P.regenerate(); } catch (e) { /* ignore */ } };
   }
   X.openPanel = function () { renderPanel(); if (!pn) return; pn.show(); renderPanel(); if (X.state === 'absent') X.load(); };
@@ -30626,10 +30691,14 @@ class Body {
     return { min: mn, max: mx };
   }
   xf(T) {
-    if (T.det() <= 0) throw new Error('mirror transforms are not supported');
+    if (!(Math.abs(T.det()) > 1e-300)) throw new Error('a singular (flattening) transform is not allowed'); const mir = T.det() < 0;
     const vmap = new Map(), emap = new Map();
     const faces = this.faces.map(f => { const nf = new Face(f.surf.xf(T), f.rev, f.loops.map(l => l.map(c => { let e = emap.get(c.edge); if (!e) { e = c.edge.xf(T, vmap); emap.set(c.edge, e); } return { edge: e, fwd: c.fwd }; }))); if (f.vrange) { nf.vrange = f.vrange; nf.urange = f.urange; } return nf; });
-    this.faces.forEach((f, i) => { if (f.tris) faces[i].tris = f.tris.map(t => t.map(p => T.p(p))); });
+    this.faces.forEach((f, i) => { if (f.tris) { faces[i].tris = f.tris.map(t => { const q = t.map(p => T.p(p)); return mir ? q.reverse() : q; }); } });
+    if (mir) faces.forEach((nf) => {      // a reflection reverses handedness: walk every loop the other way so the outward normal stays outward, and mirror the angle range (the frame's y axis is re-derived as z x x)
+      nf.loops = nf.loops.map(l => l.slice().reverse().map(c => ({ edge: c.edge, fwd: !c.fwd })));
+      if (nf.urange && Array.isArray(nf.urange) && nf.urange.length === 2) nf.urange = [-nf.urange[1], -nf.urange[0]];
+    });
     return new Body(faces);
   }
 }
@@ -30718,6 +30787,59 @@ function pickSpherePole(face, S) {
   best.inside = sphereContains(face, S, loops, x0, best.c);
   return best;
 }
+/** U(u,v) = ∫_{uref}^{u} g(u',v) du'  (all 11 components) */
+function Uint(S, u, v, uref, out) {
+  out.fill(0); if (u === uref) return;
+  const n = 32, g = gauss(n), h = (u - uref) / 2, m = (u + uref) / 2, t = new Array(NC);
+  for (let i = 0; i < n; i++) { integrand(S, m + h * g.x[i], v, t); const w = g.w[i] * h; for (let k = 0; k < NC; k++) out[k] += w * t[k]; }
+}
+/** exact integrals over a trimmed torus face. The boundary is walked with continuous (unwrapped) angles. A loop that closes in v uses the v-antiderivative
+ *  (∮ H du, H periodic in u), a loop that closes in u uses the u-antiderivative (∮ U dv, U periodic in v); a face with loops of both kinds, or a loop
+ *  that winds both ways, is refused (the caller then falls back to the faceted estimate). If the face is the complement of its loops (negative signed area
+ *  in the unwrapped angle plane) the whole torus is added. */
+function torusTrimmed(face, S, sign) {
+  const g = gauss(6), H = new Array(NC), loopsInfo = [];
+  let areaSum = 0;
+  for (const loop of face.loops) {
+    const smp = []; let uprev = null, vprev = null, uoff = 0, voff = 0;
+    for (const ce of uvLoop(face, loop)) {
+      const e = ce.edge, pcs = subPieces(e.pieces(), 8), seq = ce.fwd ? pcs : pcs.slice().reverse();
+      for (const [a, b] of seq) for (let ii = 0; ii < 6; ii++) {
+        const i = ce.fwd ? ii : 5 - ii, t = (a + b) / 2 + (b - a) / 2 * g.x[i], w = g.w[i] * (b - a) / 2, p = e.pt(t); let dp = e.dpt(t); if (!ce.fwd) dp = V.neg(dp);
+        const r = S.duv(p, dp); let u = r[0] + uoff, v = r[1] + voff;
+        if (uprev !== null) { while (u - uprev > PI) { u -= TAU; uoff -= TAU; } while (u - uprev < -PI) { u += TAU; uoff += TAU; } while (v - vprev > PI) { v -= TAU; voff -= TAU; } while (v - vprev < -PI) { v += TAU; voff += TAU; } }
+        uprev = u; vprev = v; smp.push({ u, v, du: r[2] * w, dv: r[3] * w });
+      }
+    }
+    const n = smp.length, wu = Math.round((smp[n - 1].u - smp[0].u) / TAU), wv = Math.round((smp[n - 1].v - smp[0].v) / TAU);
+    let ar = 0, mu = 0, mv = 0; for (let i = 0; i < n; i++) { const a = smp[i], b = smp[(i + 1) % n]; ar += (a.u * b.v - b.u * a.v) / 2; mu += a.u; mv += a.v; }
+    loopsInfo.push({ smp, wu, wv, mu: mu / n, mv: mv / n }); areaSum += ar;
+  }
+  const pure = loopsInfo.every(L => L.wu === 0 && L.wv === 0), bandV = loopsInfo.every(L => L.wu === 0 && Math.abs(L.wv) === 1), bandU = loopsInfo.every(L => L.wv === 0 && Math.abs(L.wu) === 1);
+  if (!pure && !bandV && !bandU) throw new Error('this torus face cannot be integrated exactly (mixed or multiple windings)');
+  const norm = (x) => { x = x % TAU; return x < 0 ? x + TAU : x; };
+  // a band that wraps the tube (bandV) is integrated with the u-antiderivative, one that wraps the axis (bandU) with the v-antiderivative; every loop pair (left edge, right edge) must be lifted to the same period
+  if (bandV || bandU) {
+    const key = bandV ? 'mu' : 'mv', wk = bandV ? 'wv' : 'wu', sh = bandV ? 'u' : 'v';
+    const items = loopsInfo.map(L => ({ L, m: norm(L[key]) })).sort((p, q) => p.m - q.m), n = items.length;
+    if (n % 2) throw new Error('unbalanced torus band');
+    items.forEach(it => { it.shift = TAU * Math.round((it.m - it.L[key]) / TAU); });
+    // bandV: region lies between a wv = -1 loop (lower u) and the next wv = +1 loop (higher u); bandU: between a wu = +1 loop (lower v) and the next wu = -1 loop
+    const first = bandV ? -1 : 1;
+    for (let k = 0; k < n; k++) if (items[k].L[wk] === first) {
+      const nx = items[(k + 1) % n]; if (nx.L[wk] !== -first) throw new Error('torus band loops do not alternate');
+      if ((k + 1) >= n) nx.shift += TAU;
+    }
+    items.forEach(it => it.L.smp.forEach(s => { s[sh] += it.shift; }));
+  }
+  const acc = new Array(NC).fill(0);
+  for (const L of loopsInfo) for (const s of L.smp) {
+    if (!bandV) { Hint(S, s.u, s.v, 0, H); for (let k = 0; k < NC; k++) acc[k] -= H[k] * s.du; }
+    else { Uint(S, s.u, s.v, 0, H); for (let k = 0; k < NC; k++) acc[k] += H[k] * s.dv; }
+  }
+  if (pure && areaSum < 0) { const full = faceIntegrals(new Face(S, false, [])); for (let k = 0; k < NC; k++) acc[k] += full[k]; }   // the face is everything except the loops' interior
+  const out = new Array(NC); out[0] = acc[0]; for (let k = 1; k < NC; k++) out[k] = acc[k] * sign; return out;
+}
 function faceIntegrals(face) {
   let S = face.surf; const out = new Array(NC).fill(0);
   const sign = face.rev ? -1 : 1;
@@ -30735,7 +30857,7 @@ function faceIntegrals(face) {
     throw new Error('face without a boundary on a ' + S.kind);
   }
   if (S.kind === 'torus') {
-    if (!face.vrange) throw new Error('trimmed torus faces are not supported by the exact integrator');
+    if (!face.vrange) return torusTrimmed(face, S, sign);
     // a full turn about the axis between two tube angles: periodic trapezoid in u (exact for trig polynomials), Gauss-Legendre in v
     const [v0, v1] = face.vrange, [u0, u1] = face.urange || [0, TAU], nu = Math.max(8, Math.ceil(96 * (u1 - u0) / TAU)), du = (u1 - u0) / nu, np = Math.max(1, Math.ceil((v1 - v0) / (PI / 3))), g = gauss(10), t = new Array(NC);
     for (let i = 0; i < nu; i++) for (let q = 0; q < np; q++) { const a = v0 + (v1 - v0) * q / np, b = v0 + (v1 - v0) * (q + 1) / np; for (let j = 0; j < g.x.length; j++) { const v = (a + b) / 2 + g.x[j] * (b - a) / 2; if (face.urange) { for (let m = 0; m < g.x.length; m++) { const u = u0 + (i + 0.5 + g.x[m] / 2) * du; integrand(S, u, v, t); const w = g.w[j] * (b - a) / 2 * g.w[m] * du / 2; for (let k = 0; k < NC; k++) out[k] += w * t[k]; } } else { integrand(S, i * du, v, t); const w = g.w[j] * (b - a) / 2 * du; for (let k = 0; k < NC; k++) out[k] += w * t[k]; } } }
@@ -30809,6 +30931,35 @@ function mkBox(w, d, h) {
   const body = polyBody(v, [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [3, 0, 4, 7], [1, 2, 6, 5]]);
   const idx = [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [3, 0, 4, 7], [1, 2, 6, 5]];
   return { body, inside: (p) => p[0] >= 0 && p[0] <= w && p[1] >= 0 && p[1] <= d && p[2] >= 0 && p[2] <= h, tess: () => { const o = []; idx.forEach((f, i) => o.push(...fan(f.map(j => v[j]), body.faces[i]))); return o; } };
+}
+/** planar polyhedron: verts [[x,y,z]], faces [{n:[x,y,z] outward, loops:[[i,...],...]}] (first loop outer). True planes, true straight edges. */
+function mkPolyh(verts, faces) {
+  const vs = verts.map(p => new Vertex(p.slice())), edges = new Map(), out = [], pl = [];
+  const E = (a, b) => { const k = a < b ? a + ',' + b : b + ',' + a; let e = edges.get(k); if (!e) { e = new Edge('line', vs[Math.min(a, b)], vs[Math.max(a, b)]); edges.set(k, e); } return e; };
+  faces.forEach(f => {
+    if (!f.loops || !f.loops.length) throw new Error('a face without a loop');
+    const n = V.norm(f.n); if (!(V.len(n) > 0.5)) throw new Error('a face without a normal');
+    const loops = f.loops.map((l, li) => {
+      if (l.length < 3) throw new Error('a loop with fewer than 3 vertices');
+      const d = V.dot(newell(l.map(i => verts[i])), n); let L = l.slice();
+      if ((li === 0 && d < 0) || (li > 0 && d > 0)) L = L.reverse(); return L;
+    });
+    const p0 = verts[loops[0][0]], p1 = verts[loops[0][1]], fr = frame(p0, n, V.sub(p1, p0));
+    const cl = loops.map(L => L.map((a, i) => { const b = L[(i + 1) % L.length], e = E(a, b); return { edge: e, fwd: e.v0 === vs[a] }; }));
+    const face = new Face(new Plane(fr), false, cl); out.push(face); pl.push({ face, fr, loops });
+  });
+  const body = new Body(out);
+  return { body, inside: () => false, tess: () => {
+    const o = [], EC = G.CAD && G.CAD.solid && G.CAD.solid.earcut;
+    pl.forEach(({ face, fr, loops }) => {
+      if (loops.length === 1 && loops[0].length === 3) { const q = loops[0].map(i => verts[i]); o.push({ pts: q, tag: face }); return; }
+      if (!EC) { const q = loops[0].map(i => verts[i]); o.push(...fan(q, face)); return; }
+      const all = [], idx = [], P3 = [];
+      loops.forEach(L => { const ids = []; L.forEach(i => { ids.push(all.length); const p = verts[i]; P3.push(p); all.push([V.dot(V.sub(p, fr.o), fr.x), V.dot(V.sub(p, fr.o), fr.y)]); }); idx.push(ids); });
+      EC(idx, (i) => all[i]).forEach(t => { let a = t[0], b = t[1], c = t[2]; const ar = (all[b][0] - all[a][0]) * (all[c][1] - all[a][1]) - (all[b][1] - all[a][1]) * (all[c][0] - all[a][0]); if (ar < 0) { const x = b; b = c; c = x; } o.push({ pts: [P3[a], P3[b], P3[c]], tag: face }); });
+    });
+    return o;
+  } };
 }
 /** cylinder (rt === r) or frustum / cone (rt < r, rt may be 0), axis +z, base on z = 0 */
 function mkCone(r, rt, h) {
@@ -31327,13 +31478,7 @@ class Node {
 let NID = 0;
 function soupBBox(soup) { const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; soup.forEach(t => t.pts.forEach(p => { for (let k = 0; k < 3; k++) { if (p[k] < mn[k]) mn[k] = p[k]; if (p[k] > mx[k]) mx[k] = p[k]; } })); return { min: mn, max: mx }; }
 const soupVolume = (soup) => { let v = 0; soup.forEach(t => { v += V.dot(t.pts[0], V.cross(t.pts[1], t.pts[2])) / 6; }); return v; };
-function evaluate(node, res) {
-  res = res || RES_EXACT; const k = resKey(res); let ev = node.cache.get(k); if (ev) return ev;
-  if (node.kind === 'prim') { const soup = node.prim.tess(res); ev = { body: node.prim.body, soup }; }
-  else if (node.kind === 'xf') {
-    const c = evaluate(node.child, res), b = c.body.xf(node.T), idx = new Map(c.body.faces.map((f, i) => [f, i]));
-    const mp = (L) => L.map(t => ({ pts: t.pts.map(p => node.T.p(p)), tag: b.faces[idx.get(t.tag)] })); ev = { body: b, soup: mp(c.soup), dsoup: c.dsoup ? mp(c.dsoup) : null };
-  } else if (node.kind === 'bool') {
+function boolEval(node, res) {
     const a = evaluate(node.a, res), b = evaluate(node.b, res);
     const bb = soupBBox(a.soup.concat(b.soup)), scale = Math.max(1e-9, V.dist(bb.min, bb.max));
     const T0 = AK.debug ? Date.now() : 0; const polys = bspBoolean(node.op, a.soup, b.soup, scale); if (AK.debug) console.log('  bsp', Date.now() - T0, 'ms', polys.length, 'polys');
@@ -31349,8 +31494,30 @@ function evaluate(node, res) {
       if (AK.guard !== false && !(mp.volume > 0)) throw new Error('the result encloses no volume');
       if (AK.guard !== false && Math.abs(mp.volume - vr) > 0.04 * Math.max(mp.volume, vr) + 2e-3 * (va + vb)) throw new Error('exact and faceted volumes disagree (' + mp.volume.toPrecision(6) + ' vs ' + vr.toPrecision(6) + ')');
     }
-    ev = { body: r.body, soup, dsoup, scale, mp };
-  } else if (node.kind === 'brep') { ev = { body: node.body, soup: null, dsoup: null }; }
+    const ev = { body: r.body, soup, dsoup, scale, mp };
+    return ev;
+}
+const RETRY_N = [37, 41, 53];
+function boolAttempts(node, res) {
+  let err = null;
+  const tries = [res];
+  if (!res.__retry) RETRY_N.forEach((m) => tries.push(Object.assign({}, res, { minN: Math.max(res.minN || 0, m), __retry: 1 })));
+  const t0 = Date.now();
+  for (const rs of tries) {
+    if (rs !== res && Date.now() - t0 > 900) break;
+    try { const ev = boolEval(node, rs); if (rs !== res) { AK.retries = (AK.retries || 0) + 1; } return ev; } catch (e) { if (!err) err = e; }
+  }
+  throw err;
+}
+function evaluate(node, res) {
+  res = res || RES_EXACT; const k = resKey(res); let ev = node.cache.get(k); if (ev) return ev;
+  if (node.kind === 'prim') { const soup = node.prim.tess(res); ev = { body: node.prim.body, soup }; }
+  else if (node.kind === 'xf') {
+    const c = evaluate(node.child, res), b = c.body.xf(node.T), idx = new Map(c.body.faces.map((f, i) => [f, i]));
+    const flip = node.T.det() < 0, mp = (L) => L.map(t => ({ pts: (flip ? t.pts.slice().reverse() : t.pts).map(p => node.T.p(p)), tag: b.faces[idx.get(t.tag)] })); ev = { body: b, soup: mp(c.soup), dsoup: c.dsoup ? mp(c.dsoup) : null };
+  } else if (node.kind === 'bool') {
+    ev = boolAttempts(node, res);
+  } else if (node.kind === 'brep') { ev = { body: node.body, soup: node.soupFixed || null, dsoup: null, mp: node.soupFixed ? null : undefined }; if (node.soupFixed) delete ev.mp; }
   else throw new Error('unknown node ' + node.kind);
   node.cache.set(k, ev); return ev;
 }
@@ -31582,13 +31749,85 @@ function stepRead(text) {
 AK.stepWrite = stepWrite; AK.stepRead = stepRead;
 
 // ---------------------------------------------------------------- public kernel interface (the contract Aakar's exact-kernel panel expects, plus analysis extras)
-AK.version = '1.0.0';
+AK.version = '1.3.0';
 const mkNode = (kind, d) => new Node(kind, d);
 const prim = (p) => mkNode('prim', { prim: p });
 const num = (x, name) => { if (!(typeof x === 'number' && isFinite(x))) throw new Error(name + ' must be a finite number'); return x; };
 const pos = (x, name) => { if (!(num(x, name) > 0)) throw new Error(name + ' must be positive'); return x; };
 function evalExact(h) { const ev = evaluate(h, RES_EXACT); if (!ev.mp) ev.mp = massProps(ev.body); return ev; }
 const rng = (a, b) => (b - a);
+/** round the circular rim where a plane (outward normal n) meets a coaxial cylinder: the plane face shrinks (boss) or grows (hole), the wall is cut back by f and a
+ *  true torus patch joins them. The faces are copied (the source body is never changed) and the tessellation is edited in place, so the result keeps booleans, STEP and mass properties. */
+function roundRimSurgery(h, spec, f) {
+  const ev = evalExact(h); if (!ev.soup) throw new Error('this body has no tessellation to edit');
+  const body = ev.body, n = V.norm(spec.n), c = spec.c, R = spec.R, boss = !!spec.boss, sc = Math.max(1e-9, V.len(V.sub(soupBBox(ev.soup).max, soupBBox(ev.soup).min))), tol = 1e-7 * sc + 1e-9;
+  if (!(f > 0)) throw new Error('size must be positive'); if (!(R > f * 1.0001) || (boss && !(R > 2 * f * 1.0001))) throw new Error('the round needs the circle to be wider');
+  const rho = (p) => { const d = V.sub(p, c), a = V.dot(d, n); return V.len(V.sub(d, V.mul(n, a))); }, ax = (p) => V.dot(V.sub(p, c), n);
+  let rim = null; body.edges().forEach((e) => { if (e.kind === 'circle' && e.closed && Math.abs(e.r - R) < tol * 10 && V.dist(e.c, c) < tol * 10 && Math.abs(Math.abs(V.dot(V.cross(e.x, e.y), n)) - 1) < 1e-9) rim = e; });
+  if (!rim) throw new Error('rim edge not found');
+  const fs = body.faces.filter((fc) => fc.loops.some((l) => l.some((ce) => ce.edge === rim)));
+  if (fs.length !== 2) throw new Error('the rim does not border exactly two faces');
+  const Fp = fs.find((x) => x.surf.kind === 'plane'), Fc = fs.find((x) => x.surf.kind === 'cylinder'); if (!Fp || !Fc) throw new Error('the rim is not between a plane and a cylinder');
+  const P0 = rim.pt(0.3), Np = Fp.normalAt(P0), Nc = Fc.normalAt(P0), rad = V.norm(V.sub(V.sub(P0, c), V.mul(n, ax(P0))));
+  if (V.dot(Np, n) < 1 - 1e-6) throw new Error('the plane does not face the given direction');
+  if (Math.abs(V.dot(Nc, n)) > 1e-6) throw new Error('the cylinder is not coaxial'); if ((V.dot(Nc, rad) > 0) !== boss) throw new Error('boss / hole mismatch');
+  const nrm = V.cross(rim.x, rim.y), Rt = boss ? R - f : R + f, R1 = Rt;
+  const e1 = makeCircleEdge(c, nrm, rim.x, R1, 0, TAU), e2 = makeCircleEdge(V.sub(c, V.mul(n, f)), nrm, rim.x, R, 0, TAU);
+  const swap = (face, ne) => { const nf = new Face(face.surf, face.rev, face.loops.map((l) => l.map((ce) => ce.edge === rim ? { edge: ne, fwd: ce.fwd } : ce))); ['vrange', 'urange', 'tris'].forEach((k) => { if (face[k] !== undefined) nf[k] = face[k]; }); return nf; };
+  const Fp2 = swap(Fp, e1), Fc2 = swap(Fc, e2), cep = Fp.loops.flat().find((ce) => ce.edge === rim), cec = Fc.loops.flat().find((ce) => ce.edge === rim);
+  const tor = new Torus(frame(V.sub(c, V.mul(n, f)), n, rim.x), Rt, f), Fn = new Face(tor, false, [[{ edge: e1, fwd: !cep.fwd }], [{ edge: e2, fwd: !cec.fwd }]]); Fn.vrange = boss ? [0, PI / 2] : [PI / 2, PI];
+  // ---- the tessellation of a boolean result may carry chord mid-points just inside the circle: put them exactly on it (in both faces, so nothing opens)
+  const qk0 = (p) => Math.round(p[0] / (sc * 1e-8)) + ',' + Math.round(p[1] / (sc * 1e-8)) + ',' + Math.round(p[2] / (sc * 1e-8)), snapMap = new Map();
+  ev.soup.forEach((t) => { if (t.tag === Fc) t.pts.forEach((p) => { const r0 = rho(p); if (Math.abs(ax(p)) < tol * 50 && r0 > R * 0.97 && Math.abs(r0 - R) > tol * 50 && r0 < R) snapMap.set(qk0(p), V.add(c, V.add(V.mul(n, ax(p)), V.mul(V.norm(V.sub(V.sub(p, c), V.mul(n, ax(p)))), R)))); }); });
+  const S0 = ev.soup.map((t) => (t.tag === Fp || t.tag === Fc) ? { pts: t.pts.map((p) => snapMap.get(qk0(p)) || p), tag: t.tag } : t);
+  // ---- tessellation: collect the rim rings of both faces, they must agree
+  const ang = (p) => { const d = V.sub(p, c), u = V.sub(d, V.mul(n, V.dot(d, n))); return Math.atan2(V.dot(u, rim.y), V.dot(u, rim.x)); };
+  const ringOf = (face, hgt, rr) => { const A = []; S0.forEach((t) => { if (t.tag !== face) return; t.pts.forEach((p) => { if (Math.abs(ax(p) - hgt) < tol * 50 && Math.abs(rho(p) - rr) < tol * 50) A.push(ang(p)); }); }); A.sort((a, b) => a - b); const o = []; A.forEach((a) => { if (!o.length || a - o[o.length - 1] > 1e-7) o.push(a); }); if (o.length > 1 && o[0] + TAU - o[o.length - 1] < 1e-7) o.pop(); return o; };
+  const A1 = ringOf(Fp, 0, R), A2 = ringOf(Fc, 0, R); if (A1.length < 6 || A1.length !== A2.length || A1.some((a, i) => Math.abs(a - A2[i]) > 1e-6)) throw new Error('the rim rings of the two faces do not match');
+  const EC = G.CAD && G.CAD.solid && G.CAD.solid.earcut;
+  const bad = S0.some((t) => t.tag === Fc && t.pts.some((p) => ax(p) < -tol * 50 && ax(p) > -f - tol * 50));
+  if (bad) throw new Error('other geometry lies inside the round');
+  const dR = R1 - R, soup = [];
+  // the plane face is triangulated again from its loops (the rim ring keeps the angles of the wall and the torus)
+  const retessPlane = () => {
+    const qk = (p) => Math.round(p[0] / (sc * 1e-8)) + ',' + Math.round(p[1] / (sc * 1e-8)) + ',' + Math.round(p[2] / (sc * 1e-8)), pos = new Map(), de = new Map();
+    S0.forEach((t) => { if (t.tag !== Fp) return; for (let i = 0; i < 3; i++) { const p = t.pts[i], q = t.pts[(i + 1) % 3], a = qk(p), b = qk(q); if (a === b) continue; pos.set(a, p); pos.set(b, q); const k = a + '>' + b; de.set(k, (de.get(k) || 0) + 1); } });
+    const next = new Map(); de.forEach((cnt, k) => { const [a, b] = k.split('>'); const rev = b + '>' + a; const net = cnt - (de.get(rev) || 0); if (net > 0) { if (!next.has(a)) next.set(a, []); next.get(a).push(b); } });
+    const used = new Set(), loops = [];
+    next.forEach((outs, a0) => { outs.forEach((b0) => { const k0 = a0 + '>' + b0; if (used.has(k0)) return; const L = [a0]; let a = a0, b = b0, guard = 0; while (guard++ < 1e6) { used.add(a + '>' + b); if (b === a0) break; L.push(b); const nx = (next.get(b) || []).find((c) => !used.has(b + '>' + c)); if (!nx) break; a = b; b = nx; } if (L.length >= 3) loops.push(L.map((k) => pos.get(k))); }); });
+    if (!loops.length) throw new Error('plane boundary not found');
+    const bu = V.norm(V.cross(n, Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0])), bv = V.cross(n, bu), to2 = (p) => [V.dot(V.sub(p, c), bu), V.dot(V.sub(p, c), bv)];
+    const rings = loops.map((L) => {
+      const onRim = L.every((p) => Math.abs(ax(p)) < tol * 50 && Math.abs(rho(p) - R) < tol * 50);
+      if (!onRim) return L;
+      let sgn = 0; for (let i = 0; i < L.length; i++) { const da = Math.atan2(V.dot(V.sub(L[(i + 1) % L.length], c), bv), V.dot(V.sub(L[(i + 1) % L.length], c), bu)) - Math.atan2(V.dot(V.sub(L[i], c), bv), V.dot(V.sub(L[i], c), bu)); sgn += Math.atan2(Math.sin(da), Math.cos(da)); }
+      return L.map((p) => V.add(p, V.mul(V.norm(V.sub(V.sub(p, c), V.mul(n, ax(p)))), dR)));   // same angles, new radius, same direction
+    });
+    const area2 = (P) => { let a = 0; for (let i = 0; i < P.length; i++) { const p = to2(P[i]), q = to2(P[(i + 1) % P.length]); a += p[0] * q[1] - q[0] * p[1]; } return a / 2; };
+    const ar = rings.map(area2); let oi = 0; ar.forEach((x, i) => { if (Math.abs(x) > Math.abs(ar[oi])) oi = i; });
+    const ordered = [rings[oi]].concat(rings.filter((_, i) => i !== oi)).map((P, k) => { const a = area2(P); return (k === 0 && a < 0) || (k > 0 && a > 0) ? P.slice().reverse() : P; });
+    const all = [], idx = []; ordered.forEach((P) => { const ids = []; P.forEach((p) => { ids.push(all.length); all.push(p); }); idx.push(ids); });
+    const tris = EC(idx, (i) => to2(all[i])); if (!tris.length) throw new Error('plane face could not be triangulated');
+    tris.forEach((t) => { let a = all[t[0]], b = all[t[1]], cc = all[t[2]]; const g = V.cross(V.sub(b, a), V.sub(cc, a)); if (V.dot(g, n) < 0) { const x = b; b = cc; cc = x; } soup.push({ pts: [a, b, cc], tag: Fp2 }); });
+  };
+  if (!EC) throw new Error('triangulator missing');
+  retessPlane();
+  S0.forEach((t) => {
+    if (t.tag === Fp) return;
+    if (t.tag === Fc) soup.push({ pts: t.pts.map((p) => (Math.abs(ax(p)) < tol * 50 && Math.abs(rho(p) - R) < tol * 50) ? V.sub(p, V.mul(n, f)) : p), tag: Fc2 });
+    else soup.push(t);
+  });
+  const m = Math.max(4, Math.ceil(circleSegs(f, resTol(RES_EXACT, f), 16) / 4)), tc = V.sub(c, V.mul(n, f)), ptAt = (th, v) => { const u = V.add(V.mul(rim.x, Math.cos(th)), V.mul(rim.y, Math.sin(th))); return V.add(tc, V.add(V.mul(u, Rt + f * Math.cos(v)), V.mul(n, f * Math.sin(v)))); };
+  const v0 = boss ? 0 : PI / 2, v1 = boss ? PI / 2 : PI;
+  for (let i = 0; i < A1.length; i++) { const t0 = A1[i], t1 = i + 1 < A1.length ? A1[i + 1] : A1[0] + TAU; for (let j = 0; j < m; j++) {
+    const va = v0 + (v1 - v0) * j / m, vb = v0 + (v1 - v0) * (j + 1) / m, a0 = ptAt(t0, va), a1 = ptAt(t1, va), b0 = ptAt(t0, vb), b1 = ptAt(t1, vb);
+    [[a0, a1, b1], [a0, b1, b0]].forEach((q) => { const g = V.cross(V.sub(q[1], q[0]), V.sub(q[2], q[0])), cen = V.mul(V.add(V.add(q[0], q[1]), q[2]), 1 / 3), th = Math.atan2(V.dot(V.sub(cen, c), rim.y), V.dot(V.sub(cen, c), rim.x)), out = V.sub(cen, ptAt(th, PI * 0 + (v0 + v1) / 2 > 0 ? 0 : 0)) ; void out; const cc = V.sub(cen, V.add(tc, V.mul(V.norm(V.sub(V.sub(cen, tc), V.mul(n, V.dot(V.sub(cen, tc), n)))), Rt))); soup.push({ pts: V.dot(g, cc) >= 0 ? q : [q[0], q[2], q[1]], tag: Fn }); });
+  } }
+  const nb = new Body(body.faces.map((x) => x === Fp ? Fp2 : x === Fc ? Fc2 : x).concat([Fn]));
+  const mp = massProps(nb), v0s = Math.abs(soupVolume(S0)), vs = soupVolume(soup);
+  if (!(mp.volume > 0) || !(mp.volume < (ev.mp ? ev.mp.volume : massProps(body).volume) - 1e-12) || Math.abs(mp.volume - vs) > 0.03 * mp.volume) throw new Error('the rounded body failed its volume check (' + mp.volume + ' vs ' + vs + ')');
+  void v0s; const node = mkNode('brep', { body: nb }); node.soupFixed = soup; return node;
+}
 const kernel = {
   name: 'AakarKernel', version: AK.version, isAakarKernel: true,
   // --- primitives (the placement convention matches the Aakar replay: box corner and cylinder / cone base on the origin, sphere centred on it)
@@ -31599,6 +31838,8 @@ const kernel = {
   faces: (h) => evalExact(h).body.faces.map((f) => ({ kind: f.surf.kind, o: f.surf.o.slice(), x: f.surf.x.slice(), z: f.surf.z.slice(), r: f.surf.r, R: f.surf.R, k: f.surf.k, rev: !!f.rev })),
   revolve: (loops, ang) => prim(mkRevolve(loops, ang)),
   extrude: (loops, h) => prim(mkExtrude(loops, pos(h, 'height'))),
+  polyhedron: (verts, faces) => prim(mkPolyh(verts, faces)),
+  roundRim: (h, spec, f) => roundRimSurgery(h, spec, f),
   transform: (hnd, Rm, t) => mkNode('xf', { child: hnd, T: new Xf(Rm.slice(), t.slice()) }),
   torus: (R, r) => { if (!(r > 0 && R > r)) throw new Error('torus needs 0 < minor radius < major radius'); return prim(mkTorus(R, r)); },
   // --- transforms
@@ -31623,6 +31864,8 @@ const kernel = {
   meshInfo: (h, tol) => { const ev = evaluate(h, meshRes(tol)); return { mesh: toMesh(ev), faces: ev.body.faces.map((f) => ({ kind: f.surf.kind, o: f.surf.o.slice(), x: f.surf.x.slice(), z: f.surf.z.slice(), r: f.surf.r, R: f.surf.R, k: f.surf.k, rev: !!f.rev })) }; },
   // --- exchange
   stepExport: (h, opts) => stepWrite([evalExact(h).body], opts),
+  /** several bodies in one STEP file (one shape each) */
+  stepExportAll: (hs, opts) => stepWrite(hs.map((h) => evalExact(h).body), opts),
   stepImport: (text) => { const L = stepRead(typeof text === 'string' ? text : new TextDecoder().decode(text)); return mkNode('brep', { body: L[0].body, name: L[0].name }); },
   stepImportAll: (text) => stepRead(typeof text === 'string' ? text : new TextDecoder().decode(text)).map(x => mkNode('brep', { body: x.body, name: x.name }))
 };
@@ -31678,7 +31921,29 @@ G.AakarKernel = AK;
     });
   };
   X.showProps = function () { try { X.lastProps = X.properties(); } catch (e) { try { (IK && IK.toast ? IK.toast : P.toast)(e.message, true); } catch (e2) { /* ignore */ } } X.openPanel(); };
+  /** an INSTALLED kernel: a newer AakarKernel built by the GitHub workflow and placed in the folder kernel/ next to this file (the exe carries it inside app/kernel/).
+   *  It is a drop-in engine, like OpenCascade, and is used automatically when it is newer than the built-in one (unless you chose the built-in one). */
+  const vnum = (v) => String(v || '0').split('.').map((x) => +x || 0), newer = (a, b) => { const A = vnum(a), B = vnum(b); for (let i = 0; i < 3; i++) { if ((A[i] || 0) !== (B[i] || 0)) return (A[i] || 0) > (B[i] || 0); } return false; };
+  X.installed = { checked: false, found: false };
+  X.checkInstalledKernel = function () {
+    return new Promise((res) => {
+      const fin = (ok, why) => { const k = ok && G.AakarKernelInstalled && G.AakarKernelInstalled.kernel; X.installed = { checked: true, found: !!k, reason: why || '', version: k ? k.version : '', newer: k ? newer(k.version, K.version) : false, at: new Date().toLocaleTimeString() }; try { chip(); if (X.openPanelRefresh) X.openPanelRefresh(); } catch (e) { /* ignore */ } res(X.installed); };
+      try {
+        if (G.AakarKernelInstalled && G.AakarKernelInstalled.kernel) return fin(true);
+        const d = G.document; if (!d) return fin(false, 'no document');
+        const el = d.createElement('script'); el.src = 'kernel/aakar-kernel.installable.js'; el.async = true;
+        el.onload = () => fin(!!(G.AakarKernelInstalled && G.AakarKernelInstalled.kernel), 'the file loaded but holds no kernel'); el.onerror = () => { el.remove(); fin(false, 'folder kernel/ not found next to this file'); }; d.head.appendChild(el);
+      } catch (e) { fin(false, e.message || String(e)); }
+    });
+  };
+  X.useInstalledKernel = function (remember) {
+    const A = G.AakarKernelInstalled; if (!A || !A.kernel) throw new Error('No installed kernel was found. Run Check first.');
+    if (!A.kernel.construct && K.construct) A.kernel.construct = K.construct;
+    X.useKernel(A.kernel, { name: 'AakarKernel (installed)', version: A.kernel.version });
+    X.useExactBooleans = stored() !== '0'; if (remember) pref('installed'); chip(); refresh(); return X;
+  };
   X.useAakarKernel();
+  try { G.setTimeout(() => { X.checkInstalledKernel().then((r) => { if (r.found && pref() !== 'aakar' && (pref() === 'installed' || r.newer) && X.name === 'AakarKernel') { try { X.useInstalledKernel(); X.log.push('installed AakarKernel ' + r.version + ' is active'); } catch (e) { /* stays built-in */ } } }); }, 700); } catch (e) { /* ignore */ }
   if (pref() === 'occt') { try { G.setTimeout(() => { X.useOpenCascade().then(chip); }, 400); } catch (e) { /* ignore */ } }
   // status-bar chip
   try {
@@ -34047,7 +34312,7 @@ body.x855 #x86fab{display:none!important}
   'use strict';
   const AK = G.AakarKernel, CAD = G.CAD; if (!AK || !AK.kernel) return;
   const K = AK.kernel;
-  K.version = AK.version = '1.1.0';
+  K.version = AK.version = '1.3.0';
   K.features = ['exact-brep', 'booleans', 'mass-properties', 'step', 'clash', 'persistent-face-ids'];
   const tri9 = (m) => { const out = new Float64Array(m.indices.length * 3), p = m.positions; for (let i = 0; i < m.indices.length; i++) { const v = m.indices[i] * 3; out[i * 3] = p[v]; out[i * 3 + 1] = p[v + 1]; out[i * 3 + 2] = p[v + 2]; } return out; };
   const scaleOf = (m) => { let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; for (let i = 0; i < m.positions.length; i += 3) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], m.positions[i + k]); mx[k] = Math.max(mx[k], m.positions[i + k]); } return Math.hypot(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]); };
@@ -34123,11 +34388,12 @@ body.x855 #x86fab{display:none!important}
   /** body - cutter. The first cutter that the boolean accepts is used (touching and tangent surfaces make some placements numerically fragile). */
   K.roundEdge = (h, spec, type, size, tol) => {
     let last = null;
+    if (spec.kind === 'circle' && type === 'fillet' && K.roundRim) { try { const node = K.roundRim(h, spec, size); K.volume(node); K.mesh(node, size * 0.05); return node; } catch (e) { last = e; } }
     for (const v of (spec.kind === 'circle' && type === 'fillet' ? VARIANTS_FILLET_CIRCLE : VARIANTS_LINE)) { try { const node = K.cut(h, K.roundCutter(spec, type, size, v)); K.volume(node); [size * 0.05, size * 0.01, size * 0.002].concat(tol > 0 ? [tol] : []).forEach((t) => K.mesh(node, t)); return node; } catch (e) { last = e; if (/only right-angle|more than twice|smaller than the round|wider than the circle|positive|no length/.test(e.message)) throw e; } }
     throw last;
   };
-  K.features = (K.features || []).concat(['round-edges']);
-  K.version = AK.version = '1.2.0';
+  K.features = (K.features || []).concat(['round-edges', 'round-rim-torus', 'mirror', 'polyhedron', 'trimmed-torus-massprops', 'boolean-retry']);
+  K.version = AK.version = '1.3.0';
 })(window.AakarKernel);
 </script>
 <script id="aakar-hdri">
@@ -38926,7 +39192,7 @@ const SurfPath = (function () {
     const AK = G.AakarKernel;
     if (AK) {
       AK.construct = A; if (AK.kernel) AK.kernel.construct = A;
-      AK.version = '1.1.0'; if (AK.kernel) AK.kernel.version = '1.1.0';
+      AK.version = '1.3.0'; if (AK.kernel) AK.kernel.version = '1.3.0';
       A.selfTest = function () {
         const T = [], t = (n, c) => T.push({ name: n, ok: !!c }), near = (a, b, e) => Math.abs(a - b) <= (e || 1e-9), nv = (a, b) => V.dist(a, b) <= 1e-9;
         t('plane offset', nv(A.planeOffset(A.stdPlane('XY'), 7).o, [0, 0, 7]));
@@ -40067,7 +40333,7 @@ const SurfPath = (function () {
     let res = s;
     for (const c of addC) { const r = bool('union', res, c); if (r.length !== 1) throw new Error('Healing produced a split body (union)'); res = r[0]; }
     for (const c of rmC) { const r = bool('subtract', res, c); if (r.length !== 1) throw new Error('Healing produced a split body (cut)'); res = r[0]; }
-    const v = S.validate(res, null, { skipSelfIntersect: true }); if (!v.ok) throw new Error('The healed body is not valid (' + (v.reason || 'unknown') + ') — try deleting more of the surrounding faces');
+    const v = S.validate(res, null, { skipSelfIntersect: true, minFeature: sc * 1e-5 }); if (!v.ok) throw new Error('The healed body is not valid (' + (v.reason || 'unknown') + ') — try deleting more of the surrounding faces');
     return { solid: res, added: addC.length, removed: rmC.length, mode: intersectMode ? 'extend' : 'fill' };
   }
   function openShell(s, D) {
@@ -44599,7 +44865,7 @@ File.prototype.text=function(){var f=this;return f.slice(0,8).arrayBuffer().then
 
   // ====================================================================================================== 1 · FLOATING SELECTION BAR
   const CTXSETS = {
-    face: [['drawf', 'Draw', 'Draw a rectangle / circle / line directly on this face (Alt+D)', 'rectd'], ['sketch', 'Sketch', 'Open the sketch editor on this face'], ['pull', 'Push/Pull', 'Push / Pull this face (Alt+P)'], ['offset', 'Offset', 'Offset face by a distance'], ['move', 'Move', 'Move with the Gumball'], ['align', 'Align', 'Mate this face onto a face of another body (Alt+A)'], ['hole', 'Hole', 'Hole wizard on this face'], ['draft', 'Draft', 'Draft angle on this face'], ['mirrorf', 'Mirror', 'Mirror the body across this face'], ['roundf', 'Round edges', 'Round EVERY sharp edge of this face with one value', 'fillet'], ['chamf', 'Chamfer edges', 'Chamfer EVERY sharp edge of this face with one value', 'chamfer'], ['simf', 'Similar', 'Select every face like this one (same size / same radius)', 'sel'], ['sel', 'Select+', 'Select tangent chain, loop, similar faces'], ['oneface', 'One face', 'Treat the facets of this face (hole, split, tilted) as ONE face — Sketch, Draw and Push/Pull then use the whole face', 'one'], ['many', 'Select many', 'All coplanar / parallel / same-area faces, box select, one by one …', 'qsel']],
+    face: [['drawf', 'Draw', 'Draw a rectangle / circle / line directly on this face (Alt+D)', 'rectd'], ['sketch', 'Sketch', 'Open the sketch editor on this face'], ['pull', 'Push/Pull', 'Push / Pull this face (Alt+P)'], ['offset', 'Offset', 'Offset face by a distance'], ['move', 'Move', 'Move with the Gumball'], ['align', 'Align', 'Mate this face onto a face of another body (Alt+A)'], ['hole', 'Hole', 'Hole wizard on this face'], ['draft', 'Draft', 'Draft angle on this face'], ['mirrorf', 'Mirror', 'Mirror the body across this face'], ['roundf', 'Round edges', 'Round EVERY sharp edge of this face with one value', 'fillet'], ['chamf', 'Chamfer edges', 'Chamfer EVERY sharp edge of this face with one value', 'chamfer'], ['delface', 'Delete face', 'Delete the selected face(s) and heal the gap: the neighbours are extended (removes holes, pockets, bosses, rounds, chamfers)', 'del'], ['replface', 'Replace face', 'Replace the selected face(s) with a plane, a flat face or a surface'], ['splitface', 'Split face', 'Divide the selected face along a line you draw on it'], ['rmround', 'Remove round', 'Select a round (fillet) and remove it: the sharp edge comes back'], ['rsround', 'Resize round', 'Select a round and give it a new radius'], ['holesize', 'Hole / boss Ø', 'Drag the handle or type a new diameter for the selected hole or boss, with a live value'], ['simcon', 'Concentric', 'Select every round face that shares this face\'s axis'], ['simf', 'Similar', 'Select every face like this one (same size / same radius)', 'sel'], ['sel', 'Select+', 'Select tangent chain, loop, similar faces'], ['oneface', 'One face', 'Treat the facets of this face (hole, split, tilted) as ONE face — Sketch, Draw and Push/Pull then use the whole face', 'one'], ['many', 'Select many', 'All coplanar / parallel / same-area faces, box select, one by one …', 'qsel']],
     edge: [['placeedge', 'Place on edge', 'Move this body so THIS edge sits on an edge of another body (Alt+E)', 'e2e'], ['fillet', 'Fillet', 'Drag Fillet (Alt+R) — one click picks the whole tangent chain'], ['chamfer', 'Chamfer', 'Drag Chamfer (Alt+H)'], ['move', 'Move', 'Move with the Gumball'], ['sel', 'Select+', 'Select tangent chain / loop'], ['many', 'Select many', 'Parallel edges, same length, all sharp edges, box select, one by one …', 'qsel']],
     vertex: [['move', 'Move', 'Move with the Gumball']],
     body: [['move', 'Move', 'Move / rotate / scale with the Gumball (Alt-drag an arrow to copy)'], ['movet', 'Move…', 'Type exact distances along X, Y and Z', 'move'], ['rott', 'Rotate…', 'Type exact angles about X, Y and Z', 'rot'], ['place', 'Place', 'Click the spot where the body goes — snaps to corners, mid-points and centres'], ['stamp', 'Copy to…', 'Copy this body onto points: click spots, corners, mid-points or centres (type an offset or a turn)'], ['hollow', 'Hollow', 'Hollow the body in one step: type the wall, the top (or the selected face) stays open', 'hlw'], ['roundb', 'Round all', 'Round every sharp edge of the body with one value', 'fillet'], ['drop', 'Drop', 'Put the body on the ground (lowest point at Z = 0)', 'drp'], ['centre', 'Centre', 'Centre the body on the origin (X, Y)', 'ctr'], ['pattern', 'Pattern', 'Linear or circular pattern — drag the handle'], ['mirror', 'Mirror', 'Mirror across a world plane or any face'], ['shell', 'Shell', 'Hollow the body'], ['scale', 'Scale', 'Scale the body'], ['e2e', 'Edge→Edge', 'Pick an edge of this body, then an edge of another body: it moves there (Alt+E)'], ['qb', 'Combine', 'Quick boolean with an overlapping body (Alt+B)'], ['split', 'Split', 'Split the body with a plane'], ['copy', 'Copy', 'Duplicate the body'], ['many', 'Select many', 'All bodies, touching bodies, box select, one by one …', 'qsel'], ['del', 'Delete', 'Delete the body']],
@@ -44705,6 +44971,7 @@ File.prototype.text=function(){var f=this;return f.slice(0,8).arrayBuffer().then
       if (a === 'draft') return run('pxdraft');
       if (a === 'split') return run('pxsplit');
       if (a === 'copy') return run('dup');
+      if (DM[a]) return DM[a]();
       if (a === 'del') return run('del');
       if (a === 'union') return run('uni');
       if (a === 'subtract') return run('sub');
@@ -44748,10 +45015,11 @@ File.prototype.text=function(){var f=this;return f.slice(0,8).arrayBuffer().then
     sketchpull: { title: 'Pull profile', label: 'Distance', unit: 'mm', need: null },
     linear: { title: 'Pattern', label: 'Spacing', unit: 'mm', need: 'body' },
     circ: { title: 'Pattern', label: 'Angle step', unit: '°', need: 'body' },
-    mirror: { title: 'Mirror', label: 'Plane offset', unit: 'mm', need: 'body' }
+    mirror: { title: 'Mirror', label: 'Plane offset', unit: 'mm', need: 'body' },
+    holesize: { title: 'Hole / boss size', label: 'Radius change', unit: 'mm', need: 'face' }
   };
-  const SLIDE = (k) => k === 'pushpull' || k === 'sketchpull' || k === 'linear' || k === 'mirror';       // handle slides along S.dir
-  const SIGNED = (k) => k === 'pushpull' || k === 'sketchpull' || k === 'linear' || k === 'mirror' || k === 'circ';
+  const SLIDE = (k) => k === 'pushpull' || k === 'sketchpull' || k === 'linear' || k === 'mirror' || k === 'holesize';       // handle slides along S.dir
+  const SIGNED = (k) => k === 'pushpull' || k === 'sketchpull' || k === 'linear' || k === 'mirror' || k === 'circ' || k === 'holesize';
   const sidesOf = (S) => (S.kind === 'sketchpull' && S.dirMode) || 'one';
   const validVal = (S, v) => (sidesOf(S) === 'two' ? Math.abs(v) + Math.abs(S.dist2 || 0) > 1e-9 : S.kind === 'mirror' ? isFinite(v) : S.kind === 'circ' ? Math.abs(v) > 1e-6 : SIGNED(S.kind) ? Math.abs(v) > 1e-9 : v > 1e-9);
   const fmtV = (v) => ((cardS && cardS.kind === 'circ') || !U ? String(+(+v).toFixed(4)) : U.fmt(v, 6));
@@ -44781,6 +45049,7 @@ File.prototype.text=function(){var f=this;return f.slice(0,8).arrayBuffer().then
     if (k === 'fillet' || k === 'chamfer') return { type: k, params: { body: b.key, edges: S.sel.edges.map((le) => F.edgeRef(b.solid, le)), r: r6(v), segs: 8 } };
     if (k === 'linear') { const d = v3.scale(S.dir, v); return { type: 'linearPattern', params: { body: b.key, n: S.count, dx: r6(d[0]), dy: r6(d[1]), dz: r6(d[2]) } }; }
     if (k === 'circ') return { type: 'frmCircPattern', params: { body: b.key, n: S.count, step: r6(S.full ? 360 / S.count : v), o: S.about === 'body' ? S.centre.map(r6) : [0, 0, 0], dir: S.dir.slice() } };
+    if (k === 'holesize') return { type: 'holeResize', params: { body: b.key, faces: S.sel.faces.map((fi) => F.faceRef(b.solid, fi)), dr: r6(v) } };
     if (k === 'mirror') return { type: 'frmMirror', params: { body: b.key, n: S.dir.map(r6), d: r6(v3.dot(S.dir, S.pivot) + v), keep: S.keep !== false } };
     return null;
   }
@@ -44792,10 +45061,11 @@ File.prototype.text=function(){var f=this;return f.slice(0,8).arrayBuffer().then
   }
   const cardName = (S, v) => {
     const k = S.kind;
-    return k === 'pushpull' ? 'Push/Pull ' + (v > 0 ? '+' : '−') + lenTxt(v) : k === 'fillet' ? 'Fillet R' + lenTxt(v) : k === 'chamfer' ? 'Chamfer ' + lenTxt(v)
+    return k === 'holesize' ? 'Resize Ø ' + lenTxt(2 * ((S.r0 || 0) + v)) : k === 'pushpull' ? 'Push/Pull ' + (v > 0 ? '+' : '−') + lenTxt(v) : k === 'fillet' ? 'Fillet R' + lenTxt(v) : k === 'chamfer' ? 'Chamfer ' + lenTxt(v)
       : k === 'sketchpull' ? (sidesOf(S) === 'sym' ? 'Pull ↔ ' + lenTxt(v) : sidesOf(S) === 'two' ? 'Pull ' + lenTxt(v) + ' + ' + lenTxt(S.dist2 || 0) : 'Pull ' + (v > 0 ? '+' : '−') + lenTxt(v)) : k === 'linear' ? 'Linear pattern ×' + S.count : k === 'circ' ? 'Circular pattern ×' + S.count : 'Mirror';
   };
   const modeText = (S, v) => {
+    if (S.kind === 'holesize') return (S.boss ? 'Boss' : 'Hole') + ' Ø ' + lenTxt(2 * S.r0) + '  →  Ø ' + lenTxt(2 * (S.r0 + v)) + (S.r0 + v <= 0 ? '   ⚠ too small' : '');
     if (S.kind === 'pushpull') return Math.abs(v) < 1e-9 ? '' : v > 0 ? '＋ Join · adds material' : '− Cut · removes material';
     if (S.kind === 'sketchpull') {
       if (!validVal(S, v)) return ''; if (S.op === null) return '⚠ Choose what it does: New body · Join · Cut · Intersect';
@@ -44938,6 +45208,123 @@ File.prototype.text=function(){var f=this;return f.slice(0,8).arrayBuffer().then
     });
     document.addEventListener('keydown', kd, true);
   }
+  // ====================================================================================================== 2b · DIRECT MODELLING (faces)
+  const DM = {};
+  const dv = { sub: v3.sub, add: v3.add, dot: v3.dot, cross: v3.cross, scale: v3.scale, len: v3.len, norm: v3.norm };
+  /** is the selected face (with the facets of its group) a cylindrical wall? returns axis, centre, radius, extent, hole / boss and the ends */
+  function cylFit(s, fis) {
+    const g0 = s.F[fis[0]].group, set = new Set(fis), D = fis.slice();
+    if (g0) s.F.forEach((f, i) => { if (f.group === g0 && !set.has(i)) { set.add(i); D.push(i); } });
+    if (D.length < 3) return null;
+    let best = null; for (let i = 0; i < D.length; i++) for (let j = i + 1; j < D.length; j++) { const c = dv.cross(s.F[D[i]].n, s.F[D[j]].n), l = dv.len(c); if (!best || l > best.l) best = { c, l }; }
+    if (!best || best.l < 0.15) return null; const a = dv.norm(best.c);
+    if (D.some((i) => Math.abs(dv.dot(s.F[i].n, a)) > 0.06)) return null;
+    const vs = new Map(); D.forEach((i) => s.F[i].loops.forEach((l) => l.forEach((v) => vs.set(v, s.V[v])))); const P = [...vs.values()];
+    const u = dv.norm(dv.cross(a, Math.abs(a[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0])), w = dv.cross(a, u), org = P[0];
+    const q = P.map((p) => [dv.dot(dv.sub(p, org), u), dv.dot(dv.sub(p, org), w)]);
+    // Kasa circle fit: x²+y² = A x + B y + C
+    let Sxx = 0, Sxy = 0, Syy = 0, Sx = 0, Sy = 0, Sxz = 0, Syz = 0, Sz = 0; const n = q.length;
+    q.forEach(([x, y]) => { const z = x * x + y * y; Sxx += x * x; Sxy += x * y; Syy += y * y; Sx += x; Sy += y; Sxz += x * z; Syz += y * z; Sz += z; });
+    const M = [[Sxx, Sxy, Sx, Sxz], [Sxy, Syy, Sy, Syz], [Sx, Sy, n, Sz]];
+    for (let i = 0; i < 3; i++) { let p = i; for (let r = i + 1; r < 3; r++) if (Math.abs(M[r][i]) > Math.abs(M[p][i])) p = r; if (Math.abs(M[p][i]) < 1e-12) return null; [M[i], M[p]] = [M[p], M[i]]; for (let r = i + 1; r < 3; r++) { const f = M[r][i] / M[i][i]; for (let c = i; c < 4; c++) M[r][c] -= f * M[i][c]; } }
+    const sol = [0, 0, 0]; for (let i = 2; i >= 0; i--) { let t = M[i][3]; for (let c = i + 1; c < 3; c++) t -= M[i][c] * sol[c]; sol[i] = t / M[i][i]; }
+    const cx = sol[0] / 2, cy = sol[1] / 2, r = Math.sqrt(Math.max(0, sol[2] + cx * cx + cy * cy)); if (!(r > 1e-9)) return null;
+    if (q.some(([x, y]) => Math.abs(Math.hypot(x - cx, y - cy) - r) > 0.03 * r)) return null;
+    const c0 = dv.add(org, dv.add(dv.scale(u, cx), dv.scale(w, cy)));
+    let lo = Infinity, hi = -Infinity; P.forEach((p) => { const t = dv.dot(dv.sub(p, c0), a); lo = Math.min(lo, t); hi = Math.max(hi, t); });
+    const radOf = (p) => { const d = dv.sub(p, c0), t = dv.dot(d, a); return dv.sub(d, dv.scale(a, t)); };
+    let out = 0; D.forEach((i) => { const cen = s.faceCentroid(i); out += dv.dot(s.F[i].n, radOf(cen)) > 0 ? 1 : -1; }); const boss = out > 0;
+    // ends: 'surround' = the circle is an inner loop of a bigger face (the hole mouth, or where a boss meets its base); 'cap' = the circle is a whole face (hole floor, boss top)
+    const ends = [lo, hi].map((e) => { let kind = 'none'; s.F.forEach((f, i) => { if (set.has(i) || Math.abs(dv.dot(f.n, a)) < 0.999) return; f.loops.forEach((l, li) => { if (!l.every((v) => Math.abs(dv.dot(dv.sub(s.V[v], c0), a) - e) < 1e-4 * Math.max(1, r) )) return; const near = l.filter((v) => Math.abs(dv.len(radOf(s.V[v])) - r) < 0.03 * r).length; if (near < l.length * 0.9) return; kind = li === 0 && f.loops.length === 1 ? 'cap' : 'surround'; }); }); return kind; });
+    const ring = P.filter((p) => Math.abs(dv.dot(dv.sub(p, c0), a) - lo) < 1e-6 * Math.max(1, r)); const p0 = ring.length ? ring[0] : P[0], ph = Math.atan2(dv.dot(radOf(p0), w), dv.dot(radOf(p0), u));
+    return { a, u, w, c0, r, lo, hi, boss, ends, D, nseg: Math.max(24, ring.length), phase: ph };
+  }
+  function discTool(fit, r, t0, t1, nseg) {
+    const pts = []; for (let i = 0; i < nseg; i++) { const th = fit.phase + 2 * Math.PI * i / nseg; pts.push(dv.add(fit.c0, dv.add(dv.scale(fit.u, r * Math.cos(th)), dv.scale(fit.w, r * Math.sin(th))))); }
+    return CAD.solid.prismFromLoops([pts], fit.a, t0, t1, null);
+  }
+  function resizeSolid(s, fis, dr) {
+    const fit = cylFit(s, fis); if (!fit) throw new Error('Select the wall of a round hole or boss (a cylindrical face)');
+    const r1 = fit.r + dr; if (!(r1 > 1e-6)) throw new Error('The new diameter must stay above zero');
+    if (Math.abs(dr) < 1e-9) return s;
+    const mg = Math.max(fit.r, fit.hi - fit.lo) * 0.2 + 1, ext = (k) => (fit.ends[k] === 'surround' ? mg : 0), one = (k) => k;
+    const bool = (kind, a, b) => { const r = CAD.csg.boolean(kind, a, b); if (r.length !== 1) throw new Error('The resize split or emptied the body'); return r[0]; };
+    const nseg = fit.nseg; let cur = s;
+    if (!fit.boss) {
+      if (dr < 0) cur = bool('union', cur, discTool(fit, fit.r * 1.0005 + 1e-4, fit.lo, fit.hi, nseg));       // fill the old hole
+      cur = bool('subtract', cur, discTool(fit, r1, fit.lo - ext(0), fit.hi + ext(1), nseg)); void one;
+    } else if (dr > 0) {
+      cur = bool('union', cur, discTool(fit, r1, fit.lo - ext(0), fit.hi + ext(1), nseg));
+    } else {
+      cur = bool('subtract', cur, discTool(fit, fit.r * 1.0005 + 1e-4, fit.lo - (fit.ends[0] === 'surround' ? 0 : mg), fit.hi + (fit.ends[1] === 'surround' ? 0 : mg), nseg));
+      cur = bool('union', cur, discTool(fit, r1, fit.lo - ext(0), fit.hi, nseg));
+    }
+    return cur;
+  }
+  CAD.featNames.holeResize = 'Resize hole / boss';
+  CAD.featExt.holeResize = (f, st2, h) => {
+    const p = f.params || {}, b = h.bodyOf(st2, p.body), fis = (p.faces || []).map((r) => { const i = CAD.feat.resolveFace(b.solid, r); if (i < 0) throw new Error('The face was not found'); return i; });
+    h.setSolid(st2, b, resizeSolid(b.solid, fis, +p.dr)); return st2;
+  };
+  function selFaceTokens(b, fis) { return fis.map((fi) => ({ k: 'face', body: b.key, ref: F.faceRef(b.solid, fi) })); }
+  function needFace(what) { const s = st.sel; if (!s || s.type !== 'face' || !s.bodyId) { toast('Select a face first (Face filter), then ' + what + '.', true); return null; } const b = bodyOf(s.bodyId); return b ? { b, s } : null; }
+  const groupOf = (solid, fis) => { const g = solid.F[fis[0]].group, set = new Set(fis); if (g) solid.F.forEach((f, i) => { if (f.group === g) set.add(i); }); return [...set]; };
+  DM.delface = () => { const x = needFace('Delete face'); if (!x) return; try { CAD.ref.openPanel('solDelFace', { s: { faces: selFaceTokens(x.b, x.s.faces) } }); } catch (e) { toast(e.message || String(e), true); } };
+  DM.replface = () => { const x = needFace('Replace face'); if (!x) return; try { CAD.ref.openPanel('solReplFace', { s: { faces: selFaceTokens(x.b, x.s.faces) } }); } catch (e) { toast(e.message || String(e), true); } };
+  DM.splitface = () => { try { const a = W1.shapeApi && W1.shapeApi.cmdSplitFace; if (!a) return toast('Split face is not available', true); a(); } catch (e) { toast(e.message || String(e), true); } };
+  /** a round made by the exact kernel is the top step of the body's recipe: peel it (or redo it with another radius) without any healing */
+  function exactRound(solid) {
+    const X = CAD.exact; if (!X || X.state !== 'ready' || !X.recipeOf) return null; let r = X.recipeOf(solid); if (!r || r.op !== 'round') return null;
+    const top = r, specs = []; while (r && r.op === 'round' && r.type === top.type && r.r === top.r) { specs.push(r.spec); r = r.a; } return { base: r, specs: specs.reverse(), type: top.type, r: top.r, tol: top.tol };
+  }
+  CAD.featNames.exactRound = 'Round (exact kernel)';
+  CAD.featExt.exactRound = (f, st2, h) => {
+    const p = f.params || {}, X = CAD.exact, b = h.bodyOf(st2, p.body), info = exactRound(b.solid); if (!info) throw new Error('This body has no exact round to change');
+    let rc = info.base; if (p.mode === 'resize') { if (!(+p.r > 0)) throw new Error('The radius must be above zero'); info.specs.forEach((sp) => { rc = { op: 'round', a: rc, spec: sp, type: info.type, r: +p.r, tol: info.tol }; }); }
+    const k = X.kernel, hh = X.replay(rc), out = X.meshToSolids(k.mesh(hh, info.tol || 1e-3)); if (out.length !== 1) throw new Error('The result split into several bodies');
+    X.tag(out[0], rc); h.setSolid(st2, b, out[0]); return st2;
+  };
+  DM.rmround = () => {
+    const x = needFace('Remove round'); if (!x) return; const fis = groupOf(x.b.solid, x.s.faces);
+    if (exactRound(x.b.solid)) { const f0 = P.commitFeature({ type: 'exactRound', name: 'Remove round', params: { body: x.b.key, mode: 'remove' } }, true); if (f0 && f0._status && f0._status.level === 'error') { try { P.undo(); } catch (e) { /* ignore */ } return toast('Could not remove the round: ' + f0._status.msg, true); } setSel(null); return status('Round removed (exact)'); }
+    const f = P.commitFeature({ type: 'solDelFace', name: 'Remove round', params: { mode: 'heal', s: { faces: selFaceTokens(x.b, fis) } } }, true);
+    if (f && f._status && f._status.level === 'error') { try { P.undo(); } catch (e) { /* ignore */ } return toast('Could not remove the round: ' + f._status.msg, true); }
+    setSel(null); status('Round removed: ' + fis.length + ' face(s) deleted and healed');
+  };
+  DM.rsround = async () => {
+    const x = needFace('Resize round'); if (!x) return; const s = x.b.solid, fis = groupOf(s, x.s.faces), fit = cylFit(s, fis), ex = exactRound(s);
+    if (!fit && !ex) return toast('Select a round (a curved face between two flat faces)', true);
+    const r0 = ex ? ex.r : fit.r, v = await skDialog('Resize round', [{ key: 'r', label: 'New radius (mm)', value: String(+r0.toFixed(4)) }]); if (!v) return; const r = +v.r; if (!(r > 0)) return toast('Enter a radius above zero', true);
+    if (Math.abs(r - r0) < 1e-9) return status('Same radius, nothing to do');
+    if (ex) { const f0 = P.commitFeature({ type: 'exactRound', name: 'Round R' + lenTxt(r), params: { body: x.b.key, mode: 'resize', r: +r.toFixed(6) } }, true); if (f0 && f0._status && f0._status.level === 'error') { try { P.undo(); } catch (e) { /* ignore */ } return toast('The new round did not fit: ' + f0._status.msg, true); } setSel(null); return status('Round resized (exact): R' + lenTxt(r0) + ' → R' + lenTxt(r)); }
+    let healed; try { healed = CAD.ref.solf.healFaces(s, fis).solid; } catch (e) { return toast('Could not take the round off: ' + e.message, true); }
+    // the sharp edge that comes back: shared by the two neighbouring planes of the round
+    const inD = new Set(fis), dvs = new Set(); fis.forEach((i) => s.F[i].loops.forEach((l) => l.forEach((vv) => dvs.add(vv))));
+    const nb = []; s.F.forEach((f, i) => { if (inD.has(i)) return; let sh = 0; f.loops.forEach((l) => { for (let k = 0; k < l.length; k++) { const a1 = l[k], c1 = l[(k + 1) % l.length]; if (dvs.has(a1) && dvs.has(c1)) sh += dv.len(dv.sub(s.V[a1], s.V[c1])); } }); if (sh > 1e-9) nb.push({ n: f.n, d: f.d, sh }); });
+    const planes = []; nb.sort((p, q) => q.sh - p.sh).forEach((p) => { if (!planes.some((q) => dv.dot(q.n, p.n) > 1 - 1e-9 && Math.abs(q.d - p.d) < 1e-6 * Math.max(1, s.scale()))) planes.push(p); });
+    const les = CAD.solver.logicalEdges(healed).filter((le) => { if (!le.faces || le.faces.length !== 2) return false; const a = healed.F[le.faces[0]], b = healed.F[le.faces[1]], m = (pp, f) => dv.dot(pp.n, f.n) > 1 - 1e-6 && Math.abs(pp.d - f.d) < 1e-5 * Math.max(1, s.scale()); return planes.slice(0, 2).length === 2 && ((m(planes[0], a) && m(planes[1], b)) || (m(planes[0], b) && m(planes[1], a))); });
+    if (!les.length) return toast('The sharp edge could not be found after removing the round', true);
+    const u0 = (st.undo || []).length;
+    const f1 = P.commitFeature({ type: 'solDelFace', name: 'Remove round (to resize)', params: { mode: 'heal', s: { faces: selFaceTokens(x.b, fis) } } }, true);
+    if (f1 && f1._status && f1._status.level === 'error') { try { P.undo(); } catch (e) { /* ignore */ } return toast('Could not take the round off: ' + f1._status.msg, true); }
+    const f2 = P.commitFeature({ type: 'fillet', name: 'Round R' + lenTxt(r), params: { body: x.b.key, edges: les.map((le) => F.edgeRef(healed, le)), r: +r.toFixed(6), segs: 8 } }, true);
+    if (f2 && f2._status && f2._status.level === 'error') { try { P.undo(); P.undo(); } catch (e) { /* ignore */ } return toast('The new round did not fit: ' + f2._status.msg, true); }
+    void u0; setSel(null); status('Round resized: R' + lenTxt(fit.r) + ' → R' + lenTxt(r));
+  };
+  DM.holesize = () => {
+    const x = needFace('Hole / boss size'); if (!x) return; const s = x.b.solid, fit = cylFit(s, x.s.faces);
+    if (!fit) return toast('Select the wall of a round hole or boss (a cylindrical face)', true);
+    const cen = s.faceCentroid(x.s.faces[0]), d = dv.sub(cen, fit.c0), rad = dv.norm(dv.sub(d, dv.scale(fit.a, dv.dot(d, fit.a)))), mid = (fit.lo + fit.hi) / 2;
+    const piv = dv.add(fit.c0, dv.add(dv.scale(fit.a, mid), dv.scale(rad, fit.r)));
+    openCard({ kind: 'holesize', bodyId: x.b.key, sel: x.s, pivot: piv, dir: rad, val: 0, r0: fit.r, boss: fit.boss, u: [0.7, -0.7] }, (fit.boss ? 'Boss' : 'Hole') + ' Ø ' + lenTxt(2 * fit.r) + ': drag the handle out (bigger) or in (smaller), or type the change in radius. The live Ø is shown above.');
+  };
+  DM.simcon = () => {
+    const x = needFace('Select concentric'); if (!x) return; const s = x.b.solid, fit = cylFit(s, x.s.faces); if (!fit) return toast('Select a round or cylindrical face first', true);
+    const seen = new Set(), pick = [], tol = 1e-4 * Math.max(1, s.scale());
+    s.F.forEach((f, i) => { if (!f.group || seen.has(f.group)) return; seen.add(f.group); const g = cylFit(s, [i]); if (!g) return; if (Math.abs(dv.dot(g.a, fit.a)) < 1 - 1e-6) return; const d = dv.sub(g.c0, fit.c0), off = dv.len(dv.sub(d, dv.scale(fit.a, dv.dot(d, fit.a)))); if (off > tol * 20) return; g.D.forEach((k) => pick.push(k)); });
+    if (!pick.length) return; setSel({ type: 'face', bodyId: x.b.key, faces: [...new Set(pick)] }); status(pick.length + ' faces share this axis');
+  };
+  FORM.direct = { cylFit, resizeSolid, act: DM };
   function startMirror(face) {
     const s = st.sel; if (!s) return toast('Select a body (or a face) first, then Mirror.', true);
     const b = bodyOf(s.bodyId); if (!b) return; const c = centreOf(b); let S;
@@ -57539,6 +57926,47 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     toast((name || 'Design') + ' built in its own window: ' + made + ' bodies.');
   };
 
+  /* ---------- exact STEP + exact volumes (AakarKernel; the parts are true solids: planes, cylinders, extrusions) ---------- */
+  D.exactBuild = function (ops) {
+    var AK = window.AakarKernel, K = AK && AK.kernel; if (!K || !K.stepExportAll) throw new Error('The exact kernel is not available in this build.');
+    var H = {}, order = [], errs = [], tools = {};
+    ops.forEach(function (o) {
+      try {
+        if (o.op === 'box') H[o.n] = K.translate(K.box(o.size[0], o.size[1], o.size[2]), o.pos.slice());
+        else if (o.op === 'cyl') H[o.n] = K.translate(K.cylinder(o.r, o.h), o.pos.slice());
+        else if (o.op === 'poly') {
+          var q = o.pts.map(function (a) { return [a[0], a[1]]; }), ar = q.reduce(function (s, a, i) { var b = q[(i + 1) % q.length]; return s + a[0] * b[1] - b[0] * a[1]; }, 0); if (ar < 0) q.reverse();
+          var segs = q.map(function (a, i) { return { k: 'l', a: a, b: q[(i + 1) % q.length] }; }), R9, t0, hh = o.t;
+          if (o.plane === 'xy') { R9 = [1, 0, 0, 0, 1, 0, 0, 0, 1]; t0 = [0, 0, o.z0 || 0]; }
+          else { var A = o.a || 0, ca = Math.cos(A), sa = Math.sin(A), v0 = o.y0 || 0, org = [(o.ox || 0) - v0 * sa, (o.oy || 0) + v0 * ca, o.z0 || 0], nn = [sa, -ca, 0]; R9 = [ca, 0, nn[0], sa, 0, nn[1], 0, 1, nn[2]]; t0 = [org[0] - nn[0] * hh, org[1] - nn[1] * hh, org[2] - nn[2] * hh]; }
+          H[o.n] = K.transform(K.extrude([{ segs: segs }], hh), R9, t0);
+        } else if (o.op === 'cut') {
+          var tg = H[o.target]; if (!tg) return; var tl = (o.tools || []).filter(function (n) { return H[n]; });
+          tl.forEach(function (n) { tg = K.cut(tg, H[n]); tools[n] = 1; }); H[o.target] = tg; return;
+        } else return;
+        order.push(o.n);
+      } catch (e) { errs.push(o.n + ': ' + e.message); }
+    });
+    var parts = [], rows = [];
+    order.forEach(function (n) { if (tools[n]) return; try { var h = H[n], v = K.volume(h), a = K.area(h); parts.push({ n: n, h: h }); rows.push({ n: n, v: v, a: a }); } catch (e) { errs.push(n + ': ' + e.message); } });
+    if (!ops.length) throw new Error('This design has nothing to build with the current inputs.');
+    if (!parts.length) throw new Error('No part could be built exactly' + (errs.length ? ' (' + errs[0] + ')' : '') + '.');
+    return { K: K, parts: parts, rows: rows, errs: errs };
+  };
+  D.exactStep = function (ops, name, toy) {
+    var X; try { X = D.exactBuild(ops); } catch (e) { return toast(e.message, true); }
+    var step = X.K.stepExportAll(X.parts.map(function (p) { return p.h; }), { name: (toy ? 'TOY_' : '') + (name || 'Aakar_design').replace(/[^\w.-]+/g, '_') });
+    var tv = 0, ta = 0, csv = '﻿Part,Exact volume (mm3),Exact surface area (mm2)\n';
+    X.rows.forEach(function (r) { tv += r.v; ta += r.a; csv += '"' + r.n.replace(/"/g, '""') + '",' + r.v.toFixed(3) + ',' + r.a.toFixed(3) + '\n'; });
+    csv += 'TOTAL,' + tv.toFixed(3) + ',' + ta.toFixed(3) + '\n'; if (X.errs.length) csv += '\nNot built exactly:\n' + X.errs.map(function (e) { return '"' + e.replace(/"/g, '""') + '"'; }).join('\n') + '\n';
+    var banner = toy ? 'TOY BUILD, NOT FOR PEOPLE.\n' : '', enc = new TextEncoder();
+    var readme = banner + (name || 'Aakar design') + ' - exact solids\n\nmodel.step: ' + X.parts.length + ' solids (planes, cylinders and straight extrusions, exact, ISO 10303-21 AP214, millimetres)\nvolumes.csv: exact volume and surface area per part, computed from the true surfaces (not from a mesh)\n' + (X.errs.length ? '\n' + X.errs.length + ' part(s) could not be built exactly and are listed at the bottom of volumes.csv.\n' : '');
+    var files = [{ name: 'model.step', data: enc.encode((toy ? '/* TOY BUILD, NOT FOR PEOPLE */\n' : '') + step) }, { name: 'volumes.csv', data: enc.encode(csv) }, { name: 'README.txt', data: enc.encode(readme) }];
+    var zip = D.zipStore(files), b = new Blob([zip], { type: 'application/zip' }), a = doc.createElement('a'); a.href = URL.createObjectURL(b); a.download = (name || 'aakar-design').replace(/[^\w.-]+/g, '-') + (toy ? '-TOY' : '') + '-exact.zip'; doc.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    toast('Exact STEP: ' + X.parts.length + ' solids, total volume ' + (tv / 1e6).toFixed(4) + ' m3' + (X.errs.length ? ', ' + X.errs.length + ' not exact' : '') + '.');
+    return X;
+  };
+
   /* ---------- registry ---------- */
   D.register = function (t) { D.tools.push(t); D.by[t.id] = t; D.vals[t.id] = D.vals[t.id] || {}; (t.fields || []).forEach(function (f) { if (f.k && D.vals[t.id][f.k] == null) D.vals[t.id][f.k] = f.v; }); };
   D.val = function (id) { return D.vals[id]; };
@@ -57635,7 +58063,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
     if (o.gcode) ex += '<button class="btn" data-a="nc">Save G-code</button>';
     (o.actions || []).forEach(function (a) { ex += '<button class="btn' + (a.pri ? ' pri' : '') + '" data-x="' + a.id + '">' + esc(a.label) + '</button>'; });
     main.innerHTML = '<div class="kpi">' + (o.kpi || []).map(function (k) { return '<div><span>' + esc(k[0]) + '</span><b>' + esc(k[1]) + '</b></div>'; }).join('') + '</div>' +
-      '<div class="row"><div class="tabs">' + tabs.map(function (x) { return '<button class="btn' + (x.id === S.tab ? ' on' : '') + '" data-v="' + x.id + '">' + esc(x.name) + '</button>'; }).join('') + '</div><span style="flex:1"></span>' + (o.build && o.build.length ? '<button class="btn pri" data-a="build">Build in Aakar</button>' : '') + ex + '</div>' + (o.anim ? '<div class="row"><button class="btn" data-a="play">' + (S.anim ? '■ Stop' : '▶ Animate') + '</button><span class="note">' + esc(o.anim) + '</span></div>' : '') + body +
+      '<div class="row"><div class="tabs">' + tabs.map(function (x) { return '<button class="btn' + (x.id === S.tab ? ' on' : '') + '" data-v="' + x.id + '">' + esc(x.name) + '</button>'; }).join('') + '</div><span style="flex:1"></span>' + (o.build && o.build.length ? '<button class="btn pri" data-a="build">Build in Aakar</button><button class="btn" data-a="xstep" title="One zip with an exact STEP file (true planes, cylinders and extrusions) and exact volumes per part">Exact STEP</button>' : '') + ex + '</div>' + (o.anim ? '<div class="row"><button class="btn" data-a="play">' + (S.anim ? '■ Stop' : '▶ Animate') + '</button><span class="note">' + esc(o.anim) + '</span></div>' : '') + body +
       (o.warn ? '<div class="warn">' + esc(o.warn) + '</div>' : '') + (D.toyBox ? D.toyBox(o) : '') + '<div class="box"><h5>Checks</h5><ul class="dck">' + (o.checks || []).map(function (c) { return '<li class="' + (c[0] === 'w' ? 'w' : c[0] === 'x' ? 'x' : '') + '">' + esc(c[1]) + '</li>'; }).join('') + '</ul></div>';
     if (cur && cur.after) { var vh = main.querySelector('.vhtml'); if (vh) { try { cur.after(vh); } catch (eAf) { vh.innerHTML = '<div class="warn">' + esc(String(eAf && eAf.message || eAf)) + '</div>'; } } } else if (cur && D.attachMeasure) { try { D.attachMeasure(main.querySelector('.view')); } catch (eM) { /* ok */ } }
   }
@@ -57726,6 +58154,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       inp.click(); return;
     }
     if (a === 'reset') { (t.fields || []).forEach(function (f) { if (f.k) D.vals[t.id][f.k] = f.v; }); render(); return; }
+    if (a === 'xstep') { D.exactStep(o.build, t.id === 'stair' ? ({ stair: 'Cut stair', stairH: 'Grooved stair', ladder: 'Ladder', ladderH: 'Grooved ladder' })[D.vals.stair.type] : t.name, D.toyFlag && D.toyFlag()); return; }
     if (a === 'build') { D.build(o.build, t.id === 'stair' ? ({ stair: 'Cut stair', stairH: 'Grooved stair', ladder: 'Ladder', ladderH: 'Grooved ladder' })[D.vals.stair.type] + (({ inline: ' · in-line landing', L: ' · L-shape', Lw: ' · L-shape winders', U: ' · U-shape' })[D.vals.stair.lay] || '') : t.name); setTimeout(function () { D.close(); try { P.fitView && P.fitView(); } catch (e9) { /* ok */ } }, 60); return; }
     if (a === 'svg' && o.items) { save(t.id + '.svg', D.toySvg((o.viewSvg || (o.views[0] && o.views[0].svg)).replace('<svg ', '<svg style="background:#fff" ').replace(/(<svg[^>]*>)/, '$1<style>.o{stroke:#222;fill:none}.c{stroke:#d9640f;fill:none}.d{stroke:#2a62c9;fill:none}.g{stroke:#aaa;fill:none}.k{stroke:#169b5a;fill:none}.fl{fill:rgba(255,138,61,.16)}.fb{fill:rgba(122,167,255,.16)}.t{fill:#222;stroke:none;font-family:Arial,sans-serif}.hl{fill:#d9640f}</style>')), 'image/svg+xml'); return; }
     if (a === 'dxf' && o.items) { save(t.id + '.dxf', dxf(o.items, D.toyFlag()), 'application/dxf'); return; }
@@ -58218,6 +58647,7 @@ new MutationObserver(later).observe(document.documentElement,{childList:true,sub
       g.rows.forEach(function (r, i) { rows.push([i + 1, m(r.h), m(r.o1 + lo), m(r.o2 + lo), m(r.o1), m(r.o2), m(g.openAlong)]); });
       return { rows: rows, head: 'Lower edge measured from the ' + (GS.datum === 'blank' ? 'blank (floor) end' : 'cut corner') + '; upper edge from the blank end. Angle ' + g.deg.toFixed(2) + ' deg to the edge, centre to centre ' + m(g.pitch) + ' mm, depth ' + m(g.d || 0) + ' mm.' };
     }
+    D.zipStore = zipStore;
     function exportZip(el, X, kind, btn) {
       var keys = kind === 'cut' ? [['cut', 'board']] : [['flat', 'board'], ['side', 'side-view']], jobs = [], label = btn ? btn.textContent : '';
       if (btn) btn.textContent = 'Preparing…';

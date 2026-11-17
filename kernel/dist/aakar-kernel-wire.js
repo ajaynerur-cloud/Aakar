@@ -41,8 +41,30 @@
     });
   };
   X.showProps = function () { try { X.lastProps = X.properties(); } catch (e) { try { (IK && IK.toast ? IK.toast : P.toast)(e.message, true); } catch (e2) { /* ignore */ } } X.openPanel(); };
+  /** an INSTALLED kernel: a newer AakarKernel built by the GitHub workflow and placed in the folder kernel/ next to this file (the exe carries it inside app/kernel/).
+   *  It is a drop-in engine, like OpenCascade, and is used automatically when it is newer than the built-in one (unless you chose the built-in one). */
+  const vnum = (v) => String(v || '0').split('.').map((x) => +x || 0), newer = (a, b) => { const A = vnum(a), B = vnum(b); for (let i = 0; i < 3; i++) { if ((A[i] || 0) !== (B[i] || 0)) return (A[i] || 0) > (B[i] || 0); } return false; };
+  X.installed = { checked: false, found: false };
+  X.checkInstalledKernel = function () {
+    return new Promise((res) => {
+      const fin = (ok, why) => { const k = ok && G.AakarKernelInstalled && G.AakarKernelInstalled.kernel; X.installed = { checked: true, found: !!k, reason: why || '', version: k ? k.version : '', newer: k ? newer(k.version, K.version) : false, at: new Date().toLocaleTimeString() }; try { chip(); if (X.openPanelRefresh) X.openPanelRefresh(); } catch (e) { /* ignore */ } res(X.installed); };
+      try {
+        if (G.AakarKernelInstalled && G.AakarKernelInstalled.kernel) return fin(true);
+        const d = G.document; if (!d) return fin(false, 'no document');
+        const el = d.createElement('script'); el.src = 'kernel/aakar-kernel.installable.js'; el.async = true;
+        el.onload = () => fin(!!(G.AakarKernelInstalled && G.AakarKernelInstalled.kernel), 'the file loaded but holds no kernel'); el.onerror = () => { el.remove(); fin(false, 'folder kernel/ not found next to this file'); }; d.head.appendChild(el);
+      } catch (e) { fin(false, e.message || String(e)); }
+    });
+  };
+  X.useInstalledKernel = function (remember) {
+    const A = G.AakarKernelInstalled; if (!A || !A.kernel) throw new Error('No installed kernel was found. Run Check first.');
+    if (!A.kernel.construct && K.construct) A.kernel.construct = K.construct;
+    X.useKernel(A.kernel, { name: 'AakarKernel (installed)', version: A.kernel.version });
+    X.useExactBooleans = stored() !== '0'; if (remember) pref('installed'); chip(); refresh(); return X;
+  };
   X.useAakarKernel();
-  if (pref() === 'occt') { try { G.setTimeout(() => { X.useOpenCascade().then(chip); }, 400); } catch (e) { /* ignore */ } }   // the user last chose OpenCascade: bring it back (falls back to AakarKernel if it is not there)
+  try { G.setTimeout(() => { X.checkInstalledKernel().then((r) => { if (r.found && pref() !== 'aakar' && (pref() === 'installed' || r.newer) && X.name === 'AakarKernel') { try { X.useInstalledKernel(); X.log.push('installed AakarKernel ' + r.version + ' is active'); } catch (e) { /* stays built-in */ } } }); }, 700); } catch (e) { /* ignore */ }
+  if (pref() === 'occt') { try { G.setTimeout(() => { X.useOpenCascade().then(chip); }, 400); } catch (e) { /* ignore */ } }
   // status-bar chip
   try {
     const d = G.document, foot = d && d.getElementById('status');

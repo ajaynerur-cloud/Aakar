@@ -253,10 +253,14 @@ class Body {
     return { min: mn, max: mx };
   }
   xf(T) {
-    if (T.det() <= 0) throw new Error('mirror transforms are not supported');
+    if (!(Math.abs(T.det()) > 1e-300)) throw new Error('a singular (flattening) transform is not allowed'); const mir = T.det() < 0;
     const vmap = new Map(), emap = new Map();
-    const faces = this.faces.map(f => new Face(f.surf.xf(T), f.rev, f.loops.map(l => l.map(c => { let e = emap.get(c.edge); if (!e) { e = c.edge.xf(T, vmap); emap.set(c.edge, e); } return { edge: e, fwd: c.fwd }; }))));
-    this.faces.forEach((f, i) => { if (f.tris) faces[i].tris = f.tris.map(t => t.map(p => T.p(p))); });
+    const faces = this.faces.map(f => { const nf = new Face(f.surf.xf(T), f.rev, f.loops.map(l => l.map(c => { let e = emap.get(c.edge); if (!e) { e = c.edge.xf(T, vmap); emap.set(c.edge, e); } return { edge: e, fwd: c.fwd }; }))); if (f.vrange) { nf.vrange = f.vrange; nf.urange = f.urange; } return nf; });
+    this.faces.forEach((f, i) => { if (f.tris) { faces[i].tris = f.tris.map(t => { const q = t.map(p => T.p(p)); return mir ? q.reverse() : q; }); } });
+    if (mir) faces.forEach((nf) => {      // a reflection reverses handedness: walk every loop the other way so the outward normal stays outward, and mirror the angle range (the frame's y axis is re-derived as z x x)
+      nf.loops = nf.loops.map(l => l.slice().reverse().map(c => ({ edge: c.edge, fwd: !c.fwd })));
+      if (nf.urange && Array.isArray(nf.urange) && nf.urange.length === 2) nf.urange = [-nf.urange[1], -nf.urange[0]];
+    });
     return new Body(faces);
   }
 }
@@ -345,6 +349,59 @@ function pickSpherePole(face, S) {
   best.inside = sphereContains(face, S, loops, x0, best.c);
   return best;
 }
+/** U(u,v) = ∫_{uref}^{u} g(u',v) du'  (all 11 components) */
+function Uint(S, u, v, uref, out) {
+  out.fill(0); if (u === uref) return;
+  const n = 32, g = gauss(n), h = (u - uref) / 2, m = (u + uref) / 2, t = new Array(NC);
+  for (let i = 0; i < n; i++) { integrand(S, m + h * g.x[i], v, t); const w = g.w[i] * h; for (let k = 0; k < NC; k++) out[k] += w * t[k]; }
+}
+/** exact integrals over a trimmed torus face. The boundary is walked with continuous (unwrapped) angles. A loop that closes in v uses the v-antiderivative
+ *  (∮ H du, H periodic in u), a loop that closes in u uses the u-antiderivative (∮ U dv, U periodic in v); a face with loops of both kinds, or a loop
+ *  that winds both ways, is refused (the caller then falls back to the faceted estimate). If the face is the complement of its loops (negative signed area
+ *  in the unwrapped angle plane) the whole torus is added. */
+function torusTrimmed(face, S, sign) {
+  const g = gauss(6), H = new Array(NC), loopsInfo = [];
+  let areaSum = 0;
+  for (const loop of face.loops) {
+    const smp = []; let uprev = null, vprev = null, uoff = 0, voff = 0;
+    for (const ce of uvLoop(face, loop)) {
+      const e = ce.edge, pcs = subPieces(e.pieces(), 8), seq = ce.fwd ? pcs : pcs.slice().reverse();
+      for (const [a, b] of seq) for (let ii = 0; ii < 6; ii++) {
+        const i = ce.fwd ? ii : 5 - ii, t = (a + b) / 2 + (b - a) / 2 * g.x[i], w = g.w[i] * (b - a) / 2, p = e.pt(t); let dp = e.dpt(t); if (!ce.fwd) dp = V.neg(dp);
+        const r = S.duv(p, dp); let u = r[0] + uoff, v = r[1] + voff;
+        if (uprev !== null) { while (u - uprev > PI) { u -= TAU; uoff -= TAU; } while (u - uprev < -PI) { u += TAU; uoff += TAU; } while (v - vprev > PI) { v -= TAU; voff -= TAU; } while (v - vprev < -PI) { v += TAU; voff += TAU; } }
+        uprev = u; vprev = v; smp.push({ u, v, du: r[2] * w, dv: r[3] * w });
+      }
+    }
+    const n = smp.length, wu = Math.round((smp[n - 1].u - smp[0].u) / TAU), wv = Math.round((smp[n - 1].v - smp[0].v) / TAU);
+    let ar = 0, mu = 0, mv = 0; for (let i = 0; i < n; i++) { const a = smp[i], b = smp[(i + 1) % n]; ar += (a.u * b.v - b.u * a.v) / 2; mu += a.u; mv += a.v; }
+    loopsInfo.push({ smp, wu, wv, mu: mu / n, mv: mv / n }); areaSum += ar;
+  }
+  const pure = loopsInfo.every(L => L.wu === 0 && L.wv === 0), bandV = loopsInfo.every(L => L.wu === 0 && Math.abs(L.wv) === 1), bandU = loopsInfo.every(L => L.wv === 0 && Math.abs(L.wu) === 1);
+  if (!pure && !bandV && !bandU) throw new Error('this torus face cannot be integrated exactly (mixed or multiple windings)');
+  const norm = (x) => { x = x % TAU; return x < 0 ? x + TAU : x; };
+  // a band that wraps the tube (bandV) is integrated with the u-antiderivative, one that wraps the axis (bandU) with the v-antiderivative; every loop pair (left edge, right edge) must be lifted to the same period
+  if (bandV || bandU) {
+    const key = bandV ? 'mu' : 'mv', wk = bandV ? 'wv' : 'wu', sh = bandV ? 'u' : 'v';
+    const items = loopsInfo.map(L => ({ L, m: norm(L[key]) })).sort((p, q) => p.m - q.m), n = items.length;
+    if (n % 2) throw new Error('unbalanced torus band');
+    items.forEach(it => { it.shift = TAU * Math.round((it.m - it.L[key]) / TAU); });
+    // bandV: region lies between a wv = -1 loop (lower u) and the next wv = +1 loop (higher u); bandU: between a wu = +1 loop (lower v) and the next wu = -1 loop
+    const first = bandV ? -1 : 1;
+    for (let k = 0; k < n; k++) if (items[k].L[wk] === first) {
+      const nx = items[(k + 1) % n]; if (nx.L[wk] !== -first) throw new Error('torus band loops do not alternate');
+      if ((k + 1) >= n) nx.shift += TAU;
+    }
+    items.forEach(it => it.L.smp.forEach(s => { s[sh] += it.shift; }));
+  }
+  const acc = new Array(NC).fill(0);
+  for (const L of loopsInfo) for (const s of L.smp) {
+    if (!bandV) { Hint(S, s.u, s.v, 0, H); for (let k = 0; k < NC; k++) acc[k] -= H[k] * s.du; }
+    else { Uint(S, s.u, s.v, 0, H); for (let k = 0; k < NC; k++) acc[k] += H[k] * s.dv; }
+  }
+  if (pure && areaSum < 0) { const full = faceIntegrals(new Face(S, false, [])); for (let k = 0; k < NC; k++) acc[k] += full[k]; }   // the face is everything except the loops' interior
+  const out = new Array(NC); out[0] = acc[0]; for (let k = 1; k < NC; k++) out[k] = acc[k] * sign; return out;
+}
 function faceIntegrals(face) {
   let S = face.surf; const out = new Array(NC).fill(0);
   const sign = face.rev ? -1 : 1;
@@ -361,7 +418,13 @@ function faceIntegrals(face) {
     }
     throw new Error('face without a boundary on a ' + S.kind);
   }
-  if (S.kind === 'torus') throw new Error('trimmed torus faces are not supported by the exact integrator');
+  if (S.kind === 'torus') {
+    if (!face.vrange) return torusTrimmed(face, S, sign);
+    // a full turn about the axis between two tube angles: periodic trapezoid in u (exact for trig polynomials), Gauss-Legendre in v
+    const [v0, v1] = face.vrange, [u0, u1] = face.urange || [0, TAU], nu = Math.max(8, Math.ceil(96 * (u1 - u0) / TAU)), du = (u1 - u0) / nu, np = Math.max(1, Math.ceil((v1 - v0) / (PI / 3))), g = gauss(10), t = new Array(NC);
+    for (let i = 0; i < nu; i++) for (let q = 0; q < np; q++) { const a = v0 + (v1 - v0) * q / np, b = v0 + (v1 - v0) * (q + 1) / np; for (let j = 0; j < g.x.length; j++) { const v = (a + b) / 2 + g.x[j] * (b - a) / 2; if (face.urange) { for (let m = 0; m < g.x.length; m++) { const u = u0 + (i + 0.5 + g.x[m] / 2) * du; integrand(S, u, v, t); const w = g.w[j] * (b - a) / 2 * g.w[m] * du / 2; for (let k = 0; k < NC; k++) out[k] += w * t[k]; } } else { integrand(S, i * du, v, t); const w = g.w[j] * (b - a) / 2 * du; for (let k = 0; k < NC; k++) out[k] += w * t[k]; } } }
+    for (let k = 1; k < NC; k++) out[k] *= sign; return out;
+  }
   let northInside = false, pieceSub = 1;
   if (S.kind === 'sphere') {
     const pol = pickSpherePole(face, S); S = new Sphere(frame(S.o, pol.z, S.x), S.r); northInside = pol.inside; if (pol.angle < 0.15) pieceSub = 4;
@@ -431,6 +494,35 @@ function mkBox(w, d, h) {
   const idx = [[0, 3, 2, 1], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [3, 0, 4, 7], [1, 2, 6, 5]];
   return { body, inside: (p) => p[0] >= 0 && p[0] <= w && p[1] >= 0 && p[1] <= d && p[2] >= 0 && p[2] <= h, tess: () => { const o = []; idx.forEach((f, i) => o.push(...fan(f.map(j => v[j]), body.faces[i]))); return o; } };
 }
+/** planar polyhedron: verts [[x,y,z]], faces [{n:[x,y,z] outward, loops:[[i,...],...]}] (first loop outer). True planes, true straight edges. */
+function mkPolyh(verts, faces) {
+  const vs = verts.map(p => new Vertex(p.slice())), edges = new Map(), out = [], pl = [];
+  const E = (a, b) => { const k = a < b ? a + ',' + b : b + ',' + a; let e = edges.get(k); if (!e) { e = new Edge('line', vs[Math.min(a, b)], vs[Math.max(a, b)]); edges.set(k, e); } return e; };
+  faces.forEach(f => {
+    if (!f.loops || !f.loops.length) throw new Error('a face without a loop');
+    const n = V.norm(f.n); if (!(V.len(n) > 0.5)) throw new Error('a face without a normal');
+    const loops = f.loops.map((l, li) => {
+      if (l.length < 3) throw new Error('a loop with fewer than 3 vertices');
+      const d = V.dot(newell(l.map(i => verts[i])), n); let L = l.slice();
+      if ((li === 0 && d < 0) || (li > 0 && d > 0)) L = L.reverse(); return L;
+    });
+    const p0 = verts[loops[0][0]], p1 = verts[loops[0][1]], fr = frame(p0, n, V.sub(p1, p0));
+    const cl = loops.map(L => L.map((a, i) => { const b = L[(i + 1) % L.length], e = E(a, b); return { edge: e, fwd: e.v0 === vs[a] }; }));
+    const face = new Face(new Plane(fr), false, cl); out.push(face); pl.push({ face, fr, loops });
+  });
+  const body = new Body(out);
+  return { body, inside: () => false, tess: () => {
+    const o = [], EC = G.CAD && G.CAD.solid && G.CAD.solid.earcut;
+    pl.forEach(({ face, fr, loops }) => {
+      if (loops.length === 1 && loops[0].length === 3) { const q = loops[0].map(i => verts[i]); o.push({ pts: q, tag: face }); return; }
+      if (!EC) { const q = loops[0].map(i => verts[i]); o.push(...fan(q, face)); return; }
+      const all = [], idx = [], P3 = [];
+      loops.forEach(L => { const ids = []; L.forEach(i => { ids.push(all.length); const p = verts[i]; P3.push(p); all.push([V.dot(V.sub(p, fr.o), fr.x), V.dot(V.sub(p, fr.o), fr.y)]); }); idx.push(ids); });
+      EC(idx, (i) => all[i]).forEach(t => { let a = t[0], b = t[1], c = t[2]; const ar = (all[b][0] - all[a][0]) * (all[c][1] - all[a][1]) - (all[b][1] - all[a][1]) * (all[c][0] - all[a][0]); if (ar < 0) { const x = b; b = c; c = x; } o.push({ pts: [P3[a], P3[b], P3[c]], tag: face }); });
+    });
+    return o;
+  } };
+}
 /** cylinder (rt === r) or frustum / cone (rt < r, rt may be 0), axis +z, base on z = 0 */
 function mkCone(r, rt, h) {
   const apex = rt < 1e-12 * Math.max(r, 1);
@@ -477,7 +569,193 @@ function mkTorus(R, r) {
     return o;
   } };
 }
-AK.prim = { box: mkBox, cone: mkCone, sphere: mkSphere, torus: mkTorus };
+
+/** prism of a planar profile along +z from 0 to h.  loops[0] is the outer outline, the others are holes; each loop is a list of
+ *  { k:'l', a:[x,y], b:[x,y] } | { k:'a', c:[x,y], r, a0, a1 } (signed sweep a0 -> a1 in travel direction) | { k:'c', c:[x,y], r } (a whole circle).
+ *  Faces are true planes and true cylinders, edges are true lines and circles; nothing is faceted except the picture (tess). */
+function mkExtrude(loopsIn, h) {
+  const TAUx = 2 * Math.PI, cs = (a) => [Math.cos(a), Math.sin(a)];
+  const segStart = (s) => s.k === 'l' ? s.a : s.k === 'a' ? [s.c[0] + s.r * Math.cos(s.a0), s.c[1] + s.r * Math.sin(s.a0)] : [s.c[0] + s.r, s.c[1]];
+  const sampleSeg = (s, n) => { if (s.k === 'l') return [s.a.slice()]; const o = []; if (s.k === 'a') { for (let i = 0; i < n; i++) { const t = s.a0 + (s.a1 - s.a0) * i / n; o.push([s.c[0] + s.r * Math.cos(t), s.c[1] + s.r * Math.sin(t)]); } } else for (let i = 0; i < n; i++) { const t = TAUx * i / n; o.push([s.c[0] + s.r * Math.cos(t), s.c[1] + s.r * Math.sin(t)]); } return o; };
+  const area = (segs, fine) => { const P = []; segs.forEach(s => sampleSeg(s, s.k === 'l' ? 1 : (s.k === 'c' ? 256 : Math.max(8, Math.ceil(256 * Math.abs(s.a1 - s.a0) / TAUx)))).forEach(p => P.push(p))); if (segs.length === 1 && segs[0].k === 'c') { const A = Math.PI * segs[0].r * segs[0].r; return segs[0].cw ? -A : A; } let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return a / 2; };
+  const flip = (segs) => segs.slice().reverse().map(s => s.k === 'l' ? { k: 'l', a: s.b, b: s.a } : s.k === 'a' ? { k: 'a', c: s.c, r: s.r, a0: s.a1, a1: s.a0 } : { k: 'c', c: s.c, r: s.r, cw: !s.cw });
+  const loops = loopsIn.map((L, li) => {
+    let segs = L.segs.map(s => s.k === 'l' ? { k: 'l', a: s.a.slice(), b: s.b.slice() } : s.k === 'a' ? { k: 'a', c: s.c.slice(), r: s.r, a0: s.a0, a1: s.a1 } : { k: 'c', c: s.c.slice(), r: s.r, cw: !!s.cw });
+    if (segs.length === 1 && segs[0].k === 'c') { segs[0].cw = li > 0; return segs; }
+    const a = area(segs); if ((li === 0 && a < 0) || (li > 0 && a > 0)) segs = flip(segs); return segs;
+  });
+  if (!loops.length || loops.some(L => !L.length)) throw new Error('extrude needs at least one closed loop');
+  const fB = new Plane(frame([0, 0, 0], [0, 0, -1], [1, 0, 0])), fT = new Plane(frame([0, 0, h], [0, 0, 1], [1, 0, 0]));
+  const botLoops = [], topLoops = [], sideFaces = [], faceOfSeg = [];
+  loops.forEach((segs) => {
+    const m = segs.length, Vb = segs.map(s => { const p = segStart(s); return new Vertex([p[0], p[1], 0]); }), Vt = segs.map(s => { const p = segStart(s); return new Vertex([p[0], p[1], h]); });
+    const Eb = [], Et = [], VE = [];
+    segs.forEach((s, k) => {
+      const k2 = (k + 1) % m;
+      if (s.k === 'l') { Eb.push(new Edge('line', Vb[k], Vb[k2])); Et.push(new Edge('line', Vt[k], Vt[k2])); }
+      else if (s.k === 'a') { Eb.push(makeCircleEdge([s.c[0], s.c[1], 0], [0, 0, 1], [1, 0, 0], s.r, s.a0, s.a1, Vb[k], Vb[k2])); Et.push(makeCircleEdge([s.c[0], s.c[1], h], [0, 0, 1], [1, 0, 0], s.r, s.a0, s.a1, Vt[k], Vt[k2])); }
+      else { Eb.push(makeCircleEdge([s.c[0], s.c[1], 0], [0, 0, 1], [1, 0, 0], s.r, 0, TAUx, Vb[k])); Et.push(makeCircleEdge([s.c[0], s.c[1], h], [0, 0, 1], [1, 0, 0], s.r, 0, TAUx, Vt[k])); }
+      VE.push(s.k === 'c' ? null : new Edge('line', Vb[k], Vt[k]));
+    });
+    const faces = [];
+    segs.forEach((s, k) => {
+      const k2 = (k + 1) % m; let f;
+      if (s.k === 'l') { const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], L = Math.hypot(dx, dy); if (!(L > 0)) throw new Error('zero-length profile edge'); f = new Face(new Plane(frame([s.a[0], s.a[1], 0], [dy / L, -dx / L, 0], [dx, dy, 0])), false, [[{ edge: Eb[k], fwd: true }, { edge: VE[k2], fwd: true }, { edge: Et[k], fwd: false }, { edge: VE[k], fwd: false }]]); }
+      else if (s.k === 'a') f = new Face(new Cylinder(frame([s.c[0], s.c[1], 0], [0, 0, 1], [1, 0, 0]), s.r), s.a1 < s.a0, [[{ edge: Eb[k], fwd: true }, { edge: VE[k2], fwd: true }, { edge: Et[k], fwd: false }, { edge: VE[k], fwd: false }]]);
+      else f = new Face(new Cylinder(frame([s.c[0], s.c[1], 0], [0, 0, 1], [1, 0, 0]), s.r), !!s.cw, [[{ edge: Eb[k], fwd: !s.cw }], [{ edge: Et[k], fwd: !!s.cw }]]);
+      sideFaces.push(f); faces.push(f);
+    });
+    faceOfSeg.push(faces);
+    botLoops.push(segs.map((s, k) => ({ edge: Eb[segs.length - 1 - k], fwd: segs[segs.length - 1 - k].k === 'c' ? !!segs[segs.length - 1 - k].cw : false })));
+    topLoops.push(segs.map((s, k) => ({ edge: Et[k], fwd: s.k === 'c' ? !s.cw : true })));
+  });
+  const botF = new Face(fB, false, botLoops), topF = new Face(fT, false, topLoops), body = new Body([botF, topF].concat(sideFaces));
+  const insideXY = (p, res) => { let c = 0; loops.forEach(segs => { const P = []; segs.forEach(s => sampleSeg(s, s.k === 'l' ? 1 : 256).forEach(q => P.push(q))); for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const a = P[i], b = P[j]; if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) c ^= 1; } }); return !!c; };
+  return { body, inside: (p) => p[2] >= 0 && p[2] <= h && insideXY(p), tess: (res) => {
+    const rings = [], o = [];
+    loops.forEach((segs, li) => {
+      const P = [], own = [];
+      segs.forEach((s, k) => {
+        let n = 1; if (s.k !== 'l') { const nFull = circleSegs(s.r, resTol(res, s.r), res.minN); n = s.k === 'c' ? nFull : Math.max(1, Math.ceil(nFull * Math.abs(s.a1 - s.a0) / TAUx - 1e-9)); }
+        let q = sampleSeg(s, n); if (s.k === 'c' && s.cw) q = q.map((_, i) => { const t = -TAUx * i / n; return [s.c[0] + s.r * Math.cos(t), s.c[1] + s.r * Math.sin(t)]; });
+        q.forEach(p => { P.push(p); own.push(sideFaces[faceOfSeg.slice(0, li).reduce((a, b) => a + b.length, 0) + k] ); });
+      });
+      rings.push({ P, own });
+    });
+    rings.forEach(({ P, own }) => { const n = P.length; for (let i = 0; i < n; i++) { const j = (i + 1) % n, b0 = [P[i][0], P[i][1], 0], b1 = [P[j][0], P[j][1], 0], t0 = [P[i][0], P[i][1], h], t1 = [P[j][0], P[j][1], h]; o.push({ pts: [b0, b1, t1], tag: own[i] }, { pts: [b0, t1, t0], tag: own[i] }); } });
+    const all = [], idx = []; rings.forEach(({ P }) => { const s0 = all.length, ids = []; P.forEach(p => { ids.push(all.length); all.push(p); }); idx.push(ids); });
+    const EC = G.CAD && G.CAD.solid && G.CAD.solid.earcut; if (!EC) throw new Error('triangulator missing');
+    const tris = EC(idx, (i) => all[i]);
+    tris.forEach(t => { let A = all[t[0]], B = all[t[1]], C = all[t[2]]; const ar = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]); if (ar < 0) { const x = B; B = C; C = x; } o.push({ pts: [[A[0], A[1], h], [B[0], B[1], h], [C[0], C[1], h]], tag: topF }, { pts: [[A[0], A[1], 0], [C[0], C[1], 0], [B[0], B[1], 0]], tag: botF }); });
+    return o;
+  } };
+}
+
+/** solid of revolution of a profile about +z through the origin.  Profile coordinates are [r, z] with r >= 0.
+ *  loops[0] is the outer outline, the others are holes; segments { k:'l', a, b } | { k:'a', c, r, a0, a1 } | { k:'c', c, r }.
+ *  Every segment becomes one true surface (line: plane / cylinder / cone, arc: sphere / torus); every vertex a true circle edge. */
+
+function mkRevolvePartial(loopsIn, ang) {
+  const TAUr = 2 * Math.PI, EPS = 1e-9;
+  const pt = (s, t) => s.k === 'l' ? [s.a[0] + (s.b[0] - s.a[0]) * t, s.a[1] + (s.b[1] - s.a[1]) * t] : [s.c[0] + s.r * Math.cos(s.a0 + (s.a1 - s.a0) * t), s.c[1] + s.r * Math.sin(s.a0 + (s.a1 - s.a0) * t)];
+  const A_ = (s) => pt(s, 0), B_ = (s) => pt(s, 1);
+  const sample = (s, n) => { const o = []; for (let i = 0; i < n; i++) o.push(pt(s, i / n)); return o; };
+  const areaOf = (segs) => { const P = []; segs.forEach(s => sample(s, s.k === 'l' ? 1 : 256).forEach(p => P.push(p))); let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return a; };
+  const flip = (segs) => segs.slice().reverse().map(s => s.k === 'l' ? { k: 'l', a: s.b, b: s.a } : { k: 'a', c: s.c, r: s.r, a0: s.a1, a1: s.a0 });
+  if (loopsIn.some(L => L.segs.some(s => s.k === 'c'))) throw new Error('a circle profile needs a full turn');
+  const loops = loopsIn.map((L, li) => { let segs = L.segs.map(s => s.k === 'l' ? { k: 'l', a: s.a.slice(), b: s.b.slice() } : { k: 'a', c: s.c.slice(), r: s.r, a0: s.a0, a1: s.a1 }); const a = areaOf(segs); if ((li === 0 && a < 0) || (li > 0 && a > 0)) segs = flip(segs); return segs; });
+  loops.forEach(L => L.forEach(s => { [A_(s), B_(s)].forEach(p => { if (p[0] < -1e-7) throw new Error('profile crosses the axis'); }); }));
+  const onAxis = (p) => p[0] < 1e-9, R3 = (p, th) => [p[0] * Math.cos(th), p[0] * Math.sin(th), p[1]];
+  const verts = new Map(), vtx = (p, w) => { const key = onAxis(p) ? 'a|' + p[1].toPrecision(12) : w + '|' + p[0].toPrecision(12) + '|' + p[1].toPrecision(12); let v = verts.get(key); if (!v) { v = new Vertex(R3(p, w ? ang : 0)); verts.set(key, v); } return v; };
+  const arcs = new Map(), arcAt = (p) => { if (onAxis(p)) return null; const key = p[0].toPrecision(12) + '|' + p[1].toPrecision(12); let e = arcs.get(key); if (!e) { e = makeCircleEdge([0, 0, p[1]], [0, 0, 1], [1, 0, 0], p[0], 0, ang, vtx(p, 0), vtx(p, 1)); arcs.set(key, e); } return e; };
+  const seams = new Map(), seamAt = (s, w) => {
+    const a = A_(s), b = B_(s), axisSeg = onAxis(a) && onAxis(b), key = (s.__id || (s.__id = ++mkRevolvePartial.n)) + '|' + (axisSeg ? 0 : w);
+    let e = seams.get(key); if (e) return e; const th = w ? ang : 0, va = vtx(a, w), vb = vtx(b, w);
+    if (s.k === 'l') e = new Edge('line', va, vb);
+    else { const c = [s.c[0] * Math.cos(th), s.c[0] * Math.sin(th), s.c[1]], nrm = [Math.sin(th), -Math.cos(th), 0]; e = makeCircleEdge(c, nrm, [Math.cos(th), Math.sin(th), 0], s.r, s.a0, s.a1, va, vb); }
+    seams.set(key, e); return e;
+  };
+  const faces = [], tags = [], c0 = [], c1 = [];
+  loops.forEach(segs => segs.forEach(s => {
+    const a = A_(s), b = B_(s); let surf, rev, ccw = s.k === 'a' && s.a1 > s.a0;
+    if (s.k === 'l') {
+      const dr = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dr, dz); if (!(L > EPS)) throw new Error('zero-length profile edge');
+      if (Math.abs(dr) < 1e-9 * Math.max(1, L)) { if (a[0] < 1e-9) { c0.push({ e: seamAt(s, 0), fwd: true }); c1.push({ e: seamAt(s, 1), fwd: true }); return; } surf = new Cylinder(frame([0, 0, 0], [0, 0, 1], [1, 0, 0]), a[0]); rev = dz < 0; }
+      else if (Math.abs(dz) < 1e-9 * Math.max(1, L)) { surf = new Plane(frame([0, 0, a[1]], [0, 0, dr > 0 ? -1 : 1], [1, 0, 0])); rev = false; }
+      else { const k = dr / dz, ref = a[0] > 1e-9 ? a : b; surf = new Cone(frame([0, 0, ref[1]], [0, 0, 1], [1, 0, 0]), ref[0], k); rev = dz < 0; }
+    } else if (Math.abs(s.c[0]) < 1e-9 * Math.max(1, s.r)) { surf = new Sphere(frame([0, 0, s.c[1]], [0, 0, 1], [1, 0, 0]), s.r); rev = !ccw; }
+    else { if (!(s.c[0] > s.r + 1e-9)) throw new Error('a toroidal arc must stay off the axis'); surf = new Torus(frame([0, 0, s.c[1]], [0, 0, 1], [1, 0, 0]), s.c[0], s.r); rev = !ccw; }
+    const ea = arcAt(a), eb = arcAt(b), lp = [];
+    if (ea) lp.push({ edge: ea, fwd: true }); lp.push({ edge: seamAt(s, 1), fwd: true }); if (eb) lp.push({ edge: eb, fwd: false }); lp.push({ edge: seamAt(s, 0), fwd: false });
+    const f = new Face(surf, rev, [lp]); if (surf.kind === 'torus') { f.vrange = [Math.min(s.a0, s.a1), Math.max(s.a0, s.a1)]; f.urange = [0, ang]; }
+    faces.push(f); tags.push({ f, s }); c0.push({ e: seamAt(s, 0), fwd: true }); c1.push({ e: seamAt(s, 1), fwd: true });
+  }));
+  // end caps: one planar face per end holding every profile loop
+  const loopsOf = (list, rv) => { const out = []; let at = 0; loops.forEach(segs => { const part = list.slice(at, at + segs.length); at += segs.length; out.push(rv ? part.slice().reverse().map(c => ({ edge: c.e, fwd: !c.fwd })) : part.map(c => ({ edge: c.e, fwd: c.fwd }))); }); return out; };
+  const capLoops0 = [], capLoops1 = [];
+  { // c0/c1 only hold entries for segments that were not skipped; rebuild per loop in order
+    let at = 0; loops.forEach(segs => { const n = segs.length; capLoops0.push(c0.slice(at, at + n)); capLoops1.push(c1.slice(at, at + n)); at += n; });
+  }
+  const cap0 = new Face(new Plane(frame([0, 0, 0], [0, -1, 0], [1, 0, 0])), false, capLoops0.map(L => L.map(c => ({ edge: c.e, fwd: c.fwd }))));
+  const cap1 = new Face(new Plane(frame([0, 0, 0], [-Math.sin(ang), Math.cos(ang), 0], [Math.cos(ang), Math.sin(ang), 0])), false, capLoops1.map(L => L.slice().reverse().map(c => ({ edge: c.e, fwd: !c.fwd }))));
+  const body = new Body(faces.concat([cap0, cap1]));
+  const poly = loops.map(segs => { const P = []; segs.forEach(s => sample(s, s.k === 'l' ? 1 : 256).forEach(p => P.push(p))); return P; });
+  const inside = (p) => { let th = Math.atan2(p[1], p[0]); if (th < -1e-12) th += TAUr; if (th > ang + 1e-12) return false; const r = Math.hypot(p[0], p[1]), z = p[2]; let c = 0; poly.forEach(P => { for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const a = P[i], b = P[j]; if ((a[1] > z) !== (b[1] > z) && r < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c ^= 1; } }); return !!c; };
+  return { body, inside, tess: (res) => {
+    let rmax = 0; poly.forEach(P => P.forEach(p => { rmax = Math.max(rmax, p[0]); })); const nu = Math.max(2, Math.ceil(circleSegs(Math.max(rmax, 1e-6), resTol(res, Math.max(rmax, 1e-6)), Math.max(res.minN, 8)) * ang / TAUr - 1e-9)), o = [];
+    const ring = (p, i) => R3(p, ang * i / nu), profOf = (s) => { if (s.k === 'l') return [A_(s), B_(s)]; const sw = Math.abs(s.a1 - s.a0), m = Math.max(2, Math.ceil(circleSegs(s.r, resTol(res, s.r), res.minN) * sw / TAUr - 1e-9)), q = []; for (let j = 0; j <= m; j++) q.push(pt(s, j / m)); return q; };
+    tags.forEach(({ f, s }) => { const prof = profOf(s);
+      for (let j = 0; j + 1 < prof.length; j++) for (let i = 0; i < nu; i++) {
+        const a0 = ring(prof[j], i), a1 = ring(prof[j], i + 1), b0 = ring(prof[j + 1], i), b1 = ring(prof[j + 1], i + 1), ra = prof[j][0] < 1e-9, rb = prof[j + 1][0] < 1e-9;
+        if (ra && rb) continue; if (ra) o.push({ pts: [a0, b1, b0], tag: f }); else if (rb) o.push({ pts: [a0, a1, b0], tag: f }); else o.push({ pts: [a0, a1, b1], tag: f }, { pts: [a0, b1, b0], tag: f });
+      } });
+    const all = [], idx = []; loops.forEach(segs => { const ids = []; segs.forEach(s => { const q = profOf(s); q.slice(0, q.length - 1).forEach(p => { ids.push(all.length); all.push(p); }); }); idx.push(ids); });
+    const EC = G.CAD && G.CAD.solid && G.CAD.solid.earcut; if (!EC) throw new Error('triangulator missing');
+    EC(idx, (i) => all[i]).forEach(t => { let A = all[t[0]], B = all[t[1]], C = all[t[2]]; if ((B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]) < 0) { const x = B; B = C; C = x; } o.push({ pts: [R3(A, 0), R3(B, 0), R3(C, 0)], tag: cap0 }, { pts: [R3(A, ang), R3(C, ang), R3(B, ang)], tag: cap1 }); });
+    return o;
+  } };
+}
+mkRevolvePartial.n = 0;
+function mkRevolve(loopsIn, angIn) {
+  if (angIn && angIn < 2 * Math.PI - 1e-9) return mkRevolvePartial(loopsIn, angIn);
+  const TAUr = 2 * Math.PI, EPS = 1e-9;
+  const pt = (s, t) => s.k === 'l' ? [s.a[0] + (s.b[0] - s.a[0]) * t, s.a[1] + (s.b[1] - s.a[1]) * t] : (() => { const a = s.k === 'a' ? s.a0 + (s.a1 - s.a0) * t : TAUr * t; return [s.c[0] + s.r * Math.cos(a), s.c[1] + s.r * Math.sin(a)]; })();
+  const A_ = (s) => pt(s, 0), B_ = (s) => s.k === 'a' ? pt(s, 1) : s.k === 'l' ? s.b.slice() : pt(s, 0);
+  const sample = (s, n) => { const o = []; for (let i = 0; i < n; i++) o.push(pt(s, i / n)); return o; };
+  const areaOf = (segs) => { const P = []; segs.forEach(s => sample(s, s.k === 'l' ? 1 : 256).forEach(p => P.push(p))); if (segs.length === 1 && segs[0].k === 'c') return segs[0].cw ? -1 : 1; let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return a; };
+  const flip = (segs) => segs.slice().reverse().map(s => s.k === 'l' ? { k: 'l', a: s.b, b: s.a } : s.k === 'a' ? { k: 'a', c: s.c, r: s.r, a0: s.a1, a1: s.a0 } : { k: 'c', c: s.c, r: s.r, cw: !s.cw });
+  const loops = loopsIn.map((L, li) => {
+    let segs = L.segs.map(s => s.k === 'l' ? { k: 'l', a: s.a.slice(), b: s.b.slice() } : s.k === 'a' ? { k: 'a', c: s.c.slice(), r: s.r, a0: s.a0, a1: s.a1 } : { k: 'c', c: s.c.slice(), r: s.r, cw: !!s.cw });
+    if (segs.length === 1 && segs[0].k === 'c') { segs[0].cw = li > 0; return segs; }
+    const a = areaOf(segs); if ((li === 0 && a < 0) || (li > 0 && a > 0)) segs = flip(segs); return segs;
+  });
+  if (!loops.length) throw new Error('revolve needs a closed profile');
+  loops.forEach(L => L.forEach(s => { [A_(s), B_(s)].forEach(p => { if (p[0] < -1e-7) throw new Error('profile crosses the axis'); }); if (s.k !== 'l' && s.c[0] - s.r < -1e-7 && s.c[0] + s.r > 1e-7 && Math.abs(s.c[0]) > 1e-9 * Math.max(1, s.r)) { /* an arc may bulge past the axis only when it is not used there */ } }));
+  const circles = new Map(), onAxis = (p) => p[0] < 1e-9;
+  const circAt = (p) => { if (onAxis(p)) return null; const key = p[0].toPrecision(12) + '|' + p[1].toPrecision(12); let e = circles.get(key); if (!e) { e = makeCircleEdge([0, 0, p[1]], [0, 0, 1], [1, 0, 0], p[0], 0, TAUr); circles.set(key, e); } return e; };
+  const faces = [], tags = [];
+  const mk = (surf, rev, a, b, single) => {
+    const ea = circAt(a), eb = circAt(b), lp = [];
+    if (ea) lp.push([{ edge: ea, fwd: true }]); if (eb) lp.push([{ edge: eb, fwd: false }]);
+    return new Face(surf, rev, single ? [] : lp);
+  };
+  loops.forEach(segs => segs.forEach(s => {
+    let f;
+    if (s.k === 'c') {
+      if (!(s.c[0] > s.r + 1e-9)) throw new Error('a circle profile must stay off the axis');
+      f = new Face(new Torus(frame([0, 0, s.c[1]], [0, 0, 1], [1, 0, 0]), s.c[0], s.r), !!s.cw, []);
+    } else if (s.k === 'l') {
+      const a = s.a, b = s.b, dr = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dr, dz); if (!(L > EPS)) throw new Error('zero-length profile edge');
+      if (Math.abs(dr) < 1e-9 * Math.max(1, L)) { if (a[0] < 1e-9) return; f = mk(new Cylinder(frame([0, 0, 0], [0, 0, 1], [1, 0, 0]), a[0]), dz < 0, a, b); }
+      else if (Math.abs(dz) < 1e-9 * Math.max(1, L)) f = mk(new Plane(frame([0, 0, a[1]], [0, 0, dr > 0 ? -1 : 1], [1, 0, 0])), false, a, b);
+      else { const k = dr / dz, ref = a[0] > 1e-9 ? a : b; f = mk(new Cone(frame([0, 0, ref[1]], [0, 0, 1], [1, 0, 0]), ref[0], k), dz < 0, a, b); }
+    } else {
+      const ccw = s.a1 > s.a0, a = A_(s), b = B_(s), full = Math.abs(Math.abs(s.a1 - s.a0) - TAUr) < 1e-9;
+      if (full) throw new Error('full-circle arc in a loop');
+      if (Math.abs(s.c[0]) < 1e-9 * Math.max(1, s.r)) { const both = onAxis(a) && onAxis(b); f = mk(new Sphere(frame([0, 0, s.c[1]], [0, 0, 1], [1, 0, 0]), s.r), !ccw, a, b, both); }
+      else { if (!(s.c[0] > s.r + 1e-9)) throw new Error('a toroidal arc must stay off the axis'); f = mk(new Torus(frame([0, 0, s.c[1]], [0, 0, 1], [1, 0, 0]), s.c[0], s.r), !ccw, a, b); f.vrange = [Math.min(s.a0, s.a1), Math.max(s.a0, s.a1)]; }
+    }
+    faces.push(f); tags.push({ f, s });
+  }));
+  const body = new Body(faces);
+  const poly = loops.map(segs => { const P = []; segs.forEach(s => sample(s, s.k === 'l' ? 1 : 256).forEach(p => P.push(p))); return P; });
+  const inside = (p) => { const r = Math.hypot(p[0], p[1]), z = p[2]; let c = 0; poly.forEach(P => { for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const a = P[i], b = P[j]; if ((a[1] > z) !== (b[1] > z) && r < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c ^= 1; } }); return !!c; };
+  return { body, inside, tess: (res) => {
+    let rmax = 0; poly.forEach(P => P.forEach(p => { rmax = Math.max(rmax, p[0]); })); const nu = circleSegs(Math.max(rmax, 1e-6), resTol(res, Math.max(rmax, 1e-6)), Math.max(res.minN, 8)), o = [];
+    const ring = (p, i) => { const t = TAUr * i / nu; return [p[0] * Math.cos(t), p[0] * Math.sin(t), p[1]]; };
+    tags.forEach(({ f, s }) => {
+      let prof;
+      if (s.k === 'l') prof = [A_(s), B_(s)];
+      else { const R = s.r, sweep = s.k === 'c' ? TAUr : Math.abs(s.a1 - s.a0), m = Math.max(2, Math.ceil(circleSegs(R, resTol(res, R), res.minN) * sweep / TAUr - 1e-9)); prof = []; for (let j = 0; j <= m; j++) prof.push(pt(s, j / m)); }
+      for (let j = 0; j + 1 < prof.length; j++) for (let i = 0; i < nu; i++) {
+        const a0 = ring(prof[j], i), a1 = ring(prof[j], i + 1), b0 = ring(prof[j + 1], i), b1 = ring(prof[j + 1], i + 1), ra = prof[j][0] < 1e-9, rb = prof[j + 1][0] < 1e-9;
+        if (ra && rb) continue; if (ra) o.push({ pts: [a0, b1, b0], tag: f }); else if (rb) o.push({ pts: [a0, a1, b0], tag: f }); else o.push({ pts: [a0, a1, b1], tag: f }, { pts: [a0, b1, b0], tag: f });
+      }
+    });
+    return o;
+  } };
+}
+AK.prim = { box: mkBox, cone: mkCone, sphere: mkSphere, torus: mkTorus, extrude: mkExtrude, revolve: mkRevolve };
 
 // ---------------------------------------------------------------- polygon BSP (boolean on tagged convex polygons)
 class BPoly {
@@ -762,13 +1040,7 @@ class Node {
 let NID = 0;
 function soupBBox(soup) { const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; soup.forEach(t => t.pts.forEach(p => { for (let k = 0; k < 3; k++) { if (p[k] < mn[k]) mn[k] = p[k]; if (p[k] > mx[k]) mx[k] = p[k]; } })); return { min: mn, max: mx }; }
 const soupVolume = (soup) => { let v = 0; soup.forEach(t => { v += V.dot(t.pts[0], V.cross(t.pts[1], t.pts[2])) / 6; }); return v; };
-function evaluate(node, res) {
-  res = res || RES_EXACT; const k = resKey(res); let ev = node.cache.get(k); if (ev) return ev;
-  if (node.kind === 'prim') { const soup = node.prim.tess(res); ev = { body: node.prim.body, soup }; }
-  else if (node.kind === 'xf') {
-    const c = evaluate(node.child, res), b = c.body.xf(node.T), idx = new Map(c.body.faces.map((f, i) => [f, i]));
-    const mp = (L) => L.map(t => ({ pts: t.pts.map(p => node.T.p(p)), tag: b.faces[idx.get(t.tag)] })); ev = { body: b, soup: mp(c.soup), dsoup: c.dsoup ? mp(c.dsoup) : null };
-  } else if (node.kind === 'bool') {
+function boolEval(node, res) {
     const a = evaluate(node.a, res), b = evaluate(node.b, res);
     const bb = soupBBox(a.soup.concat(b.soup)), scale = Math.max(1e-9, V.dist(bb.min, bb.max));
     const T0 = AK.debug ? Date.now() : 0; const polys = bspBoolean(node.op, a.soup, b.soup, scale); if (AK.debug) console.log('  bsp', Date.now() - T0, 'ms', polys.length, 'polys');
@@ -784,8 +1056,30 @@ function evaluate(node, res) {
       if (AK.guard !== false && !(mp.volume > 0)) throw new Error('the result encloses no volume');
       if (AK.guard !== false && Math.abs(mp.volume - vr) > 0.04 * Math.max(mp.volume, vr) + 2e-3 * (va + vb)) throw new Error('exact and faceted volumes disagree (' + mp.volume.toPrecision(6) + ' vs ' + vr.toPrecision(6) + ')');
     }
-    ev = { body: r.body, soup, dsoup, scale, mp };
-  } else if (node.kind === 'brep') { ev = { body: node.body, soup: null, dsoup: null }; }
+    const ev = { body: r.body, soup, dsoup, scale, mp };
+    return ev;
+}
+const RETRY_N = [37, 41, 53];
+function boolAttempts(node, res) {
+  let err = null;
+  const tries = [res];
+  if (!res.__retry) RETRY_N.forEach((m) => tries.push(Object.assign({}, res, { minN: Math.max(res.minN || 0, m), __retry: 1 })));
+  const t0 = Date.now();
+  for (const rs of tries) {
+    if (rs !== res && Date.now() - t0 > 900) break;
+    try { const ev = boolEval(node, rs); if (rs !== res) { AK.retries = (AK.retries || 0) + 1; } return ev; } catch (e) { if (!err) err = e; }
+  }
+  throw err;
+}
+function evaluate(node, res) {
+  res = res || RES_EXACT; const k = resKey(res); let ev = node.cache.get(k); if (ev) return ev;
+  if (node.kind === 'prim') { const soup = node.prim.tess(res); ev = { body: node.prim.body, soup }; }
+  else if (node.kind === 'xf') {
+    const c = evaluate(node.child, res), b = c.body.xf(node.T), idx = new Map(c.body.faces.map((f, i) => [f, i]));
+    const flip = node.T.det() < 0, mp = (L) => L.map(t => ({ pts: (flip ? t.pts.slice().reverse() : t.pts).map(p => node.T.p(p)), tag: b.faces[idx.get(t.tag)] })); ev = { body: b, soup: mp(c.soup), dsoup: c.dsoup ? mp(c.dsoup) : null };
+  } else if (node.kind === 'bool') {
+    ev = boolAttempts(node, res);
+  } else if (node.kind === 'brep') { ev = { body: node.body, soup: node.soupFixed || null, dsoup: null, mp: node.soupFixed ? null : undefined }; if (node.soupFixed) delete ev.mp; }
   else throw new Error('unknown node ' + node.kind);
   node.cache.set(k, ev); return ev;
 }
@@ -1017,13 +1311,85 @@ function stepRead(text) {
 AK.stepWrite = stepWrite; AK.stepRead = stepRead;
 
 // ---------------------------------------------------------------- public kernel interface (the contract Aakar's exact-kernel panel expects, plus analysis extras)
-AK.version = '1.0.0';
+AK.version = '1.3.0';
 const mkNode = (kind, d) => new Node(kind, d);
 const prim = (p) => mkNode('prim', { prim: p });
 const num = (x, name) => { if (!(typeof x === 'number' && isFinite(x))) throw new Error(name + ' must be a finite number'); return x; };
 const pos = (x, name) => { if (!(num(x, name) > 0)) throw new Error(name + ' must be positive'); return x; };
 function evalExact(h) { const ev = evaluate(h, RES_EXACT); if (!ev.mp) ev.mp = massProps(ev.body); return ev; }
 const rng = (a, b) => (b - a);
+/** round the circular rim where a plane (outward normal n) meets a coaxial cylinder: the plane face shrinks (boss) or grows (hole), the wall is cut back by f and a
+ *  true torus patch joins them. The faces are copied (the source body is never changed) and the tessellation is edited in place, so the result keeps booleans, STEP and mass properties. */
+function roundRimSurgery(h, spec, f) {
+  const ev = evalExact(h); if (!ev.soup) throw new Error('this body has no tessellation to edit');
+  const body = ev.body, n = V.norm(spec.n), c = spec.c, R = spec.R, boss = !!spec.boss, sc = Math.max(1e-9, V.len(V.sub(soupBBox(ev.soup).max, soupBBox(ev.soup).min))), tol = 1e-7 * sc + 1e-9;
+  if (!(f > 0)) throw new Error('size must be positive'); if (!(R > f * 1.0001) || (boss && !(R > 2 * f * 1.0001))) throw new Error('the round needs the circle to be wider');
+  const rho = (p) => { const d = V.sub(p, c), a = V.dot(d, n); return V.len(V.sub(d, V.mul(n, a))); }, ax = (p) => V.dot(V.sub(p, c), n);
+  let rim = null; body.edges().forEach((e) => { if (e.kind === 'circle' && e.closed && Math.abs(e.r - R) < tol * 10 && V.dist(e.c, c) < tol * 10 && Math.abs(Math.abs(V.dot(V.cross(e.x, e.y), n)) - 1) < 1e-9) rim = e; });
+  if (!rim) throw new Error('rim edge not found');
+  const fs = body.faces.filter((fc) => fc.loops.some((l) => l.some((ce) => ce.edge === rim)));
+  if (fs.length !== 2) throw new Error('the rim does not border exactly two faces');
+  const Fp = fs.find((x) => x.surf.kind === 'plane'), Fc = fs.find((x) => x.surf.kind === 'cylinder'); if (!Fp || !Fc) throw new Error('the rim is not between a plane and a cylinder');
+  const P0 = rim.pt(0.3), Np = Fp.normalAt(P0), Nc = Fc.normalAt(P0), rad = V.norm(V.sub(V.sub(P0, c), V.mul(n, ax(P0))));
+  if (V.dot(Np, n) < 1 - 1e-6) throw new Error('the plane does not face the given direction');
+  if (Math.abs(V.dot(Nc, n)) > 1e-6) throw new Error('the cylinder is not coaxial'); if ((V.dot(Nc, rad) > 0) !== boss) throw new Error('boss / hole mismatch');
+  const nrm = V.cross(rim.x, rim.y), Rt = boss ? R - f : R + f, R1 = Rt;
+  const e1 = makeCircleEdge(c, nrm, rim.x, R1, 0, TAU), e2 = makeCircleEdge(V.sub(c, V.mul(n, f)), nrm, rim.x, R, 0, TAU);
+  const swap = (face, ne) => { const nf = new Face(face.surf, face.rev, face.loops.map((l) => l.map((ce) => ce.edge === rim ? { edge: ne, fwd: ce.fwd } : ce))); ['vrange', 'urange', 'tris'].forEach((k) => { if (face[k] !== undefined) nf[k] = face[k]; }); return nf; };
+  const Fp2 = swap(Fp, e1), Fc2 = swap(Fc, e2), cep = Fp.loops.flat().find((ce) => ce.edge === rim), cec = Fc.loops.flat().find((ce) => ce.edge === rim);
+  const tor = new Torus(frame(V.sub(c, V.mul(n, f)), n, rim.x), Rt, f), Fn = new Face(tor, false, [[{ edge: e1, fwd: !cep.fwd }], [{ edge: e2, fwd: !cec.fwd }]]); Fn.vrange = boss ? [0, PI / 2] : [PI / 2, PI];
+  // ---- the tessellation of a boolean result may carry chord mid-points just inside the circle: put them exactly on it (in both faces, so nothing opens)
+  const qk0 = (p) => Math.round(p[0] / (sc * 1e-8)) + ',' + Math.round(p[1] / (sc * 1e-8)) + ',' + Math.round(p[2] / (sc * 1e-8)), snapMap = new Map();
+  ev.soup.forEach((t) => { if (t.tag === Fc) t.pts.forEach((p) => { const r0 = rho(p); if (Math.abs(ax(p)) < tol * 50 && r0 > R * 0.97 && Math.abs(r0 - R) > tol * 50 && r0 < R) snapMap.set(qk0(p), V.add(c, V.add(V.mul(n, ax(p)), V.mul(V.norm(V.sub(V.sub(p, c), V.mul(n, ax(p)))), R)))); }); });
+  const S0 = ev.soup.map((t) => (t.tag === Fp || t.tag === Fc) ? { pts: t.pts.map((p) => snapMap.get(qk0(p)) || p), tag: t.tag } : t);
+  // ---- tessellation: collect the rim rings of both faces, they must agree
+  const ang = (p) => { const d = V.sub(p, c), u = V.sub(d, V.mul(n, V.dot(d, n))); return Math.atan2(V.dot(u, rim.y), V.dot(u, rim.x)); };
+  const ringOf = (face, hgt, rr) => { const A = []; S0.forEach((t) => { if (t.tag !== face) return; t.pts.forEach((p) => { if (Math.abs(ax(p) - hgt) < tol * 50 && Math.abs(rho(p) - rr) < tol * 50) A.push(ang(p)); }); }); A.sort((a, b) => a - b); const o = []; A.forEach((a) => { if (!o.length || a - o[o.length - 1] > 1e-7) o.push(a); }); if (o.length > 1 && o[0] + TAU - o[o.length - 1] < 1e-7) o.pop(); return o; };
+  const A1 = ringOf(Fp, 0, R), A2 = ringOf(Fc, 0, R); if (A1.length < 6 || A1.length !== A2.length || A1.some((a, i) => Math.abs(a - A2[i]) > 1e-6)) throw new Error('the rim rings of the two faces do not match');
+  const EC = G.CAD && G.CAD.solid && G.CAD.solid.earcut;
+  const bad = S0.some((t) => t.tag === Fc && t.pts.some((p) => ax(p) < -tol * 50 && ax(p) > -f - tol * 50));
+  if (bad) throw new Error('other geometry lies inside the round');
+  const dR = R1 - R, soup = [];
+  // the plane face is triangulated again from its loops (the rim ring keeps the angles of the wall and the torus)
+  const retessPlane = () => {
+    const qk = (p) => Math.round(p[0] / (sc * 1e-8)) + ',' + Math.round(p[1] / (sc * 1e-8)) + ',' + Math.round(p[2] / (sc * 1e-8)), pos = new Map(), de = new Map();
+    S0.forEach((t) => { if (t.tag !== Fp) return; for (let i = 0; i < 3; i++) { const p = t.pts[i], q = t.pts[(i + 1) % 3], a = qk(p), b = qk(q); if (a === b) continue; pos.set(a, p); pos.set(b, q); const k = a + '>' + b; de.set(k, (de.get(k) || 0) + 1); } });
+    const next = new Map(); de.forEach((cnt, k) => { const [a, b] = k.split('>'); const rev = b + '>' + a; const net = cnt - (de.get(rev) || 0); if (net > 0) { if (!next.has(a)) next.set(a, []); next.get(a).push(b); } });
+    const used = new Set(), loops = [];
+    next.forEach((outs, a0) => { outs.forEach((b0) => { const k0 = a0 + '>' + b0; if (used.has(k0)) return; const L = [a0]; let a = a0, b = b0, guard = 0; while (guard++ < 1e6) { used.add(a + '>' + b); if (b === a0) break; L.push(b); const nx = (next.get(b) || []).find((c) => !used.has(b + '>' + c)); if (!nx) break; a = b; b = nx; } if (L.length >= 3) loops.push(L.map((k) => pos.get(k))); }); });
+    if (!loops.length) throw new Error('plane boundary not found');
+    const bu = V.norm(V.cross(n, Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0])), bv = V.cross(n, bu), to2 = (p) => [V.dot(V.sub(p, c), bu), V.dot(V.sub(p, c), bv)];
+    const rings = loops.map((L) => {
+      const onRim = L.every((p) => Math.abs(ax(p)) < tol * 50 && Math.abs(rho(p) - R) < tol * 50);
+      if (!onRim) return L;
+      let sgn = 0; for (let i = 0; i < L.length; i++) { const da = Math.atan2(V.dot(V.sub(L[(i + 1) % L.length], c), bv), V.dot(V.sub(L[(i + 1) % L.length], c), bu)) - Math.atan2(V.dot(V.sub(L[i], c), bv), V.dot(V.sub(L[i], c), bu)); sgn += Math.atan2(Math.sin(da), Math.cos(da)); }
+      return L.map((p) => V.add(p, V.mul(V.norm(V.sub(V.sub(p, c), V.mul(n, ax(p)))), dR)));   // same angles, new radius, same direction
+    });
+    const area2 = (P) => { let a = 0; for (let i = 0; i < P.length; i++) { const p = to2(P[i]), q = to2(P[(i + 1) % P.length]); a += p[0] * q[1] - q[0] * p[1]; } return a / 2; };
+    const ar = rings.map(area2); let oi = 0; ar.forEach((x, i) => { if (Math.abs(x) > Math.abs(ar[oi])) oi = i; });
+    const ordered = [rings[oi]].concat(rings.filter((_, i) => i !== oi)).map((P, k) => { const a = area2(P); return (k === 0 && a < 0) || (k > 0 && a > 0) ? P.slice().reverse() : P; });
+    const all = [], idx = []; ordered.forEach((P) => { const ids = []; P.forEach((p) => { ids.push(all.length); all.push(p); }); idx.push(ids); });
+    const tris = EC(idx, (i) => to2(all[i])); if (!tris.length) throw new Error('plane face could not be triangulated');
+    tris.forEach((t) => { let a = all[t[0]], b = all[t[1]], cc = all[t[2]]; const g = V.cross(V.sub(b, a), V.sub(cc, a)); if (V.dot(g, n) < 0) { const x = b; b = cc; cc = x; } soup.push({ pts: [a, b, cc], tag: Fp2 }); });
+  };
+  if (!EC) throw new Error('triangulator missing');
+  retessPlane();
+  S0.forEach((t) => {
+    if (t.tag === Fp) return;
+    if (t.tag === Fc) soup.push({ pts: t.pts.map((p) => (Math.abs(ax(p)) < tol * 50 && Math.abs(rho(p) - R) < tol * 50) ? V.sub(p, V.mul(n, f)) : p), tag: Fc2 });
+    else soup.push(t);
+  });
+  const m = Math.max(4, Math.ceil(circleSegs(f, resTol(RES_EXACT, f), 16) / 4)), tc = V.sub(c, V.mul(n, f)), ptAt = (th, v) => { const u = V.add(V.mul(rim.x, Math.cos(th)), V.mul(rim.y, Math.sin(th))); return V.add(tc, V.add(V.mul(u, Rt + f * Math.cos(v)), V.mul(n, f * Math.sin(v)))); };
+  const v0 = boss ? 0 : PI / 2, v1 = boss ? PI / 2 : PI;
+  for (let i = 0; i < A1.length; i++) { const t0 = A1[i], t1 = i + 1 < A1.length ? A1[i + 1] : A1[0] + TAU; for (let j = 0; j < m; j++) {
+    const va = v0 + (v1 - v0) * j / m, vb = v0 + (v1 - v0) * (j + 1) / m, a0 = ptAt(t0, va), a1 = ptAt(t1, va), b0 = ptAt(t0, vb), b1 = ptAt(t1, vb);
+    [[a0, a1, b1], [a0, b1, b0]].forEach((q) => { const g = V.cross(V.sub(q[1], q[0]), V.sub(q[2], q[0])), cen = V.mul(V.add(V.add(q[0], q[1]), q[2]), 1 / 3), th = Math.atan2(V.dot(V.sub(cen, c), rim.y), V.dot(V.sub(cen, c), rim.x)), out = V.sub(cen, ptAt(th, PI * 0 + (v0 + v1) / 2 > 0 ? 0 : 0)) ; void out; const cc = V.sub(cen, V.add(tc, V.mul(V.norm(V.sub(V.sub(cen, tc), V.mul(n, V.dot(V.sub(cen, tc), n)))), Rt))); soup.push({ pts: V.dot(g, cc) >= 0 ? q : [q[0], q[2], q[1]], tag: Fn }); });
+  } }
+  const nb = new Body(body.faces.map((x) => x === Fp ? Fp2 : x === Fc ? Fc2 : x).concat([Fn]));
+  const mp = massProps(nb), v0s = Math.abs(soupVolume(S0)), vs = soupVolume(soup);
+  if (!(mp.volume > 0) || !(mp.volume < (ev.mp ? ev.mp.volume : massProps(body).volume) - 1e-12) || Math.abs(mp.volume - vs) > 0.03 * mp.volume) throw new Error('the rounded body failed its volume check (' + mp.volume + ' vs ' + vs + ')');
+  void v0s; const node = mkNode('brep', { body: nb }); node.soupFixed = soup; return node;
+}
 const kernel = {
   name: 'AakarKernel', version: AK.version, isAakarKernel: true,
   // --- primitives (the placement convention matches the Aakar replay: box corner and cylinder / cone base on the origin, sphere centred on it)
@@ -1031,6 +1397,12 @@ const kernel = {
   cylinder: (r, h) => prim(mkCone(pos(r, 'radius'), r, pos(h, 'height'))),
   cone: (r, rt, h) => prim(mkCone(pos(r, 'radius'), Math.max(0, num(rt || 0, 'top radius')), pos(h, 'height'))),
   sphere: (r) => prim(mkSphere(pos(r, 'radius'))),
+  faces: (h) => evalExact(h).body.faces.map((f) => ({ kind: f.surf.kind, o: f.surf.o.slice(), x: f.surf.x.slice(), z: f.surf.z.slice(), r: f.surf.r, R: f.surf.R, k: f.surf.k, rev: !!f.rev })),
+  revolve: (loops, ang) => prim(mkRevolve(loops, ang)),
+  extrude: (loops, h) => prim(mkExtrude(loops, pos(h, 'height'))),
+  polyhedron: (verts, faces) => prim(mkPolyh(verts, faces)),
+  roundRim: (h, spec, f) => roundRimSurgery(h, spec, f),
+  transform: (hnd, Rm, t) => mkNode('xf', { child: hnd, T: new Xf(Rm.slice(), t.slice()) }),
   torus: (R, r) => { if (!(r > 0 && R > r)) throw new Error('torus needs 0 < minor radius < major radius'); return prim(mkTorus(R, r)); },
   // --- transforms
   translate: (h, v) => mkNode('xf', { child: h, T: Xf.translate(v) }),
@@ -1051,8 +1423,11 @@ const kernel = {
   info: (h) => { const ev = evalExact(h), faces = {}, edges = {}; ev.body.faces.forEach(f => { faces[f.surf.kind] = (faces[f.surf.kind] || 0) + 1; }); ev.body.edges().forEach(e => { edges[e.kind] = (edges[e.kind] || 0) + 1; }); return { faces, edges, faceCount: ev.body.faces.length, edgeCount: ev.body.edges().length, vertexCount: ev.body.vertices().length, approximateFaces: ev.mp.approximateFaces || 0 }; },
   /** triangle mesh whose vertices lie on the exact surfaces; `faces[i]` is the B-rep face of triangle i */
   mesh: (h, tol) => toMesh(evaluate(h, meshRes(tol))),
+  meshInfo: (h, tol) => { const ev = evaluate(h, meshRes(tol)); return { mesh: toMesh(ev), faces: ev.body.faces.map((f) => ({ kind: f.surf.kind, o: f.surf.o.slice(), x: f.surf.x.slice(), z: f.surf.z.slice(), r: f.surf.r, R: f.surf.R, k: f.surf.k, rev: !!f.rev })) }; },
   // --- exchange
   stepExport: (h, opts) => stepWrite([evalExact(h).body], opts),
+  /** several bodies in one STEP file (one shape each) */
+  stepExportAll: (hs, opts) => stepWrite(hs.map((h) => evalExact(h).body), opts),
   stepImport: (text) => { const L = stepRead(typeof text === 'string' ? text : new TextDecoder().decode(text)); return mkNode('brep', { body: L[0].body, name: L[0].name }); },
   stepImportAll: (text) => stepRead(typeof text === 'string' ? text : new TextDecoder().decode(text)).map(x => mkNode('brep', { body: x.body, name: x.name }))
 };
@@ -1062,3 +1437,71 @@ AK.Node = Node;
 
 G.AakarKernel = AK;
 })(typeof window !== 'undefined' ? window : globalThis);
+
+// ---------------------------------------------------------------- AakarKernel 1.2: exact edge rounding (fillet and chamfer)
+// A round is a boolean: body - cutter, where the cutter is built from exact primitives, so the new face is a true cylinder or cone.
+// Straight fillets / chamfers and circular chamfers are verified at several mesh resolutions. Circular FILLETS (torus) are tangent to two surfaces, which the BSP boolean cannot yet handle reliably: they are refused with an error so that the caller falls back to the faceted engine.
+//   spec {kind:'line',   p0, p1, nA, nB}                      straight edge between two planar faces that meet at 90 degrees (outward normals nA, nB)
+//   spec {kind:'circle', c, n, R, boss}                       circular rim: planar face with outward normal n, coaxial cylinder; boss = material inside the circle
+(function (AK) {
+  const K = AK && AK.kernel; if (!K || K.roundEdge) return;
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const len = (a) => Math.hypot(a[0], a[1], a[2]), unit = (a) => { const l = len(a); if (!(l > 1e-12)) throw new Error('degenerate direction'); return mul(a, 1 / l); };
+  /** place a model that was built in the local frame (x = a, y = b, z = c, origin o) */
+  function place(h, a, b, c, o) {
+    // rotation matrix columns a, b, c -> axis-angle
+    const m = [[a[0], b[0], c[0]], [a[1], b[1], c[1]], [a[2], b[2], c[2]]], tr = m[0][0] + m[1][1] + m[2][2], cs = Math.max(-1, Math.min(1, (tr - 1) / 2)); let ang = Math.acos(cs), ax;
+    if (ang < 1e-9) ax = null;
+    else if (Math.PI - ang < 1e-6) { // 180 degrees: axis from the largest diagonal
+      const d = [m[0][0], m[1][1], m[2][2]], i = d.indexOf(Math.max(d[0], d[1], d[2])), v = [0, 0, 0]; v[i] = Math.sqrt(Math.max(0, (m[i][i] + 1) / 2)); const j = (i + 1) % 3, k = (i + 2) % 3; v[j] = (m[i][j] + m[j][i]) / (4 * v[i]); v[k] = (m[i][k] + m[k][i]) / (4 * v[i]); ax = unit(v);
+    } else ax = unit([m[2][1] - m[1][2], m[0][2] - m[2][0], m[1][0] - m[0][1]]);
+    return K.translate(ax ? K.rotate(h, ax, ang, [0, 0, 0]) : h, o);
+  }
+  const need = (ok, msg) => { if (!ok) throw new Error(msg); };
+  function lineCutter(s, type, size, v) {
+    const nA = unit(s.nA), nB = unit(s.nB); need(Math.abs(dot(nA, nB)) < 1e-4, 'only right-angle edges can be rounded exactly');
+    const d = sub(s.p1, s.p0), L = len(d); need(L > 1e-9, 'the edge has no length');
+    const ex = mul(nA, -1), ey = mul(nB, -1); let ez = cross(ex, ey); const o = dot(ez, d) >= 0 ? s.p0 : s.p1; const e = Math.max(size * 0.05, 1e-6 * L), z0 = v.ext ? v.ext * Math.max(size * 0.01, 1e-4 * L) : 0, Lx = L + 2 * z0;
+    if (type === 'fillet') {
+      const box = K.translate(K.box(size + e, size + e, Lx), [-e, -e, -z0]), cyl = K.translate(K.cylinder(size, Lx + 2 * e), [size, size, -z0 - e]);
+      return place(K.cut(box, cyl), ex, ey, ez, o);
+    }
+    // chamfer: a square turned 45 degrees; one side lies on the chamfer plane and the rest reaches outside the part
+    const a = unit(sub(ex, ey)), m = unit(add(ex, ey)), b = mul(m, -1), c = cross(a, b), w = size * Math.SQRT2, D = size * Math.SQRT2;
+    const oc = dot(ez, d) >= 0 ? s.p1 : s.p0, mid = add(add(oc, mul(ex, size / 2)), mul(ey, size / 2));
+    return place(K.box(w, D, Lx), a, b, c, add(sub(mid, mul(a, w / 2)), mul(c, -z0)));
+  }
+  function circleCutter(s, type, size, v) {
+    const n = unit(s.n), R = s.R, r = size, e = Math.max(r * 0.05, 1e-6 * R); need(R > r * 1.0001, 'the edge is smaller than the round');
+    let ux = cross(n, Math.abs(n[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]); ux = unit(ux); const uy = cross(n, ux);
+    const dz = 0, rt = r * (1 + (v.k || 0)); let h;
+    if (type === 'fillet') {
+      if (s.boss) {
+        need(R > 2 * r * 1.0001, 'the round needs the circle to be more than twice as wide');
+        const ringB = K.cut(K.translate(K.cylinder(R + e, r + e), [0, 0, -r]), K.translate(K.cylinder(R - r, r + 3 * e), [0, 0, -r - e]));
+        h = K.cut(ringB, K.translate(K.torus(R - r, rt), [0, 0, -r - dz]));
+      } else {
+        const ringB = K.cut(K.translate(K.cylinder(R + r, r + e), [0, 0, -r]), K.translate(K.cylinder(R - e, r + 3 * e), [0, 0, -r - e]));
+        h = K.cut(ringB, K.translate(K.torus(R + r, rt), [0, 0, -r - dz]));
+      }
+    } else if (s.boss) {
+      need(R > r + 2 * e, 'the bevel is wider than the circle');
+      h = K.cut(K.translate(K.cylinder(R + e, r + 2 * e), [0, 0, -r]), K.translate(K.cone(R + e, R - r - e, r + 2 * e), [0, 0, -r - e]));
+    } else {
+      h = K.translate(K.cone(R - e, R + r + e, r + 2 * e), [0, 0, -r - e]);
+    }
+    return place(h, ux, uy, n, s.c);
+  }
+  const VARIANTS_LINE = [{ ext: 0, k: 0 }, { ext: 1, k: 0 }], VARIANTS_FILLET_CIRCLE = [{ ext: 0, k: 0 }, { ext: 0, k: 2e-3 }], VARIANTS = VARIANTS_LINE;
+  K.roundCutter = (spec, type, size, v) => { need(type === 'fillet' || type === 'chamfer', 'type must be fillet or chamfer'); need(size > 0, 'size must be positive'); v = v || VARIANTS[0]; return spec.kind === 'circle' ? circleCutter(spec, type, size, v) : lineCutter(spec, type, size, v); };
+  /** body - cutter. The first cutter that the boolean accepts is used (touching and tangent surfaces make some placements numerically fragile). */
+  K.roundEdge = (h, spec, type, size, tol) => {
+    let last = null;
+    if (spec.kind === 'circle' && type === 'fillet' && K.roundRim) { try { const node = K.roundRim(h, spec, size); K.volume(node); K.mesh(node, size * 0.05); return node; } catch (e) { last = e; } }
+    for (const v of (spec.kind === 'circle' && type === 'fillet' ? VARIANTS_FILLET_CIRCLE : VARIANTS_LINE)) { try { const node = K.cut(h, K.roundCutter(spec, type, size, v)); K.volume(node); [size * 0.05, size * 0.01, size * 0.002].concat(tol > 0 ? [tol] : []).forEach((t) => K.mesh(node, t)); return node; } catch (e) { last = e; if (/only right-angle|more than twice|smaller than the round|wider than the circle|positive|no length/.test(e.message)) throw e; } }
+    throw last;
+  };
+  K.features = (K.features || []).concat(['round-edges', 'round-rim-torus', 'mirror', 'polyhedron', 'trimmed-torus-massprops', 'boolean-retry']);
+  K.version = AK.version = '1.3.0';
+})((typeof window !== 'undefined' ? window : globalThis).AakarKernel);

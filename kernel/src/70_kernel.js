@@ -7,13 +7,7 @@ class Node {
 let NID = 0;
 function soupBBox(soup) { const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; soup.forEach(t => t.pts.forEach(p => { for (let k = 0; k < 3; k++) { if (p[k] < mn[k]) mn[k] = p[k]; if (p[k] > mx[k]) mx[k] = p[k]; } })); return { min: mn, max: mx }; }
 const soupVolume = (soup) => { let v = 0; soup.forEach(t => { v += V.dot(t.pts[0], V.cross(t.pts[1], t.pts[2])) / 6; }); return v; };
-function evaluate(node, res) {
-  res = res || RES_EXACT; const k = resKey(res); let ev = node.cache.get(k); if (ev) return ev;
-  if (node.kind === 'prim') { const soup = node.prim.tess(res); ev = { body: node.prim.body, soup }; }
-  else if (node.kind === 'xf') {
-    const c = evaluate(node.child, res), b = c.body.xf(node.T), idx = new Map(c.body.faces.map((f, i) => [f, i]));
-    const mp = (L) => L.map(t => ({ pts: t.pts.map(p => node.T.p(p)), tag: b.faces[idx.get(t.tag)] })); ev = { body: b, soup: mp(c.soup), dsoup: c.dsoup ? mp(c.dsoup) : null };
-  } else if (node.kind === 'bool') {
+function boolEval(node, res) {
     const a = evaluate(node.a, res), b = evaluate(node.b, res);
     const bb = soupBBox(a.soup.concat(b.soup)), scale = Math.max(1e-9, V.dist(bb.min, bb.max));
     const T0 = AK.debug ? Date.now() : 0; const polys = bspBoolean(node.op, a.soup, b.soup, scale); if (AK.debug) console.log('  bsp', Date.now() - T0, 'ms', polys.length, 'polys');
@@ -29,8 +23,30 @@ function evaluate(node, res) {
       if (AK.guard !== false && !(mp.volume > 0)) throw new Error('the result encloses no volume');
       if (AK.guard !== false && Math.abs(mp.volume - vr) > 0.04 * Math.max(mp.volume, vr) + 2e-3 * (va + vb)) throw new Error('exact and faceted volumes disagree (' + mp.volume.toPrecision(6) + ' vs ' + vr.toPrecision(6) + ')');
     }
-    ev = { body: r.body, soup, dsoup, scale, mp };
-  } else if (node.kind === 'brep') { ev = { body: node.body, soup: null, dsoup: null }; }
+    const ev = { body: r.body, soup, dsoup, scale, mp };
+    return ev;
+}
+const RETRY_N = [37, 41, 53];
+function boolAttempts(node, res) {
+  let err = null;
+  const tries = [res];
+  if (!res.__retry) RETRY_N.forEach((m) => tries.push(Object.assign({}, res, { minN: Math.max(res.minN || 0, m), __retry: 1 })));
+  const t0 = Date.now();
+  for (const rs of tries) {
+    if (rs !== res && Date.now() - t0 > 900) break;
+    try { const ev = boolEval(node, rs); if (rs !== res) { AK.retries = (AK.retries || 0) + 1; } return ev; } catch (e) { if (!err) err = e; }
+  }
+  throw err;
+}
+function evaluate(node, res) {
+  res = res || RES_EXACT; const k = resKey(res); let ev = node.cache.get(k); if (ev) return ev;
+  if (node.kind === 'prim') { const soup = node.prim.tess(res); ev = { body: node.prim.body, soup }; }
+  else if (node.kind === 'xf') {
+    const c = evaluate(node.child, res), b = c.body.xf(node.T), idx = new Map(c.body.faces.map((f, i) => [f, i]));
+    const flip = node.T.det() < 0, mp = (L) => L.map(t => ({ pts: (flip ? t.pts.slice().reverse() : t.pts).map(p => node.T.p(p)), tag: b.faces[idx.get(t.tag)] })); ev = { body: b, soup: mp(c.soup), dsoup: c.dsoup ? mp(c.dsoup) : null };
+  } else if (node.kind === 'bool') {
+    ev = boolAttempts(node, res);
+  } else if (node.kind === 'brep') { ev = { body: node.body, soup: node.soupFixed || null, dsoup: null, mp: node.soupFixed ? null : undefined }; if (node.soupFixed) delete ev.mp; }
   else throw new Error('unknown node ' + node.kind);
   node.cache.set(k, ev); return ev;
 }
