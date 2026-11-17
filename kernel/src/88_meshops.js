@@ -222,7 +222,7 @@
   // keep the planar boolean entry points to use on the tessellated operands, then route freeform operands to them
   K.__rawBool = { cut: K.cut, fuse: K.fuse, common: K.common };
   const isN = (h) => !!(K.nurbs && K.nurbs.isNurbs && K.nurbs.isNurbs(h));
-  ['cut', 'fuse', 'common'].forEach((op) => { const o = K[op]; if (typeof o !== 'function' || o.__meshWrapped) return; const w = function (a, b, ...rest) { if (approx.has(a) || approx.has(b)) return fieldBoolean(op, a, b); if (isN(a) || isN(b)) { try { const r = boolean(op, a, b); K.volume(r); return r; } catch (e) { return fieldBoolean(op, a, b); } } return o.call(this, a, b, ...rest); }; w.__meshWrapped = true; K[op] = w; });
+  ['cut', 'fuse', 'common'].forEach((op) => { const o = K[op]; if (typeof o !== 'function' || o.__meshWrapped) return; const w = function (a, b, ...rest) { if (op === 'cut' && isN(a) && !isN(b) && K.nurbs.cutExact) { const r = K.nurbs.cutExact(a, b); if (r) return r; } if (approx.has(a) || approx.has(b)) return fieldBoolean(op, a, b); if (isN(a) || isN(b)) { try { const r = boolean(op, a, b); K.volume(r); return r; } catch (e) { return fieldBoolean(op, a, b); } } return o.call(this, a, b, ...rest); }; w.__meshWrapped = true; K[op] = w; });
   // shell / offset / fillet entry points of the kernel facade (the hybrid kernel with OpenCascade replaces them by exact ones)
   if (typeof K.shell !== 'function') K.shell = (h, specs, t) => shell(h, specs, t);
   if (typeof K.offset !== 'function') K.offset = (h, d) => offset(h, d);

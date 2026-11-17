@@ -152,4 +152,4 @@ function tessBody(body, res) {
   body.faces.forEach((f) => { tessFace(f, tol, Math.max(res.minN || 16, 16)).forEach((t) => soup.push({ pts: t, tag: f })); });
   return soup;
 }
-AK.tessFace = tessFace; AK.tessBody = tessBody;
+AK.tessFace = tessFace; AK.tessBody = tessBody; AK.triangulatePolygon = triangulatePolygon; AK.insertSteiner = insertSteiner;

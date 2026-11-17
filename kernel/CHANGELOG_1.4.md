@@ -29,9 +29,42 @@ meshing of arbitrary imported STEP bodies in AakarKernel (OpenCascade meshes the
 - New feature **Offset body** (Modify group): grows or shrinks an exact body, rounded outside corners (OpenCascade as helper). Recipe steps `shell` / `offset`; `K.hybrid().shell` accepts `{near:[x,y,z]}`.
 - **Not done, and not possible as a small change:** shell, offset, general fillets and NURBS booleans inside AakarKernel *without* OpenCascade. These need offset-surface intersection and general surface/surface intersection (a second full modeller). With OpenCascade as helper (desktop build) they work; without it the faceted solid is kept and the log says why.
 
+## 1.5.1 - holes in freeform solids and an exact through-hole cut
+- `K.nurbs.extrude/loft/sweep` accept `{outer, holes}`: planar caps carry the holes (Green-theorem mass properties, mesh with holes, STEP `FACE_BOUND`, transforms).
+- `K.nurbs.cutPrism(a, b)`: exact cut of an extruded freeform solid by a parallel box/cylinder/prism that passes through it inside the profile. Result is the same extrusion with one more hole (exact, no meshing). Used automatically by `K.cut` and the hybrid subtract; other cases keep the labelled approximate path.
+- Blind pockets: the same tool stopping inside the solid (from either end) gives an exact pocket: outer skin + pocket walls + planar floor + top cap with the pocket as a hole (STEP valid in OpenCascade). `topo.caps` may now carry `refs` so planar faces can share edges with any part.
+- App: loft and sweep with holes (sketch regions with inner loops) are built with native holes, so they no longer need OpenCascade; the subtraction recipe is only a fallback.
+
+## 1.5.2 - exact slanted end cuts, chained exact cuts
+- `K.nurbs.prismSolid(profile, vec, lo, hi, pockets)`: an extrusion whose two ends are planes (perpendicular or slanted), with through-holes and blind pockets. Each side is a ruled patch between the two projected profile curves (an affine projection of a NURBS curve is the same NURBS), so everything stays exact without trimmed faces.
+- `K.nurbs.cutHalfSpace(a, p, n)` and `cutPlanarTool(a, b)`: cutting such a solid with a plane, or with a convex flat-faced tool of which one face reaches the solid (rotated box, wedge), is exact when the plane crosses every side. `cutExact` = parallel prism cut, else this. Used first by `K.cut` and the hybrid subtract.
+- Through-holes, pockets (from either end, also under a slanted end) chain in any order and survive move, mirror and STEP export.
+- Not covered (needs trimmed faces): a plane or tool that leaves through the side of the solid, non-parallel cylinders/boxes, freeform-on-freeform.
+
+## 1.6.0 - trimmed freeform faces and general plane cuts (exact to ~1e-10, tolerance-based like any B-rep kernel)
+- New face kind `trim`: a NURBS surface bounded by loops of pieces. Border pieces are exact sub-curves of the surface border (knot insertion, `cSplit`/`cSub`); contour pieces are traced to 1e-13 on the surface and the cutting plane and interpolated by a cubic spline in 3D and in (u, v). Mass properties integrate the trimmed region with Green's theorem; the mesher triangulates the (u, v) polygon with interior Steiner points; STEP writes trimmed `ADVANCED_FACE` bounds with edges shared by geometry; move, mirror and scale carry them.
+- `K.nurbs.planeCut(solid, p, n)`: keep `n.(x-p) <= 0` of ANY freeform solid (extrusion, loft, sweep, revolve, torus, sphere ...), the plane may leave through the sides. Faces are trimmed, planar faces are clipped, a cap face (with holes and several loops) is built from the section. Checked against analytic volumes (sphere cap, loft frustum, torus) and OpenCascade booleans and STEP read-back.
+- Chained cuts: a result remembers its source solid and planes (`src`), a further plane recomputes from them, with exact kink points where two planes meet on a surface. Survives move/mirror.
+- `cutPlanarTool` (convex flat tool of which one face reaches the solid) uses it for every freeform solid, so `K.cut` and the hybrid subtract are exact there.
+- `toolCut`: a convex flat-faced tool of which SEVERAL faces reach the solid (box corner, slot): faces trimmed with the union of the tool's outsides (kinks located exactly), flat faces cut with the tool boundary inside them, one cap per tool face limited by the other tool planes. Checked against OpenCascade booleans (1e-9) and STEP edge sharing.
+- Closed surfaces (full revolve, closed section) are cut along their seam into two patches before trimming, so STEP readers get ordinary loops.
+- Direct modelling, exact: `moveFace` (a cut face or a prism end face along its normal) and `deleteFace` (undo the cut a face belongs to), recomputed from the source solid.
+- Freeform mesh density raised (error about 0.04% of volume on spheres), same density on trimmed and untrimmed faces.
+- Still approximate / OpenCascade: cylinders and other curved tools, cylinders and other curved tools, freeform against freeform, general fillet/shell/offset on freeform bodies.
+
 ## 1.5.0 - approximate operations inside AakarKernel (no OpenCascade needed)
 `src/88_meshops.js`, `K.meshops`: booleans with freeform (NURBS) solids, shell (closed or with opened faces), offset (grow / shrink) and fillets on general curved bodies.
 Method: fine tessellation -> signed-distance grid (exact near the surface, vector sweeps outwards, ray parity for the sign) -> marching tetrahedra -> a real AakarKernel body (planar triangles).  Booleans with a freeform solid first try the exact intersection of the tessellations (sharp creases stay sharp) and fall back to the field method.
 - **These results are approximate, and say so**: `K.meshops.isApprox(body)` returns the grid size used; the app logs "approximate (mesh-based, about x mm accuracy)". Accuracy is about one grid cell (default 1/96 of the model size, finer when the wall / radius needs it): measured 0.03 % (offset of a box), 0.3 % (shell), 0.05-0.3 % (freeform booleans).  A wall or radius the grid cannot resolve is refused with an error, never faked.
 - Fillets: convex edges by a limited morphological opening, concave edges by a closing, inside a tube around the chosen edges.  Known limit: where the rounded edge ends at other sharp edges, those neighbours are rounded a little too (within about one radius of the end).  Off by default for edges AakarKernel rounds exactly; the Exact panel has "Approximate fillets where no exact one exists".
 - Exact operations stay exact; OpenCascade (K.hybrid) is still preferred when present.
+
+## 1.7.0 — slanted cylinders
+- `cutSkewCylinder`: a cylinder of any axis (slanted too) through a freeform prism, entering and leaving through both flat ends with the mouths inside the end faces, is exact: elliptical holes in both end caps, wall ruled along the tool axis. Volume equals the closed form to 1e-15; OpenCascade reads the STEP to 1e-11. `pockets` entries may carry `end:'thru'` and `dir`.
+- Still not exact in-kernel: cylinders whose wall meets a side face, blind slanted pockets, cone/sphere/torus tools, freeform-against-freeform, fillet/shell/offset on freeform bodies, direct modelling on other freeform faces.
+
+## 1.8.0 — curved tools (sphere, cylinder, cone, torus; slanted too)
+- Trimming accepts curved constraints (`{val, grad}` next to planes): contour tracing, kink points and Newton projection are generic.
+- `cutQuadricTool`: the solid's curved sides are trimmed by the tool, and the tool's own wall becomes a trimmed NURBS face whose region comes from the traced intersection curves (loops that wind around the tool are cut at the wall's seam; the solid's contour edges are split at the same points). Volumes agree with OpenCascade booleans to 1e-9 (sphere, slanted cylinder, cone, torus; cylinder through the side of a freeform prism).
+- Limits (null → OpenCascade / approximate path): flat ends of the solid touched by the tool, blind pockets with a floor, tool wall regions that contain a pole of a sphere/torus wall parametrisation (e.g. a bowl deeper than a hemisphere), trimmed solids as the base (no chaining after a curved cut).
+- OpenCascade's own volume integrator is imprecise on trimmed B-splines (1e-5 level); fine meshes of the exported STEP converge to the kernel values.

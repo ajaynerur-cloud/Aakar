@@ -21,6 +21,7 @@
     ['box', 'cylinder', 'sphere', 'cone', 'torus', 'extrude', 'revolve', 'polyhedron', 'stepImport', 'stepImportAll'].forEach((m) => { if (typeof primary[m] === 'function') H[m] = (...a) => primary[m](...a); });
     ['translate', 'transform', 'rotate', 'scale', 'mirror'].forEach((m) => { if (typeof primary[m] !== 'function') return; H[m] = (h, ...a) => { if (!isF(h)) return primary[m](h, ...a); if (typeof secondary[m] !== 'function') throw new Error('OpenCascade body: ' + m + ' not available'); return F(secondary[m](h.s, ...a)); }; });
     const bool = (op, name) => (a, b) => {   // evaluated right away, so a failure is found here and not later in the app
+      if (name === 'subtract' && !isF(a) && !isF(b) && K.nurbs && K.nurbs.cutExact && K.nurbs.isNurbs(a)) { const ex = K.nurbs.cutExact(a, b); if (ex) return ex; }
       if (!isF(a) && !isF(b) && K.nurbs && (K.nurbs.isNurbs(a) || K.nurbs.isNurbs(b))) return offload(name, () => secondary[op](toSec(a), toSec(b)), 'AakarKernel has no booleans on freeform (NURBS) solids');
       if (!isF(a) && !isF(b)) { try { const r = primary[op](a, b); primary.volume(r); return r; } catch (e) { return offload(name, () => secondary[op](toSec(a), toSec(b)), e); } }
       H.stats.offloaded++; try { return back(secondary[op](toSec(a), toSec(b)), name); } catch (e) { H.stats.failed++; throw e; }
