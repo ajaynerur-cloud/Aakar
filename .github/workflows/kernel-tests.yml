@@ -15,10 +15,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Triangulator for the rim-fillet tests
-        run: npm i --no-save --ignore-scripts earcut@2.2.4
+      - name: Test helpers (triangulator for rim fillets, real OpenCascade for the fallback tests)
+        run: npm i --no-save --ignore-scripts earcut@2.2.4 occt-wasm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Real OpenCascade (Python) to cross-check freeform STEP files
+        run: pip install cadquery-ocp
       - name: Kernel + integration tests (uses the real app/index.html)
         run: node kernel/test/run-all.js app/index.html
+      - name: Freeform STEP files read by a real OpenCascade
+        run: python3 kernel/test/occt_crosscheck.py
       - name: Kernel in the html matches kernel/src
         run: |
           cp app/index.html /tmp/index.check.html
