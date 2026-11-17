@@ -77,3 +77,14 @@ Method: fine tessellation -> signed-distance grid (exact near the surface, vecto
 - `faceAt(sol, point, normal)` finds a face from a point and normal.
 - App: Move face, Offset face and Delete face on a freeform body replay as exact kernel steps (`moveFace` / `deleteFace` recipe ops).
 - Limits: cone walls cannot be offset; overlapping tools, a floor meeting the solid boundary, and cuts after a plane cut or move fall back to the older route.
+
+## 1.10.0 — freeform booleans, offset, shell and round without OpenCascade (extruded freeform solids)
+- **Exact union / subtract / intersect of two extruded freeform solids** (`N.boolExact`, `N.boolPrisms`): a 2D region boolean of the profiles plus the z-ranges. The result is again a prism, so operations chain.
+  Verified against dense-polygon areas (1e-6) and inclusion-exclusion. Limits: parallel axes, hole-free profiles; a union needs equal z-ranges; a blind pocket needs to lie strictly inside with clearance.
+- **Exact offset, shell and round** of such solids (`N.offsetPrism`, `N.shellPrism` / `shellExact`, `N.roundPrism`): one rational quadratic patch per profile span (lines plus exact quarter arcs);
+  accuracy is measured against the true offset distance (<= 5e-8 relative, usually ~1e-9). Volumes agree with Steiner's formula to 1e-7 or better.
+  Limits: outward offset where the profile has overlap-type corners, and a rim round of a profile with sharp corners, return null (the caller falls back); shell opens a flat end of a hole-free prism only;
+  rim round covers the end rims (top, bottom, both).
+- `K.hybrid` and the mesh-based `K.cut` / `K.fuse` / `K.common` / `K.shell` / `K.offset` try these routes before the approximate route or OpenCascade.
+- Tessellation: a face with more than 32 knot spans is no longer subdivided in every span (12x fewer triangles for offset / round sides).
+- Not done: general freeform-freeform surface intersection; non-prism freeform bodies (loft, sweep, revolve) still use the approximate route for fillet / shell / offset.

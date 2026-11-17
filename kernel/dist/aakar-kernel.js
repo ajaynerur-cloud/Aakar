@@ -1932,7 +1932,7 @@ G.AakarKernel = AK;
       if (f.kind === 'trim') { trimTris(f, n).forEach((t) => tris.push(t)); return; }
       const S = f.surf, [u0, u1, v0, v1] = sDom(S);
       if (f.kind === 'cap') { return; }
-      const grid = (a, b, ks) => { const k = [...new Set(ks.filter((x) => x >= a - 1e-14 && x <= b + 1e-14))].sort((x, y) => x - y), o = [k[0]]; for (let i = 0; i + 1 < k.length; i++) { for (let j = 1; j <= n; j++) o.push(k[i] + (k[i + 1] - k[i]) * j / n); } return o; };
+      const grid = (a, b, ks) => { const k = [...new Set(ks.filter((x) => x >= a - 1e-14 && x <= b + 1e-14))].sort((x, y) => x - y), o = [k[0]]; const nn = k.length > 33 ? Math.max(1, Math.round(n * 32 / (k.length - 1))) : n; /* many fine spans (an offset/round side): the spans are already small, so do not subdivide each one n times */ for (let i = 0; i + 1 < k.length; i++) { for (let j = 1; j <= nn; j++) o.push(k[i] + (k[i + 1] - k[i]) * j / nn); } return o; };
       const us = grid(u0, u1, S.U), vs = grid(v0, v1, S.V), P = us.map((u) => vs.map((v) => sEval(S, u, v)));
       for (let i = 0; i + 1 < us.length; i++) for (let j = 0; j + 1 < vs.length; j++) { const a = P[i][j], b = P[i + 1][j], c = P[i + 1][j + 1], d = P[i][j + 1]; if (f.sign > 0) tris.push([a, b, c], [a, c, d]); else tris.push([a, c, b], [a, d, c]); }
     });
@@ -2307,7 +2307,7 @@ G.AakarKernel = AK;
       const r = cutQuadricTools(root, bodies); if (r) r.qsrc = { root, bodies }; return r;
     } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
   }
-  const cutExact = (a, b) => cutPrism(a, b) || cutSkewCylinder(a, b) || cutPlanarTool(a, b) || cutQuadricTool(a, b);
+  const cutExact = (a, b) => cutPrism(a, b) || cutSkewCylinder(a, b) || cutPlanarTool(a, b) || cutQuadricTool(a, b) || boolPrisms('cut', a, b);
   /** EXACT cut of an extruded freeform solid by a prism (box, cylinder, any extrusion of lines and arcs) whose axis is parallel to the extrusion and which passes right through it, lying inside the profile:
    *  the result is the same extrusion with one more hole.  Returns null when the case is not this one (the caller then uses another way). */
   function cutPrism(a, b) {
@@ -2598,7 +2598,175 @@ G.AakarKernel = AK;
   wrap('info', (h) => infoOf(h)); wrap('mesh', (h, tol) => indexedMesh(h, tol && tol < 0.01 ? 48 : 16)); wrap('stepExport', (h, o) => stepWrite(h, o));
   wrap('bbox', (h) => { const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; mesh(h, 6).forEach((t) => t.forEach((p) => { for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p[i]); mx[i] = Math.max(mx[i], p[i]); } })); return { min: mn, max: mx }; });
   wrap('translate', (h, d) => xfSolid(h, [1, 0, 0, 0, 1, 0, 0, 0, 1], d)); wrap('transform', (h, M, t) => xfSolid(h, M, t || [0, 0, 0]));
-  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, faceAt, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.4.0' };
+  // ======================================================================================================
+  // 1.10: exact booleans, offsets, shells and rounds of extruded freeform solids (prisms with flat, perpendicular ends and a single outer profile loop).
+  // Booleans work on the profiles (curve-curve intersection by Newton to 1e-12, pieces chained into loops) and on the height ranges, so the result is again an exact prism.
+  // Offsets and rounds sample the profile and its normals, interpolate each row of the result with one shared parameter, and assemble the side as ONE rational quadratic
+  // patch per profile segment (straight pieces and exact quarter-circle pieces, joined with double knots).  The reported error is measured against the true offset distance.
+  // ======================================================================================================
+  const isPrism = (a) => isN(a) && a.kind === 'skin' && a.op === 'extrude' && a.profile && a.vec && !a.lo && !a.hi && !(a.pockets && a.pockets.length) && !(a.profile.holes && a.profile.holes.length);
+  function prismFrame(a, ref) {
+    const base = profPlane(a.profile.outer), v = unit(a.vec), d = ref ? ref.d : v; if (Math.abs(dot(v, d)) < 1 - 1e-9 || Math.abs(dot(base.n, d)) < 1 - 1e-9) return null;
+    const s0 = dot(base.p, d), s1 = s0 + dot(a.vec, d), e = planBasis(d); return { d, e1: e[0], e2: e[1], lo: Math.min(s0, s1), hi: Math.max(s0, s1), H: Math.abs(s1 - s0), to2: (P) => [dot(P, e[0]), dot(P, e[1])] };
+  }
+  const onPlane = (c, d, z) => cMap(c, (P) => add(P, mul(d, z - dot(P, d))));
+  function polyOf(loop, F, n) { const o = []; loop.forEach((c) => cSample(c, n || 400).slice(0, -1).forEach((q) => o.push(F.to2(q)))); return o; }
+  const inPoly = (p, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const A = poly[i], B = poly[j]; if ((A[1] > p[1]) !== (B[1] > p[1]) && p[0] < (B[0] - A[0]) * (p[1] - A[1]) / (B[1] - A[1]) + A[0]) c = !c; } return c; };
+  const distPoly = (p, poly) => { let m = Infinity; for (let i = 0; i < poly.length; i++) { const A = poly[i], B = poly[(i + 1) % poly.length], ab = [B[0] - A[0], B[1] - A[1]], t = Math.max(0, Math.min(1, ((p[0] - A[0]) * ab[0] + (p[1] - A[1]) * ab[1]) / (ab[0] * ab[0] + ab[1] * ab[1] || 1))); m = Math.min(m, Math.hypot(p[0] - A[0] - t * ab[0], p[1] - A[1] - t * ab[1])); } return m; };
+  /** all transversal crossings of two profile segments, refined to 1e-12 */
+  function curveHits(ca, cb, F) {
+    const M = 200, A = cSample(ca, M).map(F.to2), B = cSample(cb, M).map(F.to2), [a0, a1] = dom(ca), [b0, b1] = dom(cb), out = [];
+    const refine = (s, t) => { for (let k = 0; k < 50; k++) { const ea = cEval(ca, s, true), eb = cEval(cb, t, true), dd = sub(ea.p, eb.p), f0 = dot(dd, F.e1), f1 = dot(dd, F.e2), ja0 = dot(ea.d, F.e1), ja1 = dot(ea.d, F.e2), jb0 = dot(eb.d, F.e1), jb1 = dot(eb.d, F.e2), det = -ja0 * jb1 + jb0 * ja1; if (Math.abs(det) < 1e-18) return null;
+      const ds = (f0 * jb1 - jb0 * f1) / det, dt = (-ja0 * f1 + f0 * ja1) / det; s = Math.max(a0, Math.min(a1, s + ds)); t = Math.max(b0, Math.min(b1, t + dt)); if (Math.hypot(ds, dt) < 1e-14) break; }
+      const ea = cEval(ca, s), eb = cEval(cb, t); return len(sub(ea, eb)) < 1e-9 * (1 + len(ea)) ? { s, t, p: ea } : null; };
+    for (let i = 0; i < M; i++) { const p = A[i], q = A[i + 1], r = [q[0] - p[0], q[1] - p[1]], xl = Math.min(p[0], q[0]), xh = Math.max(p[0], q[0]), yl = Math.min(p[1], q[1]), yh = Math.max(p[1], q[1]);
+      for (let j = 0; j < M; j++) { const u = B[j], w = B[j + 1]; if (Math.max(u[0], w[0]) < xl || Math.min(u[0], w[0]) > xh || Math.max(u[1], w[1]) < yl || Math.min(u[1], w[1]) > yh) continue;
+        const s2 = [w[0] - u[0], w[1] - u[1]], den = r[0] * s2[1] - r[1] * s2[0]; if (Math.abs(den) < 1e-18) continue; const t = ((u[0] - p[0]) * s2[1] - (u[1] - p[1]) * s2[0]) / den, v = ((u[0] - p[0]) * r[1] - (u[1] - p[1]) * r[0]) / den;
+        if (t < -1e-9 || t > 1 + 1e-9 || v < -1e-9 || v > 1 + 1e-9) continue; const h = refine(a0 + (a1 - a0) * (i + t) / M, b0 + (b1 - b0) * (j + v) / M); if (h && !out.some((o) => len(sub(o.p, h.p)) < 1e-8 * (1 + len(h.p)))) out.push(h); } }
+    return out;
+  }
+  /** boolean of two profile loops (outer loops, counter-clockwise about F.d).  Returns {loops} (loops[0] may be several), {empty:true}, or null when it is not a single clean region */
+  function regionOp(op, LA, LB, F) {
+    const hitsA = LA.map(() => []), hitsB = LB.map(() => []); let nh = 0;
+    LA.forEach((ca, i) => LB.forEach((cb, j) => curveHits(ca, cb, F).forEach((h) => { hitsA[i].push(h.s); hitsB[j].push(h.t); nh++; })));
+    const PA = polyOf(LA, F), PB = polyOf(LB, F), size = Math.max(...PA.map((p) => Math.hypot(p[0] - PA[0][0], p[1] - PA[0][1])), 1e-9);
+    if (!nh) { const aIn = inPoly(PA[0], PB), bIn = inPoly(PB[0], PA); if (aIn && bIn) return null;
+      if (op === 'common') return aIn ? { loops: [LA] } : bIn ? { loops: [LB] } : { empty: true };
+      if (op === 'fuse') return aIn ? { loops: [LB] } : bIn ? { loops: [LA] } : null;
+      return aIn ? { empty: true } : bIn ? { loops: [LA, reverseLoop(LB)] } : { loops: [LA] }; }
+    if (hitsA.reduce((s, h) => s + h.length, 0) % 2) return null;
+    const mkPieces = (loop, hits, other, keepIn, rev) => { const out = [];
+      loop.forEach((c, k) => { const [a, b] = dom(c), ts = [a].concat(hits[k].filter((t) => t > a + 1e-9 && t < b - 1e-9).sort((x, y) => x - y), [b]);
+        for (let i = 0; i + 1 < ts.length; i++) { if (ts[i + 1] - ts[i] < 1e-10) continue; const pc = cSub(c, ts[i], ts[i + 1]), m = F.to2(cEval(pc, (dom(pc)[0] + dom(pc)[1]) / 2)); if (distPoly(m, other) < 1e-7 * (1 + size)) { out.amb = true; continue; }
+          if (inPoly(m, other) === keepIn) out.push(rev ? { c: cReverse(pc), p0: cEval(pc, dom(pc)[1]), p1: cEval(pc, dom(pc)[0]) } : { c: pc, p0: cEval(pc, dom(pc)[0]), p1: cEval(pc, dom(pc)[1]) }); } });
+      return out; };
+    const wantA = op === 'common' ? true : false, wantB = op === 'fuse' ? false : true;     // keep the part of A inside B (common) or outside B (fuse, cut); the part of B inside A (common, cut) or outside A (fuse)
+    const pa = mkPieces(LA, hitsA.length ? hitsA : [[]], PB, wantA, false), pb = mkPieces(LB, hitsB, PA, op === 'fuse' ? false : true, op === 'cut');
+    if (pa.amb || pb.amb) return null; const all = pa.concat(pb), used = all.map(() => false), tol = 1e-6 * (1 + size), loops = [];
+    for (let s = 0; s < all.length; s++) { if (used[s]) continue; used[s] = true; const lp = [all[s].c]; let cur = all[s].p1; const start = all[s].p0, guard = all.length + 2;
+      for (let g = 0; g < guard && len(sub(cur, start)) > tol; g++) { const nx = all.findIndex((q, i) => !used[i] && len(sub(q.p0, cur)) < tol); if (nx < 0) return null; used[nx] = true; lp.push(all[nx].c); cur = all[nx].p1; }
+      if (len(sub(cur, start)) > tol) return null; loops.push(lp); }
+    void wantB; return loops.length ? { loops } : { empty: true };
+  }
+  /** build the prism of region loops (outer counter-clockwise, holes clockwise about d) between heights z0 and z1 */
+  function prismOfLoops(loops, d, z0, z1) {
+    const F = { d }; void F; const ar = loops.map((l) => dot(closedArea(l, 64), d)), outs = ar.map((x, i) => (x > 0 ? i : -1)).filter((i) => i >= 0), holes = ar.map((x, i) => (x < 0 ? i : -1)).filter((i) => i >= 0);
+    if (outs.length !== 1) return null; const mv = (l) => l.map((c) => onPlane(c, d, z0)), up = (secs) => secs.map((l) => l.map((c) => cMap(c, (P) => add(P, mul(d, z1 - z0))))), o0 = mv(loops[outs[0]]), hs0 = holes.map((i) => mv(loops[i]));
+    const r = skinSolidH([o0, up([o0])[0]], hs0.map((h) => [h, up([h])[0]]), {}, 'extrude', 1); r.profile = { outer: o0, holes: hs0 }; r.vec = mul(d, z1 - z0); return check(r, false).ok ? r : null;
+  }
+  /** EXACT union / difference / intersection of two extruded freeform solids with parallel axes.  op: 'fuse' | 'cut' | 'common'.  null when the result is not a single prism (the caller falls back) */
+  function boolPrisms(op, a, b) {
+    try {
+      if (!isPrism(a) || !isPrism(b)) return null; const FA = prismFrame(a), FB = FA && prismFrame(b, FA); if (!FB) return null;
+      const eps = 1e-9 * (1 + FA.H + FB.H), orient = (l) => orientLoop(l, FA.d, true), LA = orient(a.profile.outer), LB = orient(b.profile.outer);
+      const wrapR = (r, z0, z1) => (r === null ? null : r.empty ? null : prismOfLoops(r.loops, FA.d, z0, z1));
+      if (op === 'common') { const lo = Math.max(FA.lo, FB.lo), hi = Math.min(FA.hi, FB.hi); if (hi - lo < 1e-7 * (1 + FA.H)) return null; return wrapR(regionOp('common', LA, LB, FA), lo, hi); }
+      if (op === 'fuse') { if (Math.abs(FA.lo - FB.lo) > eps || Math.abs(FA.hi - FB.hi) > eps) return null; return wrapR(regionOp('fuse', LA, LB, FA), FA.lo, FA.hi); }
+      if (op === 'cut') {
+        if (FB.lo <= FA.lo + eps && FB.hi >= FA.hi - eps) return wrapR(regionOp('cut', LA, LB, FA), FA.lo, FA.hi);
+        // a blind pocket: B's loop strictly inside A's profile, B reaching one end of A, its other end strictly between the two ends of A
+        const PA = polyOf(LA, FA), PB = polyOf(LB, FA); let size = 0; PA.forEach((p) => { size = Math.max(size, Math.hypot(p[0] - PA[0][0], p[1] - PA[0][1])); }); const clear = 2e-3 * size;
+        for (const p of PB) if (!inPoly(p, PA) || distPoly(p, PA) < clear) return null; for (const p of PA) if (distPoly(p, PB) < clear) return null;
+        const tol = 1e-6 * (1 + FA.H), fromTop = FB.hi >= FA.hi - eps && FB.lo > FA.lo + tol && FB.lo < FA.hi - tol, fromBot = FB.lo <= FA.lo + eps && FB.hi < FA.hi - tol && FB.hi > FA.lo + tol; if (!fromTop && !fromBot) return null;
+        const loop = LB.map((c) => onPlane(c, FA.d, fromTop ? FA.hi : FA.lo)), ft = fromTop ? FB.lo : FB.hi, plane = { p: mul(FA.d, ft), n: FA.d };
+        const va = massProps(a, 1).volume, r = prismSolid({ outer: a.profile.outer, holes: [] }, a.vec, null, null, [{ loop: reverseLoop(loop), end: fromTop ? 'hi' : 'lo', plane }]); if (check(r, false).ok && massProps(r, 1).volume < va) return r;
+        const r2 = prismSolid({ outer: a.profile.outer, holes: [] }, a.vec, null, null, [{ loop, end: fromTop ? 'hi' : 'lo', plane }]); return check(r2, false).ok && massProps(r2, 1).volume < va ? r2 : null;
+      }
+      return null;
+    } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
+  }
+  // ---- offset curves of profile loops and the one-patch-per-segment side surfaces
+  const turnAbout = (ta, tb, d) => Math.atan2(dot(cross(ta, tb), d), dot(ta, tb));
+  /** cut the offset curves of two neighbouring segments where they meet (an overlapping corner): returns the new end parameter of segment A and start parameter of segment B */
+  function trimCorner(cA, cB, d, delta) {
+    const [a0, a1] = dom(cA), [b0, b1] = dom(cB), off = (c, t) => { const e = cEval(c, t, true); return add(e.p, mul(unit(cross(unit(e.d), d)), delta)); };
+    let s = a1, t = b0; const h = 1e-7 * Math.min(a1 - a0, b1 - b0);
+    for (let k = 0; k < 60; k++) { const f = sub(off(cA, s), off(cB, t)), ja = mul(sub(off(cA, s + h * 0.5), off(cA, s - h * 0.5)), 1 / h), jb = mul(sub(off(cB, t + h * 0.5), off(cB, t - h * 0.5)), 1 / h);
+      const [e1, e2] = planBasis(d), A = [[dot(ja, e1), -dot(jb, e1)], [dot(ja, e2), -dot(jb, e2)]], r = [-dot(f, e1), -dot(f, e2)], det = A[0][0] * A[1][1] - A[0][1] * A[1][0]; if (Math.abs(det) < 1e-18) return null;
+      const ds = (r[0] * A[1][1] - A[0][1] * r[1]) / det, dt = (A[0][0] * r[1] - r[0] * A[1][0]) / det; s += ds; t += dt; if (Math.hypot(ds, dt) < 1e-14) break; }
+    if (!(s > a0 && s <= a1 + 1e-12 && t >= b0 - 1e-12 && t < b1)) return null; return { s: Math.min(s, a1), t: Math.max(t, b0) };
+  }
+  /** sample a profile loop (counter-clockwise about d).  Items: {seg} = samples of a profile segment (points P, outward normals N, right of the tangent) and {join} = a circular join at a corner (fixed point, normal sweeping through the corner angle).  mode 'rows': joins at every corner, no trimming; mode 'offset': joins where the offset opens a gap, segment ends trimmed where it overlaps. */
+  function sampleLoop(loop, d, N, mode, delta) {
+    const n = loop.length, ends = loop.map((c) => { const [a, b] = dom(c), ea = cEval(c, a, true), eb = cEval(c, b, true); return { a, b, p0: ea.p, p1: eb.p, t0: unit(ea.d), t1: unit(eb.d) }; });
+    const lo = ends.map((e) => e.a), hi = ends.map((e) => e.b), joins = new Array(n).fill(null);
+    for (let k = 0; k < n; k++) { const A = ends[k], kb = (k + 1) % n, B = ends[kb], th = turnAbout(A.t1, B.t0, d); if (Math.abs(th) < 1e-9) continue; const gap = mode === 'rows' || delta * th > 0;
+      if (gap) joins[k] = { th, C: mul(add(A.p1, B.p0), 0.5), nA: unit(cross(A.t1, d)), nB: unit(cross(B.t0, d)), d };
+      else { const tr = trimCorner(loop[k], loop[kb], d, delta); if (!tr) return null; hi[k] = tr.s; lo[kb] = tr.t; } }
+    const items = [];
+    for (let k = 0; k < n; k++) { const c = loop[k], P = [], Nn = [], ts = []; for (let i = 0; i <= N; i++) { const t = lo[k] + (hi[k] - lo[k]) * i / N, e = cEval(c, t, true); ts.push(t); P.push(e.p); Nn.push(unit(cross(unit(e.d), d))); } items.push({ seg: k, P, N: Nn });
+      if (joins[k]) { const J = joins[k], M = Math.max(4, Math.min(24, Math.ceil(Math.abs(J.th) / 0.1) + 4)), JP = [], JN = []; for (let i = 0; i <= M; i++) { const a = J.th * i / M, c1 = Math.cos(a), s1 = Math.sin(a); JP.push(J.C); JN.push(add(mul(J.nA, c1), mul(cross(d, J.nA), s1))); } items.push({ join: k, P: JP, N: JN }); } }
+    return items;
+  }
+  const rowPts = (it, d, cz, z0) => it.P.map((p, i) => add(add(p, mul(it.N[i], cz[0])), mul(d, cz[1] - z0)));
+  /** one rational quadratic patch from a path in the (offset, height) plane: pieces {t:'line',to:[delta,z]} and {t:'arc',mid:[delta,z],to:[delta,z]} (a quarter circle, weight 1/sqrt 2) */
+  function pathSide(it, d, z0, start, pieces) {
+    const ctrl = [start], wts = [1]; pieces.forEach((pc) => { if (pc.t === 'line') { const l = ctrl[ctrl.length - 1]; ctrl.push([(l[0] + pc.to[0]) / 2, (l[1] + pc.to[1]) / 2]); wts.push(1); ctrl.push(pc.to); wts.push(1); } else { ctrl.push(pc.mid); wts.push(Math.SQRT1_2); ctrl.push(pc.to); wts.push(1); } });
+    const np = pieces.length, V = [0, 0, 0]; for (let j = 1; j < np; j++) V.push(j / np, j / np); V.push(1, 1, 1);
+    const dm = ctrl.reduce((m, c) => (Math.abs(c[0]) > Math.abs(m) ? c[0] : m), 0), ub = chordParams(it.P.map((p, i) => add(p, mul(it.N[i], dm)))); let U = null; const cols = [];
+    ctrl.forEach((cz) => { const r = interpH(rowPts(it, d, cz, z0).map((q) => [q[0], q[1], q[2], 1]), ub, 3); U = r.U; cols.push(r.X.map((h) => [h[0], h[1], h[2]])); });
+    const n = cols[0].length; return { p: 3, q: 2, U, V, P: Array.from({ length: n }, (_, i) => cols.map((c) => c[i])), w: Array.from({ length: n }, () => wts.slice()) };
+  }
+  const chordParams = (pts) => { const ub = [0]; for (let i = 1; i < pts.length; i++) ub.push(ub[i - 1] + len(sub(pts[i], pts[i - 1]))); const L = ub[ub.length - 1]; return ub.map((x) => x / L); };
+  const degenerate = (c) => c.P.every((q) => len(sub(q, c.P[0])) < 1e-10);
+  /** a solid whose side is the profile moved along a (offset, height) path, with planar ends; null if a corner overlaps (needs a trimmed intersection) or the error is too large */
+  function pathSolid(a, F, start, pieces, tag) {
+    const loop = orientLoop(a.profile.outer, F.d, true), z0 = dot(cEval(loop[0], dom(loop[0])[0]), F.d), deltas = [start[0]].concat(pieces.map((p) => p.to[0]), pieces.filter((p) => p.mid).map((p) => p.mid[0]));
+    for (const N of [96, 192, 384]) {
+      const items = sampleLoop(loop, F.d, N, 'rows', 0); if (!items) return null;
+      for (const it of items) if (it.join !== undefined) { const th = turnAbout(cross(it.N[0], F.d) , cross(it.N[it.N.length - 1], F.d), F.d); void th; const turn = Math.atan2(dot(cross(it.N[0], it.N[it.N.length - 1]), F.d), dot(it.N[0], it.N[it.N.length - 1])); if (deltas.some((x) => x * turn < 0)) return null; }
+      const sides = items.map((it) => pathSide(it, F.d, z0, start, pieces)), last = sides[0].P[0].length - 1, first = [], lastR = [];
+      sides.forEach((S) => { const r0 = sRow(S, 0), r1 = sRow(S, last); if (!degenerate(r0)) first.push(r0); if (!degenerate(r1)) lastR.push(r1); });
+      const faces = sides.map((S, k) => ({ kind: 'side', surf: S, sign: 1, tag: 'side' + k })); faces.push(planFace([first], mul(F.d, -1), 'cap0_0'), planFace([lastR], F.d, 'cap1_0'));
+      const sol = { kind: 'skin', op: tag, faces, topo: { type: 'skin', nseg: sides.length, sections: [first, lastR], sides, caps: true, apex: -1 } };
+      let err = 0; for (let j = 0; j <= pieces.length; j++) { const dl = j === 0 ? start[0] : pieces[j - 1].to[0]; if (!(Math.abs(dl) > 0)) continue;
+        sides.forEach((S, si) => { if (items[si].join !== undefined) return; const [u0, u1] = [S.U[S.p], S.U[S.P.length]]; for (let i = 0; i < 100; i++) { const P = sEval(S, u0 + (u1 - u0) * (i + 0.5) / 100, j / pieces.length), Pp = sub(P, mul(F.d, dot(P, F.d) - z0)); let dd = Infinity; for (const c of loop) dd = Math.min(dd, len(sub(cEval(c, nearestParam(c, Pp).t), Pp))); err = Math.max(err, Math.abs(dd - Math.abs(dl))); } }); }
+      sol.offsetError = err; if (err <= 5e-8 * (1 + F.H)) { const c = check(sol, false); return c.ok ? sol : null; } if (err > 1e-3 * (1 + F.H)) return null;
+    }
+    return null;
+  }
+  /** offset loop (one interpolated curve per segment and per round join) at distance delta (positive = outward); null if the offset folds */
+  function offsetLoopCurves(loop, F, delta) {
+    for (const N of [96, 192, 384]) { const items = sampleLoop(loop, F.d, N, 'offset', delta); if (!items) return null;
+      const cs = items.map((it) => { const pts = it.P.map((p, i) => add(p, mul(it.N[i], delta))), ub = chordParams(pts), r = interpH(pts.map((q) => [q[0], q[1], q[2], 1]), ub, 3); return curve(3, r.U, r.X.map((h) => [h[0], h[1], h[2]]), r.X.map(() => 1)); });
+      let err = 0; cs.forEach((c) => { for (let i = 0; i < 100; i++) { const P = cEval(c, dom(c)[0] + (dom(c)[1] - dom(c)[0]) * (i + 0.5) / 100); let dd = Infinity; for (const o of loop) { const np = nearestParam(o, P); dd = Math.min(dd, len(sub(cEval(o, np.t), P))); } err = Math.max(err, Math.abs(dd - Math.abs(delta))); } });
+      if (err <= 5e-8 * (1 + F.H)) return { curves: cs, err }; if (err > 1e-3 * (1 + F.H)) return null; }
+    return null;
+  }
+  /** EXACT offset of an extruded freeform solid: d > 0 grows it (flat faces move out, the sharp edges become quarter-round bands of radius d), d < 0 shrinks it (sharp edges stay sharp) */
+  function offsetPrism(a, d) {
+    try { if (!isPrism(a) || !(Math.abs(d) > 0)) return null; const F = prismFrame(a); if (!F) return null; const lo = F.lo, hi = F.hi;
+      if (d > 0) return pathSolid(a, F, [0, lo - d], [{ t: 'arc', mid: [d, lo - d], to: [d, lo] }, { t: 'line', to: [d, hi] }, { t: 'arc', mid: [d, hi + d], to: [0, hi + d] }], 'offset');
+      const t = -d; if (!(F.H > 2 * t * (1 + 1e-9))) return null; const inner = offsetLoopCurves(orientLoop(a.profile.outer, F.d, true), F, -t); if (!inner) return null; const r = prismOfLoops([inner.curves], F.d, lo + t, hi - t); if (r) r.offsetError = inner.err; return r;
+    } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
+  }
+  /** EXACT round of the edges between the flat ends and the side of an extruded freeform solid (radius r): which = 'top' | 'bottom' | 'both' (top = the end the extrusion runs to) */
+  function roundPrism(a, r, which) {
+    try { if (!isPrism(a) || !(r > 0)) return null; const F = prismFrame(a); if (!F) return null; const lo = F.lo, hi = F.hi, top = which === 'top' || which === 'both', bot = which === 'bottom' || which === 'both';
+      if (!top && !bot) return null; if (!(F.H > (top && bot ? 2 : 1) * r * (1 + 1e-9))) return null;
+      const pcs = [], start = bot ? [-r, lo] : [0, lo]; if (bot) pcs.push({ t: 'arc', mid: [0, lo], to: [0, lo + r] }); pcs.push({ t: 'line', to: [0, top ? hi - r : hi] }); if (top) pcs.push({ t: 'arc', mid: [0, hi], to: [-r, hi] });
+      return pathSolid(a, F, start, pcs, 'round');
+    } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
+  }
+  /** EXACT shell of an extruded freeform solid: wall thickness t inward, the end(s) in `open` ('top' | 'bottom' | 'both') removed; a blind cavity keeps a floor of thickness t */
+  function shellPrism(a, open, t) {
+    try { if (!isPrism(a) || !(t > 0)) return null; const F = prismFrame(a); if (!F || !(F.H > t * (1 + 1e-9))) return null; const loop = orientLoop(a.profile.outer, F.d, true), inner = offsetLoopCurves(loop, F, -t); if (!inner) return null;
+      const va = massProps(a, 1).volume, base = { outer: a.profile.outer, holes: [] };
+      if (open === 'both') { for (const cav of [inner.curves, reverseLoop(inner.curves)]) { const r = extrude({ outer: a.profile.outer, holes: [cav] }, a.vec); if (check(r, false).ok && massProps(r, 1).volume < va) return r; } return null; }
+      const fromTop = open !== 'bottom', pl = fromTop ? F.hi : F.lo, floor = fromTop ? F.lo + t : F.hi - t; if (!(F.H > 2 * t * (1 + 1e-9))) return null;
+      const cav = inner.curves.map((c) => onPlane(c, F.d, pl)), plane = { p: mul(F.d, floor), n: F.d };
+      for (const lp of [cav, reverseLoop(cav)]) { const r = prismSolid(base, a.vec, null, null, [{ loop: lp, end: fromTop ? 'hi' : 'lo', plane }]); if (check(r, false).ok && massProps(r, 1).volume < va) return r; } return null;
+    } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
+  }
+  /** shell with the faces to open named the way the app / OpenCascade adapter does: { near | c: [x,y,z] } (a point of the face) or { dir: [x,y,z] }; only the flat ends of an extruded freeform solid can be opened exactly */
+  function shellExact(h, specs, t) {
+    try { if (!isPrism(h) || !specs || !specs.length || !(t > 0)) return null; const F = prismFrame(h); if (!F) return null; let top = false, bot = false;
+      for (const sp of specs) { let which; if (sp.dir) { const k = dot(unit(sp.dir), F.d); if (Math.abs(k) < 0.9) return null; which = k > 0 ? 'top' : 'bottom'; } else { const p = sp.near || sp.c; if (!p) return null; const z = dot(p, F.d), dh = Math.abs(z - F.hi), dl = Math.abs(z - F.lo); if (Math.min(dh, dl) > 1e-4 * (1 + F.H)) return null; which = dh < dl ? 'top' : 'bottom'; } if (which === 'top') top = true; else bot = true; }
+      return shellPrism(h, top && bot ? 'both' : top ? 'top' : 'bottom', t);
+    } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
+  }
+  const boolExact = (op, a, b) => boolPrisms(op, a, b);
+  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, faceAt, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, boolPrisms, boolExact, isPrism, shellExact, offsetPrism, shellPrism, roundPrism, offsetLoopCurves, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.4.0' };
   K.features = (K.features || []).concat(['nurbs-curves', 'nurbs-solids', 'nurbs-massprops', 'nurbs-step']);
 })((typeof window !== 'undefined' ? window : globalThis).AakarKernel);
 
@@ -2626,6 +2794,7 @@ G.AakarKernel = AK;
     ['translate', 'transform', 'rotate', 'scale', 'mirror'].forEach((m) => { if (typeof primary[m] !== 'function') return; H[m] = (h, ...a) => { if (!isF(h)) return primary[m](h, ...a); if (typeof secondary[m] !== 'function') throw new Error('OpenCascade body: ' + m + ' not available'); return F(secondary[m](h.s, ...a)); }; });
     const bool = (op, name) => (a, b) => {   // evaluated right away, so a failure is found here and not later in the app
       if (name === 'subtract' && !isF(a) && !isF(b) && K.nurbs && K.nurbs.cutExact && K.nurbs.isNurbs(a)) { const ex = K.nurbs.cutExact(a, b); if (ex) return ex; }
+      if (!isF(a) && !isF(b) && K.nurbs && K.nurbs.boolExact && K.nurbs.isNurbs(a) && K.nurbs.isNurbs(b)) { const ex = K.nurbs.boolExact(op, a, b); if (ex) return ex; }
       if (!isF(a) && !isF(b) && K.nurbs && (K.nurbs.isNurbs(a) || K.nurbs.isNurbs(b))) return offload(name, () => secondary[op](toSec(a), toSec(b)), 'AakarKernel has no booleans on freeform (NURBS) solids');
       if (!isF(a) && !isF(b)) { try { const r = primary[op](a, b); primary.volume(r); return r; } catch (e) { return offload(name, () => secondary[op](toSec(a), toSec(b)), e); } }
       H.stats.offloaded++; try { return back(secondary[op](toSec(a), toSec(b)), name); } catch (e) { H.stats.failed++; throw e; }
@@ -2653,10 +2822,10 @@ G.AakarKernel = AK;
     function secondaryRound(s, spec, type, r) { const es = pickEdges(s, spec); if (!es.length) throw new Error('the edge was not found in the OpenCascade body'); return type === 'chamfer' ? raw.chamfer(s, es, r) : raw.fillet(s, es, r); }
     // ---- operations AakarKernel has no exact version of: available when OpenCascade is present
     /** hollow a body: faceSpecs name the faces to open, each { c: [x,y,z] } (the face's centre of mass), { near: [x,y,z] } (the face whose centre is nearest) or { dir: [x,y,z] } (the face lying farthest along that direction); thickness > 0 grows inwards, < 0 outwards */
-    H.shell = (h, faceSpecs, thickness) => { if (!raw || !raw.shell) throw new Error('OpenCascade is not available'); const s = toSec(h); const faces = raw.getSubShapes(s, 'face'), cm = (f) => { const c = raw.getSurfaceCenterOfMass(f); return [c.x, c.y, c.z]; };
+    H.shell = (h, faceSpecs, thickness) => { if (!isF(h) && K.nurbs && K.nurbs.shellExact && K.nurbs.isNurbs(h)) { const ex = K.nurbs.shellExact(h, faceSpecs, thickness); if (ex) return ex; } if (!raw || !raw.shell) throw new Error('OpenCascade is not available'); const s = toSec(h); const faces = raw.getSubShapes(s, 'face'), cm = (f) => { const c = raw.getSurfaceCenterOfMass(f); return [c.x, c.y, c.z]; };
       const pick = faceSpecs.map((fs) => { if (fs.c) return faces.find((f) => { try { const c = cm(f); return near(c, fs.c, 1e-4 * (1 + Math.hypot(...fs.c))); } catch (e) { return false; } }); if (fs.near) { let best = null, bd = Infinity; faces.forEach((f) => { try { const c = cm(f), d = Math.hypot(c[0] - fs.near[0], c[1] - fs.near[1], c[2] - fs.near[2]); if (d < bd) { bd = d; best = f; } } catch (e) { /* skip */ } }); return best; } if (fs.dir) { let best = null, bd = -Infinity; const d = fs.dir, L = Math.hypot(...d) || 1; faces.forEach((f) => { try { const c = cm(f), v = (c[0] * d[0] + c[1] * d[1] + c[2] * d[2]) / L; if (v > bd + 1e-9) { bd = v; best = f; } } catch (e) { /* skip */ } }); return best; } return null; }).filter(Boolean);
       if (pick.length !== faceSpecs.length) throw new Error('a face to open was not found'); H.stats.offloaded++; note('shell: done in OpenCascade'); return back(raw.shell(s, pick, thickness, 1e-3), 'shell'); };
-    H.offset = (h, d) => { if (!raw || !raw.offset) throw new Error('OpenCascade is not available'); H.stats.offloaded++; note('offset: done in OpenCascade'); return back(raw.offset(toSec(h), d, 1e-3), 'offset'); };
+    H.offset = (h, d) => { if (!isF(h) && K.nurbs && K.nurbs.offsetPrism && K.nurbs.isNurbs(h)) { const ex = K.nurbs.offsetPrism(h, d); if (ex) return ex; } if (!raw || !raw.offset) throw new Error('OpenCascade is not available'); H.stats.offloaded++; note('offset: done in OpenCascade'); return back(raw.offset(toSec(h), d, 1e-3), 'offset'); };
     if (primary.nurbs) H.nurbs = primary.nurbs;
     H.isForeign = isF; H.toSecondary = toSec;
     H.version = primary.version; H.features = (primary.features || []).concat(['occt-fallback']);
@@ -2889,10 +3058,10 @@ G.AakarKernel = AK;
   // keep the planar boolean entry points to use on the tessellated operands, then route freeform operands to them
   K.__rawBool = { cut: K.cut, fuse: K.fuse, common: K.common };
   const isN = (h) => !!(K.nurbs && K.nurbs.isNurbs && K.nurbs.isNurbs(h));
-  ['cut', 'fuse', 'common'].forEach((op) => { const o = K[op]; if (typeof o !== 'function' || o.__meshWrapped) return; const w = function (a, b, ...rest) { if (op === 'cut' && isN(a) && !isN(b) && K.nurbs.cutExact) { const r = K.nurbs.cutExact(a, b); if (r) return r; } if (approx.has(a) || approx.has(b)) return fieldBoolean(op, a, b); if (isN(a) || isN(b)) { try { const r = boolean(op, a, b); K.volume(r); return r; } catch (e) { return fieldBoolean(op, a, b); } } return o.call(this, a, b, ...rest); }; w.__meshWrapped = true; K[op] = w; });
+  ['cut', 'fuse', 'common'].forEach((op) => { const o = K[op]; if (typeof o !== 'function' || o.__meshWrapped) return; const w = function (a, b, ...rest) { if (op === 'cut' && isN(a) && !isN(b) && K.nurbs.cutExact) { const r = K.nurbs.cutExact(a, b); if (r) return r; } if (isN(a) && isN(b) && K.nurbs.boolExact) { const r = K.nurbs.boolExact(op, a, b); if (r) return r; } if (approx.has(a) || approx.has(b)) return fieldBoolean(op, a, b); if (isN(a) || isN(b)) { try { const r = boolean(op, a, b); K.volume(r); return r; } catch (e) { return fieldBoolean(op, a, b); } } return o.call(this, a, b, ...rest); }; w.__meshWrapped = true; K[op] = w; });
   // shell / offset / fillet entry points of the kernel facade (the hybrid kernel with OpenCascade replaces them by exact ones)
-  if (typeof K.shell !== 'function') K.shell = (h, specs, t) => shell(h, specs, t);
-  if (typeof K.offset !== 'function') K.offset = (h, d) => offset(h, d);
+  if (typeof K.shell !== 'function') K.shell = (h, specs, t) => { if (isN(h) && K.nurbs.shellExact) { const r = K.nurbs.shellExact(h, specs, t); if (r) return r; } return shell(h, specs, t); };
+  if (typeof K.offset !== 'function') K.offset = (h, d) => { if (isN(h) && K.nurbs.offsetPrism) { const r = K.nurbs.offsetPrism(h, d); if (r) return r; } return offset(h, d); };
   if (typeof K.roundEdge === 'function' && !K.roundEdge.__meshWrapped) {
     const ro = K.roundEdge, w = function (h, spec, type, r, tol) {
       try { return ro.call(this, h, spec, type, r, tol); } catch (e) { if (!K.meshops.autoRound || type === 'chamfer' || !spec || !(r > 0) || !(spec.kind === 'line' || spec.kind === 'circle')) throw e; const res = fillet(h, [spec], r); const inf = approx.get(res); if (inf) inf.fallbackFor = String(e.message || e).slice(0, 100); return res; }

@@ -143,4 +143,20 @@ run('direct modelling on curved-cut bodies', () => { const K = AK.kernel, mkP = 
   const r4 = N.moveFace(res, cp, -1); T('move top cap equals rebuilt cut', !!r4 && rel(vol(r4), vol(K.cut(mkP(19), cyl(r0, L0, o0)))) < 1e-9);
   T('faceAt finds the top cap', N.faceAt(res, [0, 0, 20], [0, 0, 1]) === cp || /^cap1/.test((res.faces[N.faceAt(res, [0, 0, 20], [0, 0, 1])] || {}).tag || '')); });
 function add3(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; } function mulv(a, s) { return a.map((q) => q * s); }
+// 1.10: exact booleans, offset, shell and round of extruded freeform solids (no OpenCascade).  References: dense-polygon region areas (shapely, 1e-6), Steiner's formula A(t)=A-P t+pi t^2 for convex profiles
+run('exact booleans / offset / shell / round of freeform prisms', () => { const H = 20, ell = (a, b, cx, cy, rot) => N.interp(Array.from({ length: 25 }, (_, i) => { const t = 2 * PI * i / 24, x = a * Math.cos(t), y = b * Math.sin(t); return [cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot), 0]; }), 3);
+  const A = N.extrude(ell(12, 8, 0, 0, 0), [0, 0, H]), B = N.extrude(ell(7, 5, 9, 2, 0.5), [0, 0, H]), V = (h) => N.massProps(h, 1).volume, vA = V(A), vB = V(B);
+  const cut = N.boolExact('cut', A, B), fus = N.boolExact('fuse', A, B), com = N.boolExact('common', A, B);
+  T('subtract is exact and closed', !!cut && N.check(cut, false).ok && rel(V(cut), 4597.266396843131) < 1e-6, cut && rel(V(cut), 4597.266396843131).toExponential(1));
+  T('union is exact and closed', !!fus && N.check(fus, false).ok && rel(V(fus), 6796.429954632938) < 1e-6);
+  T('intersection is exact and closed', !!com && N.check(com, false).ok && rel(V(com), 1434.74328499101) < 1e-6);
+  T('inclusion-exclusion: |A u B| + |A n B| = |A| + |B|', Math.abs(V(fus) + V(com) - vA - vB) < 1e-7 * vA);
+  T('the result is again a prism, so it can be cut again', N.isPrism(cut) && !!N.boolExact('cut', cut, N.extrude(ell(2, 2, -6, 0, 0), [0, 0, H])));
+  const per = (() => { let L = 0; for (const c of A.profile.outer) { const q = N.cSample(c, 4000); for (let i = 1; i < q.length; i++) L += Math.hypot(q[i][0] - q[i - 1][0], q[i][1] - q[i - 1][1]); } return L; })(), a0 = V(A) / H, Ain = (t) => a0 - per * t + PI * t * t;
+  const off = N.offsetPrism(A, -1); T('inward offset: exact area law', !!off && N.check(off, false).ok && rel(V(off), Ain(1) * (H - 2)) < 2e-6, off && rel(V(off), Ain(1) * (H - 2)).toExponential(1));
+  const sh = N.shellPrism(A, 'top', 1.2); T('shell open at the top: Steiner volume', !!sh && N.check(sh, false).ok && rel(V(sh), vA - Ain(1.2) * (H - 1.2)) < 2e-6, sh && rel(V(sh), vA - Ain(1.2) * (H - 1.2)).toExponential(1));
+  const r = 0.8, vRound = (() => { let v = a0 * (H - r); const n = 4000; for (let i = 0; i < n; i++) { const u = (i + 0.5) / n * r, t = r - Math.sqrt(r * r - u * u); v += Ain(t) * (r / n); } return v; })();
+  const rt = N.roundPrism(A, r, 'top'); T('round of the top rim: swept volume', !!rt && N.check(rt, false).ok && rel(V(rt), vRound) < 1e-5, rt && rel(V(rt), vRound).toExponential(1));
+  const rb = N.roundPrism(A, r, 'both'); T('round of both rims', !!rb && N.check(rb, false).ok && Math.abs(V(rb) - (2 * vRound - vA)) < 2e-5 * vA);
+  T('a profile with sharp corners is not rounded here (the rim blend at a corner needs a per-row trim): null, so the app falls back', N.roundPrism(cut, 0.5, 'top') === null); T('...but its offset and shell stay exact', !!N.offsetPrism(cut, -0.5) && !!N.shellPrism(cut, 'top', 1)); });
 console.log(pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);
