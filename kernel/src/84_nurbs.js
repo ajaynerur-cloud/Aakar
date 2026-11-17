@@ -844,9 +844,35 @@
     return { mode: 'clip', faces: facesFromLoops(loops, f.n, tag), lines };
   }
   /** direct modelling on planar faces that came from cuts or from the ends of a prism: move a face along its normal (dist > 0 = outwards), or delete it (the cut it belongs to is undone).  Exact, recomputed from the source; null when the face is not of that kind or the result is not valid. */
+  /** index of the flat face of a freeform solid that contains the point P (or is nearest to it) and has the normal n; -1 when there is none */
+  function faceAt(sol, P, n) {
+    let scale = 1; faceCurves(sol).forEach((c) => c.P.forEach((q) => { scale = Math.max(scale, len(q)); })); n = unit(n); let best = -1, bd = Infinity;
+    sol.faces.forEach((f, i) => { if (f.kind !== 'plan' && f.kind !== 'cap') return; const fn = f.n; if (!fn || dot(fn, n) < 1 - 1e-6) return; const o = f.kind === 'plan' ? f.o : f.surf.P[0][0]; if (Math.abs(dot(fn, sub(P, o))) > 1e-6 * scale) return; let d = Infinity;
+      if (f.kind === 'plan') { const [e1, e2] = planBasis(fn); if (inLoops2(P, f, e1, e2, f.o)) d = 0; else f.loops.forEach((l) => l.forEach((c) => cSample(c, 64).forEach((q) => { d = Math.min(d, len(sub(q, P))); }))); }
+      else { const [u0, u1, v0, v1] = sDom(f.surf); for (let a = 0; a <= 8; a++) for (let b = 0; b <= 8; b++) d = Math.min(d, len(sub(sEval(f.surf, u0 + (u1 - u0) * a / 8, v0 + (v1 - v0) * b / 8), P))); }
+      if (d < bd) { bd = d; best = i; } });
+    return bd < 1e-3 * scale ? best : -1;
+  }
+  /** a copy of a tool body with its wall offset (offset > 0 shrinks the tool: the solid grows) and/or its floor end moved (floorSign: which end is the floor) */
+  function retool(b, o) {
+    const sp = quadSpec(b); if (!sp) return null; const Q = sp.Q, w = sp.w0, M = [Q.x[0], Q.y[0], Q.z[0], Q.x[1], Q.y[1], Q.z[1], Q.x[2], Q.y[2], Q.z[2]], off = o.offset || 0, r = (Q.r || 0) - off;
+    if (sp.kind === 'sphere') { if (!(r > 0)) return null; return K.translate(K.sphere(r), Q.o); }
+    if (sp.kind === 'torus') { if (!(r > 0) || r >= Q.R) return null; return K.transform(K.torus(Q.R, r), M, Q.o); }
+    if (sp.kind === 'cylinder') { if (!(r > 0)) return null; let t0 = sp.caps[0].t, t1 = sp.caps[1].t; if (o.floorSign === 0) t0 += o.floor || 0; else if (o.floorSign === 1) t1 -= o.floor || 0; if (!(t1 > t0)) return null; return K.translate(K.transform(K.cylinder(r, t1 - t0), M, [0, 0, 0]), add(Q.o, mul(w, t0))); }
+    return null;
+  }
+  /** direct modelling on the results of curved cuts: undo a tool (delete its wall or floor), offset its wall, move its floor, move an end of the solid the tools were cut from */
+  function qsrcEdit(sol, f, kind, dist) {
+    const q = sol.qsrc, tag = f.tag || '', again = (root, bodies) => { const r = bodies.length ? cutQuadricTools(root, bodies) : root; if (r && bodies.length) r.qsrc = { root, bodies }; return r; };
+    let m = /^quad_(wall|floor)(\d+)/.exec(tag);
+    if (m) { const idx = +m[2]; if (kind === 'delete') return again(q.root, q.bodies.filter((_, i) => i !== idx));
+      const sp = quadSpec(q.bodies[idx]); if (!sp) return null; const nb = retool(q.bodies[idx], m[1] === 'floor' ? { floor: dist, floorSign: dot(f.n, sp.w0) > 0 ? 0 : 1 } : { offset: dist }); if (!nb) return null; const bodies = q.bodies.slice(); bodies[idx] = nb; return again(q.root, bodies); }
+    if (kind === 'move' && (m = /^(cap[01])(?:_|q|$)/.exec(tag))) { const ri = q.root.faces.findIndex((g) => g.tag && g.tag.indexOf(m[1] + '_') === 0 && (g.kind === 'plan' || g.kind === 'cap')); if (ri < 0) return null; const nr = moveFace(q.root, ri, dist); if (!nr) return null; return again(nr, q.bodies); }
+    return null;
+  }
   function moveFace(sol, idx, dist) {
     try {
-      const f = sol.faces[idx]; if (!f) return null;
+      const f = sol.faces[idx]; if (!f) return null; if (sol.qsrc) return qsrcEdit(sol, f, 'move', dist);
       if (sol.src) { const m = /^cut(\d+)_(\d+)_/.exec(f.tag || ''); if (!m) return null; const ops = sol.src.ops.map((o) => ({ kind: o.kind, planes: o.planes.map((q) => Object.assign({}, q)) })), q = ops[+m[1]].planes[+m[2]]; if (!q) return null;
         const p2 = add(q.p, mul(q.n, dist)); ops[+m[1]].planes[+m[2]] = { n: q.n, d: dot(q.n, p2), p: p2 }; const r = opsCut(sol.src.root, ops); if (r) r.src = { root: sol.src.root, ops }; return r; }
       if (sol.profile && sol.vec && /^cap[01]_/.test(f.tag || '') && (f.kind === 'plan' || f.kind === 'cap')) { const lo = /^cap0/.test(f.tag), base = profPlane(sol.profile.outer), cur = lo ? (sol.lo || base) : (sol.hi || { p: add(base.p, sol.vec), n: base.n }), out = unit(lo ? (dot(cur.n, sol.vec) > 0 ? mul(cur.n, -1) : cur.n) : (dot(cur.n, sol.vec) > 0 ? cur.n : mul(cur.n, -1))), pl = { p: add(cur.p, mul(out, dist)), n: cur.n };
@@ -856,7 +882,7 @@
   }
   function deleteFace(sol, idx) {
     try {
-      const f = sol.faces[idx]; if (!f || !sol.src) return null; const m = /^cut(\d+)_(\d+)_/.exec(f.tag || ''); if (!m) return null;
+      const f = sol.faces[idx]; if (f && sol.qsrc) return qsrcEdit(sol, f, 'delete', 0); if (!f || !sol.src) return null; const m = /^cut(\d+)_(\d+)_/.exec(f.tag || ''); if (!m) return null;
       const ops = sol.src.ops.filter((_, i) => i !== +m[1]); if (!ops.length) return sol.src.root; const r = opsCut(sol.src.root, ops); if (r) r.src = { root: sol.src.root, ops }; return r;
     } catch (e) { return null; }
   }
@@ -908,6 +934,6 @@
   wrap('info', (h) => infoOf(h)); wrap('mesh', (h, tol) => indexedMesh(h, tol && tol < 0.01 ? 48 : 16)); wrap('stepExport', (h, o) => stepWrite(h, o));
   wrap('bbox', (h) => { const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; mesh(h, 6).forEach((t) => t.forEach((p) => { for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p[i]); mx[i] = Math.max(mx[i], p[i]); } })); return { min: mn, max: mx }; });
   wrap('translate', (h, d) => xfSolid(h, [1, 0, 0, 0, 1, 0, 0, 0, 1], d)); wrap('transform', (h, M, t) => xfSolid(h, M, t || [0, 0, 0]));
-  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.4.0' };
+  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, faceAt, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.4.0' };
   K.features = (K.features || []).concat(['nurbs-curves', 'nurbs-solids', 'nurbs-massprops', 'nurbs-step']);
 })(window.AakarKernel);

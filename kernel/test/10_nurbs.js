@@ -130,5 +130,17 @@ run('quadric tools: ends, floors, poles, chaining', () => { const K = AK.kernel,
   chk('slanted blind pocket with a floor', K.cut(P, cylAt([0.2, 0.1, 1], 2, 30, [1, 0.5, 8])), 5877.368451071452, 1e-7);
   const r1 = K.cut(A, cylAt([0.2, 1, 0.1], 1.5, 60, add3([3, 0, 1], mulv(unit3([0.2, 1, 0.1]), -30)))), r2 = K.cut(r1, cylAt([-0.3, 0.2, 1], 1.2, 60, add3([-3, 1, 0], mulv(unit3([-0.3, 0.2, 1]), -30))));
   chk('two curved cuts in a row', r2, 1292.687196524032, 1e-7); });
+// direct modelling on a curved-cut body: the cut remembers its tools, so move / offset / delete face stay exact
+run('direct modelling on curved-cut bodies', () => { const K = AK.kernel, mkP = (h) => N.extrude(N.interp(Array.from({ length: 17 }, (_, i) => [12 * Math.cos(2 * PI * i / 16), 8 * Math.sin(2 * PI * i / 16), 0]), 3), [0, 0, h]), P = mkP(20);
+  const w = [0.2, 0.1, 1], n = Math.hypot(...w), wu = w.map((x) => x / n), ang = Math.acos(wu[2]); let k = [-wu[1], wu[0], 0]; const kn = Math.hypot(...k); k = k.map((x) => x / kn); const cs = Math.cos(ang), sn = Math.sin(ang), [x, y, z] = k;
+  const R = [cs + x * x * (1 - cs), x * y * (1 - cs) - z * sn, x * z * (1 - cs) + y * sn, y * x * (1 - cs) + z * sn, cs + y * y * (1 - cs), y * z * (1 - cs) - x * sn, z * x * (1 - cs) - y * sn, z * y * (1 - cs) + x * sn, cs + z * z * (1 - cs)];
+  const cyl = (r, len, o) => K.translate(K.transform(K.cylinder(r, len), R, [0, 0, 0]), o), o0 = [1, 0.5, 8], r0 = 2, L0 = 30, res = K.cut(P, cyl(r0, L0, o0)), vol = (s) => K.volume(s);
+  const fi = (re) => res.faces.findIndex((f) => re.test(f.tag || '')), fl = fi(/^quad_floor/), wl = fi(/^quad_wall/), cp = fi(/^cap1/);
+  T('cut remembers its tools', !!res.qsrc && fl >= 0 && wl >= 0 && cp >= 0);
+  const r1 = N.moveFace(res, fl, 1.0); T('move floor equals rebuilt cut', !!r1 && rel(vol(r1), vol(K.cut(P, cyl(r0, L0 - 1, [o0[0] + wu[0], o0[1] + wu[1], o0[2] + wu[2]])))) < 1e-9);
+  const r2 = N.moveFace(res, wl, 0.3); T('offset wall equals rebuilt cut', !!r2 && rel(vol(r2), vol(K.cut(P, cyl(r0 - 0.3, L0, o0)))) < 1e-9);
+  const r3 = N.deleteFace(res, wl); T('delete wall restores the prism', !!r3 && rel(vol(r3), vol(P)) < 1e-9);
+  const r4 = N.moveFace(res, cp, -1); T('move top cap equals rebuilt cut', !!r4 && rel(vol(r4), vol(K.cut(mkP(19), cyl(r0, L0, o0)))) < 1e-9);
+  T('faceAt finds the top cap', N.faceAt(res, [0, 0, 20], [0, 0, 1]) === cp || /^cap1/.test((res.faces[N.faceAt(res, [0, 0, 20], [0, 0, 1])] || {}).tag || '')); });
 function add3(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; } function mulv(a, s) { return a.map((q) => q * s); }
 console.log(pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);

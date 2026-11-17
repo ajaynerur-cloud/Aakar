@@ -69,3 +69,11 @@ Method: fine tessellation -> signed-distance grid (exact near the surface, vecto
 - Flat ends of the solid are clipped by the tool (section curves of the plane with the tool, closed with the solid's edges); a tool end inside the solid gets a flat floor closed by the wall's own border circle (blind pockets, slanted too); wall regions that contain a pole (a bowl deeper than a hemisphere) are strips between loops and the wall's ends; several curved tools are cut together from the original solid (`qsrc`), so a second curved cut works.
 - Limits (null → OpenCascade / approximate path): tools that overlap each other inside the solid (needs surface–surface intersection), a floor that meets the solid's boundary, tool ends touching the surface of the solid, torus walls that wind around the tube, curved cuts after a plane cut or a moved body.
 - OpenCascade's own volume integrator is imprecise on trimmed B-splines (1e-5 level); fine meshes of the exported STEP converge to the kernel values.
+
+
+## 1.9.0 — direct modelling on freeform faces
+
+- A body made by a curved cut remembers its root solid and tools (`qsrc`). `moveFace` / `deleteFace` on it stay exact: moving a tool floor, offsetting a sphere / cylinder / torus wall (radius change), deleting a tool wall (the tool is dropped), moving a root end cap (the cuts are re-run).
+- `faceAt(sol, point, normal)` finds a face from a point and normal.
+- App: Move face, Offset face and Delete face on a freeform body replay as exact kernel steps (`moveFace` / `deleteFace` recipe ops).
+- Limits: cone walls cannot be offset; overlapping tools, a floor meeting the solid boundary, and cuts after a plane cut or move fall back to the older route.

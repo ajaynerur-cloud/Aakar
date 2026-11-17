@@ -2970,6 +2970,12 @@ body.aaktouch #aakNavPill{display:flex}
           let cur = fr.primary; if (sel.type === 'edge' && v3.dot(cur, p.n0) < 0) cur = v3.neg(cur);
           const R = minRot(p.n0, cur); if (R) axes = axes.map(a => mul3v(R, a));
         }
+        try {   /* exact freeform: one face moved along its normal is done in AakarKernel */
+          if (sel.type === 'face' && sel.faces && sel.faces.length === 1 && (p.r || [0, 0, 0]).every((x) => Math.abs(x) < 1e-12) && CAD.exact && CAD.exact.exactEditFaces) {
+            const tt = p.t || [0, 0, 0], vv = [0, 1, 2].reduce((a, i) => v3.add(a, v3.scale(axes[i], tt[i])), [0, 0, 0]), f0 = s.F[sel.faces[0]], dd = v3.dot(vv, f0.n);
+            if (Math.abs(dd) > 1e-12 && v3.len(v3.sub(vv, v3.scale(f0.n, dd))) < 1e-9 * (1 + Math.abs(dd))) { const ex = CAD.exact.exactEditFaces(s, sel.faces, dd, 'move'); if (ex) { setSolid(st, b, ex); return st; } }
+          }
+        } catch (eX) { /* faceted path below */ }
         const res = S.guardedEdit(s, sel, sixDof(axes, (p.pivot && sel.type === 'body') ? p.pivot : fr.pivot, p.t || [0, 0, 0], p.r || [0, 0, 0]), 1, 0, { adaptive: !!p.adaptive });
         if (res.s < 1e-9) throw new Error('Edit not possible: ' + (res.reason || 'invalid'));
         if (res.clamped) warn(f, 'Clamped to ' + (res.s * 100).toFixed(1) + '% — ' + res.reason); else if (res.warning) warn(f, 'Check the result: ' + res.warning);
@@ -12284,7 +12290,14 @@ function faceEdgeItems(loops) {
     if (!put) out.forEach((x) => res.push(x));
     return res;
   }
-  function displayGroups(tab) { return tidyGroups(displayGroups0(tab)); }
+  function displayGroups(tab) { return dedupeTools(tab, tidyGroups(displayGroups0(tab))); }
+  /* 9.x: one button per job. SubD+ groups repeat the classic Create SubD / Cage buttons; Form has two Pattern buttons */
+  function dedupeTools(tab, gs) {
+    const norm = (l) => String(l).toLowerCase().trim();
+    let out = gs.map((g) => { if (tab !== 'subd' || g.tab === 'all') return g; const seen = new Set(); return Object.assign({}, g, { items: g.items.filter((i) => { const k = norm(i[1]); if (seen.has(k)) return false; seen.add(k); return true; }) }); });
+    if (tab === 'form') out = out.map((g) => g.items.some((i) => i[0] === 'frm-spat') && g.items.some((i) => i[0] === 'frm-pat') ? Object.assign({}, g, { items: g.items.filter((i) => i[0] !== 'frm-spat') }) : g);
+    return out.filter((g) => g.items.length);
+  }
   /* 8.95: tab tools first, then ONE small set of general groups (Select, File, Workflow, Render, Demos) at the end of every tab */
   function tidyGroups(gs) {
     const mine = gs.filter((g) => g.tab !== 'all'), all = gs.filter((g) => g.tab === 'all');
@@ -30361,10 +30374,31 @@ self.__H['img.trace'] = async (p, prog) => {
     else if (r.op === 'nurbs') { if (!k.nurbs) throw new Error('this kernel cannot build freeform (NURBS) solids'); h = k.nurbs.fromSpec(r.spec); }
     else if (r.op === 'shell' || r.op === 'offset') { if (!k.shell || !k.offset) throw new Error('shell and offset need OpenCascade as helper (engine: + OpenCascade for hard operations)'); const base = replay(k, r.a, memo); h = r.op === 'shell' ? k.shell(base, r.faces, r.t) : k.offset(base, r.d); }
     else if (r.op === 'xf') { if (!k.transform) throw new Error('this kernel cannot transform bodies'); h = k.transform(replay(k, r.a, memo), r.R, r.t); }
+    else if (r.op === 'moveFace' || r.op === 'deleteFace') { if (!k.nurbs) throw new Error('this kernel cannot edit freeform faces'); const base = replay(k, r.a, memo); h = r.op === 'moveFace' ? k.nurbs.moveFace(base, r.idx, r.dist) : k.nurbs.deleteFace(base, r.idx); if (!h) throw new Error('the exact face edit could not be repeated'); }
     else throw new Error('unknown recipe step ' + r.op);
     memo.set(key, h); return h;
   }
   X.replay = (r) => { if (X.state !== 'ready') throw new Error('The exact kernel is not loaded'); return replay(X.kernel, r, new Map()); };
+  /** the faceted display solid of an exact kernel body; its curved faces are grouped 'ex-<kernel face index>' so later edits find the kernel face again */
+  X.exactSolidOf = function (h, r) {
+    const k = X.kernel, out = meshToSolids(k.mesh(h, 0.001)); if (out.length !== 1) return null; tag(out[0], r);
+    try { Object.defineProperty(out[0], '__exk', { value: true, configurable: true, enumerable: false }); } catch (e) { /* ignore */ }
+    return out[0];
+  };
+  /** move (offset) or delete faces of a freeform body exactly in AakarKernel: planar faces from cuts and prism ends, and the walls / floors of curved cuts.  Returns the new faceted solid (recipe attached) or null when the kernel cannot do it (the caller then uses the faceted model). */
+  X.exactEditFaces = function (before, fis, dist, mode) {
+    const k = X.kernel; if (X.state !== 'ready' || !k || !k.nurbs || !k.nurbs.moveFace || !before || !before.F) return null;
+    const r0 = rec(before); if (!r0) return null; let h0; try { h0 = replay(k, r0, new Map()); } catch (e) { return null; }
+    if (!k.nurbs.isNurbs(h0)) return null;
+    const ids = new Set();
+    for (const fi of fis) { const f = before.F[fi]; if (!f) return null; let idx = -1; const m = f.group && /^ex-(\d+)$/.exec(f.group);
+      if (m && before.__exk) idx = +m[1]; else if (!f.group && f.n) idx = k.nurbs.faceAt(h0, before.faceCentroid(fi), f.n);
+      if (idx < 0 || !h0.faces[idx]) return null; ids.add(idx); }
+    if (ids.size !== 1) return null; const idx = [...ids][0];
+    const h1 = mode === 'delete' ? k.nurbs.deleteFace(h0, idx) : k.nurbs.moveFace(h0, idx, dist); if (!h1 || h1 === h0) return null;
+    const r1 = mode === 'delete' ? { op: 'deleteFace', a: r0, idx } : { op: 'moveFace', a: r0, idx, dist };
+    const s = X.exactSolidOf(h1, r1); if (s) note('exact ' + (mode === 'delete' ? 'face delete' : 'face move of ' + dist)); return s;
+  };
   function meshToSolids(m) {
     const pos = m.positions, idx = m.indices, tri = idx.length / 3, V = (i) => [pos[3 * i], pos[3 * i + 1], pos[3 * i + 2]], nrm = [], polys = [], face = m.faces || null;
     for (let t = 0; t < tri; t++) { const a = V(idx[3 * t]), b = V(idx[3 * t + 1]), c = V(idx[3 * t + 2]); nrm.push(v3.norm(v3.cross(v3.sub(b, a), v3.sub(c, a)))); }
@@ -35589,9 +35623,35 @@ body.x855 #x86fab{display:none!important}
     return { mode: 'clip', faces: facesFromLoops(loops, f.n, tag), lines };
   }
   /** direct modelling on planar faces that came from cuts or from the ends of a prism: move a face along its normal (dist > 0 = outwards), or delete it (the cut it belongs to is undone).  Exact, recomputed from the source; null when the face is not of that kind or the result is not valid. */
+  /** index of the flat face of a freeform solid that contains the point P (or is nearest to it) and has the normal n; -1 when there is none */
+  function faceAt(sol, P, n) {
+    let scale = 1; faceCurves(sol).forEach((c) => c.P.forEach((q) => { scale = Math.max(scale, len(q)); })); n = unit(n); let best = -1, bd = Infinity;
+    sol.faces.forEach((f, i) => { if (f.kind !== 'plan' && f.kind !== 'cap') return; const fn = f.n; if (!fn || dot(fn, n) < 1 - 1e-6) return; const o = f.kind === 'plan' ? f.o : f.surf.P[0][0]; if (Math.abs(dot(fn, sub(P, o))) > 1e-6 * scale) return; let d = Infinity;
+      if (f.kind === 'plan') { const [e1, e2] = planBasis(fn); if (inLoops2(P, f, e1, e2, f.o)) d = 0; else f.loops.forEach((l) => l.forEach((c) => cSample(c, 64).forEach((q) => { d = Math.min(d, len(sub(q, P))); }))); }
+      else { const [u0, u1, v0, v1] = sDom(f.surf); for (let a = 0; a <= 8; a++) for (let b = 0; b <= 8; b++) d = Math.min(d, len(sub(sEval(f.surf, u0 + (u1 - u0) * a / 8, v0 + (v1 - v0) * b / 8), P))); }
+      if (d < bd) { bd = d; best = i; } });
+    return bd < 1e-3 * scale ? best : -1;
+  }
+  /** a copy of a tool body with its wall offset (offset > 0 shrinks the tool: the solid grows) and/or its floor end moved (floorSign: which end is the floor) */
+  function retool(b, o) {
+    const sp = quadSpec(b); if (!sp) return null; const Q = sp.Q, w = sp.w0, M = [Q.x[0], Q.y[0], Q.z[0], Q.x[1], Q.y[1], Q.z[1], Q.x[2], Q.y[2], Q.z[2]], off = o.offset || 0, r = (Q.r || 0) - off;
+    if (sp.kind === 'sphere') { if (!(r > 0)) return null; return K.translate(K.sphere(r), Q.o); }
+    if (sp.kind === 'torus') { if (!(r > 0) || r >= Q.R) return null; return K.transform(K.torus(Q.R, r), M, Q.o); }
+    if (sp.kind === 'cylinder') { if (!(r > 0)) return null; let t0 = sp.caps[0].t, t1 = sp.caps[1].t; if (o.floorSign === 0) t0 += o.floor || 0; else if (o.floorSign === 1) t1 -= o.floor || 0; if (!(t1 > t0)) return null; return K.translate(K.transform(K.cylinder(r, t1 - t0), M, [0, 0, 0]), add(Q.o, mul(w, t0))); }
+    return null;
+  }
+  /** direct modelling on the results of curved cuts: undo a tool (delete its wall or floor), offset its wall, move its floor, move an end of the solid the tools were cut from */
+  function qsrcEdit(sol, f, kind, dist) {
+    const q = sol.qsrc, tag = f.tag || '', again = (root, bodies) => { const r = bodies.length ? cutQuadricTools(root, bodies) : root; if (r && bodies.length) r.qsrc = { root, bodies }; return r; };
+    let m = /^quad_(wall|floor)(\d+)/.exec(tag);
+    if (m) { const idx = +m[2]; if (kind === 'delete') return again(q.root, q.bodies.filter((_, i) => i !== idx));
+      const sp = quadSpec(q.bodies[idx]); if (!sp) return null; const nb = retool(q.bodies[idx], m[1] === 'floor' ? { floor: dist, floorSign: dot(f.n, sp.w0) > 0 ? 0 : 1 } : { offset: dist }); if (!nb) return null; const bodies = q.bodies.slice(); bodies[idx] = nb; return again(q.root, bodies); }
+    if (kind === 'move' && (m = /^(cap[01])(?:_|q|$)/.exec(tag))) { const ri = q.root.faces.findIndex((g) => g.tag && g.tag.indexOf(m[1] + '_') === 0 && (g.kind === 'plan' || g.kind === 'cap')); if (ri < 0) return null; const nr = moveFace(q.root, ri, dist); if (!nr) return null; return again(nr, q.bodies); }
+    return null;
+  }
   function moveFace(sol, idx, dist) {
     try {
-      const f = sol.faces[idx]; if (!f) return null;
+      const f = sol.faces[idx]; if (!f) return null; if (sol.qsrc) return qsrcEdit(sol, f, 'move', dist);
       if (sol.src) { const m = /^cut(\d+)_(\d+)_/.exec(f.tag || ''); if (!m) return null; const ops = sol.src.ops.map((o) => ({ kind: o.kind, planes: o.planes.map((q) => Object.assign({}, q)) })), q = ops[+m[1]].planes[+m[2]]; if (!q) return null;
         const p2 = add(q.p, mul(q.n, dist)); ops[+m[1]].planes[+m[2]] = { n: q.n, d: dot(q.n, p2), p: p2 }; const r = opsCut(sol.src.root, ops); if (r) r.src = { root: sol.src.root, ops }; return r; }
       if (sol.profile && sol.vec && /^cap[01]_/.test(f.tag || '') && (f.kind === 'plan' || f.kind === 'cap')) { const lo = /^cap0/.test(f.tag), base = profPlane(sol.profile.outer), cur = lo ? (sol.lo || base) : (sol.hi || { p: add(base.p, sol.vec), n: base.n }), out = unit(lo ? (dot(cur.n, sol.vec) > 0 ? mul(cur.n, -1) : cur.n) : (dot(cur.n, sol.vec) > 0 ? cur.n : mul(cur.n, -1))), pl = { p: add(cur.p, mul(out, dist)), n: cur.n };
@@ -35601,7 +35661,7 @@ body.x855 #x86fab{display:none!important}
   }
   function deleteFace(sol, idx) {
     try {
-      const f = sol.faces[idx]; if (!f || !sol.src) return null; const m = /^cut(\d+)_(\d+)_/.exec(f.tag || ''); if (!m) return null;
+      const f = sol.faces[idx]; if (f && sol.qsrc) return qsrcEdit(sol, f, 'delete', 0); if (!f || !sol.src) return null; const m = /^cut(\d+)_(\d+)_/.exec(f.tag || ''); if (!m) return null;
       const ops = sol.src.ops.filter((_, i) => i !== +m[1]); if (!ops.length) return sol.src.root; const r = opsCut(sol.src.root, ops); if (r) r.src = { root: sol.src.root, ops }; return r;
     } catch (e) { return null; }
   }
@@ -35653,7 +35713,7 @@ body.x855 #x86fab{display:none!important}
   wrap('info', (h) => infoOf(h)); wrap('mesh', (h, tol) => indexedMesh(h, tol && tol < 0.01 ? 48 : 16)); wrap('stepExport', (h, o) => stepWrite(h, o));
   wrap('bbox', (h) => { const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; mesh(h, 6).forEach((t) => t.forEach((p) => { for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p[i]); mx[i] = Math.max(mx[i], p[i]); } })); return { min: mn, max: mx }; });
   wrap('translate', (h, d) => xfSolid(h, [1, 0, 0, 0, 1, 0, 0, 0, 1], d)); wrap('transform', (h, M, t) => xfSolid(h, M, t || [0, 0, 0]));
-  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.4.0' };
+  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, faceAt, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.4.0' };
   K.features = (K.features || []).concat(['nurbs-curves', 'nurbs-solids', 'nurbs-massprops', 'nurbs-step']);
 })(window.AakarKernel);
 
@@ -41917,6 +41977,7 @@ const SurfPath = (function () {
       const tris = openShell(s, D); st2.bodies.delete(body.key); st2.items.set(f.id, { key: f.id, name: f.name, kind: 'msurf', tris, src: f.id, report: { openShell: true, triangles: tris.length } });
       return { polys: outline(s, D), msg: D.length + ' face' + (D.length > 1 ? 's' : '') + ' deleted · the solid became an open surface shell of ' + tris.length + ' triangles' };
     }
+    try { const XE = CAD.exact; if (XE && XE.exactEditFaces) { const ex = XE.exactEditFaces(s, D, 0, 'delete'); if (ex) { h.setSolid(st2, body, ex); return { polys: outline(s, D), msg: D.length + ' face' + (D.length > 1 ? 's' : '') + ' deleted and healed exactly (the cut or feature they belong to is undone) · volume ' + Math.abs(ex.volume()).toFixed(2) }; } } } catch (eX) { /* faceted heal below */ }
     const r = healFaces(s, D); h.setSolid(st2, body, r.solid);
     return { polys: outline(s, D), msg: D.length + ' face' + (D.length > 1 ? 's' : '') + ' deleted and healed (' + (r.mode === 'extend' ? 'neighbours extended' : 'gap filled') + (r.added ? ', ' + r.added + ' region added' : '') + (r.removed ? ', ' + r.removed + ' region removed' : '') + ') · volume ' + Math.abs(r.solid.volume()).toFixed(2) };
   }
@@ -43047,6 +43108,7 @@ const SurfPath = (function () {
     if (!idx.length) throw new Error('The faces to offset were not found');
     const dist = +p.dist; if (!isFinite(dist)) throw new Error('Offset distance is not a number');
     if (Math.abs(dist) < 1e-9) { h.setSolid(s2, b, s); return s2; }
+    try { const XE = CAD.exact; if (XE && XE.exactEditFaces) { const ex = XE.exactEditFaces(s, idx, dist, 'move'); if (ex) { h.setSolid(s2, b, ex); return s2; } } } catch (eX) { /* faceted path below */ }
     const set = expandFaces(s, idx, p.chain || 'group'), ov = new Map();
     set.forEach((fi) => { const fc = s.F[fi]; ov.set(fi, { n: fc.n.slice(), d: fc.d + dist }); });
     let out = SV.relax(s, ov, new Map()); const v = SV.validate(out, s);
