@@ -15,5 +15,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Triangulator for the rim-fillet tests
+        run: npm i --no-save --ignore-scripts earcut@2.2.4
       - name: Kernel + integration tests (uses the real app/index.html)
         run: node kernel/test/run-all.js app/index.html
+      - name: Kernel in the html matches kernel/src
+        run: |
+          cp app/index.html /tmp/index.check.html
+          node kernel/sync.js /tmp/index.check.html
+          cmp app/index.html /tmp/index.check.html || { echo "::error::app/index.html embeds a different kernel than kernel/src - run: node kernel/sync.js app/index.html"; exit 1; }
+      - name: Build the installable kernel
+        run: node kernel/build.js
+      - name: Upload installable kernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: AakarKernel-installable
+          path: kernel/dist/aakar-kernel.installable.js

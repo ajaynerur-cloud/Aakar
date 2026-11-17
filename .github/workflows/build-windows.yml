@@ -92,6 +92,18 @@ jobs:
           if [ "$ok" != "1" ]; then echo "::error::Could not download Electron after 6 tries (GitHub and mirror). Re-run the workflow."; exit 1; fi
           ls node_modules/electron/dist | head -5
 
+      # AakarKernel is built here from kernel/src and shipped INSIDE the exe as app/kernel/aakar-kernel.installable.js.
+      # At start-up the app finds it next to index.html (file://) and uses it when it is newer than the kernel embedded in index.html.
+      - name: Build and test AakarKernel (installable bundle goes into the exe)
+        run: |
+          set -e
+          npm i --no-save --ignore-scripts earcut@2.2.4 || echo "::warning::earcut not installed - rim-fillet kernel tests will be skipped"
+          node kernel/test/run-all.js app/index.html
+          node kernel/build.js
+          mkdir -p app/kernel
+          cp kernel/dist/aakar-kernel.installable.js app/kernel/aakar-kernel.installable.js
+          node -e "const A=require('./app/kernel/aakar-kernel.installable.js');console.log('installable AakarKernel',A.kernel.version)"
+
       - name: Set version from app/index.html
         run: |
           set -e
@@ -148,10 +160,18 @@ jobs:
 
       - name: Verify output
         run: |
+          test -f app/kernel/aakar-kernel.installable.js || { echo "::error::installable kernel missing from app/kernel"; exit 1; }
           shopt -s nullglob
           files=(dist/*.exe dist/*.zip)
           if [ ${#files[@]} -eq 0 ]; then echo "::error::nothing was produced in dist/"; exit 1; fi
           ls -la "${files[@]}"
+
+      - name: Upload installable AakarKernel
+        uses: actions/upload-artifact@v4
+        with:
+          name: AakarKernel-installable
+          path: kernel/dist/aakar-kernel.installable.js
+          if-no-files-found: error
 
       - name: Upload EXEs
         uses: actions/upload-artifact@v4
