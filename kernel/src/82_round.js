@@ -63,5 +63,5 @@
     throw last;
   };
   K.features = (K.features || []).concat(['round-edges', 'round-rim-torus', 'mirror', 'polyhedron', 'trimmed-torus-massprops', 'boolean-retry']);
-  K.version = AK.version = '1.3.0';
+  K.version = AK.version = '1.4.0';
 })(window.AakarKernel);

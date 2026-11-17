@@ -1034,6 +1034,162 @@ function fitEdge(pts, verts, s1, s2, ctx) {
 }
 AK.reconstruct = reconstruct;
 
+// ---------------------------------------------------------------- general tessellation of a B-rep (any trimmed analytic face)
+// Used for bodies that have no generator of their own (imported STEP bodies, results read back from OpenCascade) so they can be drawn, measured on a mesh,
+// transformed and used in booleans like any other body.  Per face: the loops are walked in the surface's (u, v) parameters (periodic angles unwrapped, a seam
+// cut, a loop around a pole closed through the pole), the polygon (with holes) is triangulated by ear clipping, and interior points are added on an angular
+// grid with Lawson flips that never cross the boundary.  The boundary vertices are exactly the sampled edge points, identical for the two faces that share an edge,
+// so the mesh is watertight.
+function tessFace(face, tol, minN) {
+  const S = face.surf, kind = S.kind, TWO = 2 * Math.PI;
+  // a seam walked out and back (OpenCascade's sphere faces) is dropped: it only cuts the periodic surface open
+  const dropSeam = (l) => { let c = l.slice(); for (let g = 0; g < 8; g++) { const n = c.length; let hit = -1; for (let i = 0; i < n && n > 2; i++) { const a = c[i], b = c[(i + 1) % n]; if (a.edge === b.edge && a.fwd !== b.fwd) { hit = i; break; } } if (hit < 0) break; const j = (hit + 1) % c.length; c = c.filter((_, k) => k !== hit && k !== j); } return c; };
+  if (!face.loops.length && kind === 'sphere') return tessSphere(face, tol, minN);
+  const rings3 = face.loops.map((l) => face.loopPts(kind === 'sphere' ? dropSeam(l) : l, tol, minN)).filter((r) => r.length >= 3); if (!rings3.length) return [];
+  const back0 = kind === 'plane' ? (u, v) => S.glob([u, v, 0]) : (u, v) => S.D(u, v).p;
+  let uvr;                                  // rings of [u, v, exact 3D point or undefined]
+  if (kind === 'plane') uvr = rings3.map((r) => r.map((p) => { const l = S.loc(p); return [l[0], l[1], p]; }));
+  else {
+    const perV = kind === 'torus';
+    const unwrap = (ring) => { const out = []; let pu = null, pv = null; ring.forEach((p) => { let [u, v] = S.uv(p); if (pu !== null) { while (u - pu > Math.PI) u -= TWO; while (u - pu < -Math.PI) u += TWO; if (perV) { while (v - pv > Math.PI) v -= TWO; while (v - pv < -Math.PI) v += TWO; } } out.push([u, v, p]); pu = u; pv = v; }); const f = out[0], l = out[out.length - 1]; return { pts: out, wu: -Math.round((f[0] - l[0]) / TWO), wv: perV ? -Math.round((f[1] - l[1]) / TWO) : 0 }; };
+    const info = rings3.map(unwrap);
+    let swapped = false;
+    if (info.some((q) => q.wv)) {                                                       // rings round the tube of a torus: work with u and v exchanged, then the band logic below applies unchanged
+      if (info.some((q) => q.wv && q.wu)) throw new Error('a face that winds around both directions of a torus cannot be meshed');
+      info.forEach((q) => { q.pts = q.pts.map((p) => [p[1], p[0], p[2]]); q.wu = q.wv; q.wv = 0; }); swapped = true;
+    }
+    const wrap = info.filter((q) => q.wu !== 0);
+    if (wrap.length === 0) {
+      const ref = info[0].pts.reduce((a, p) => a + p[0], 0) / info[0].pts.length;
+      uvr = info.map((q) => { const m = q.pts.reduce((a, p) => a + p[0], 0) / q.pts.length, sh = Math.round((ref - m) / TWO) * TWO; return q.pts.map((p) => [p[0] + sh, p[1], p[2]]); });
+    } else if (wrap.length === 2 && wrap[0].wu === -wrap[1].wu && Math.abs(wrap[0].wu) === 1 && info.length === 2) {
+      // a band round an axis (cylinder wall, cone frustum, sphere zone): cut along a generator to get one strip polygon
+      const A = wrap[0], B = wrap[1], au = A.pts[0][0], uEnd = au + A.wu * TWO; let bi = 0, bd = Infinity;
+      B.pts.forEach((p, i) => { const d = (((p[0] - au) % TWO) + TWO) % TWO, dd = Math.min(d, TWO - d); if (dd < bd) { bd = dd; bi = i; } });
+      const Bp = B.pts.slice(bi).concat(B.pts.slice(0, bi)), sh = Math.round((uEnd - Bp[0][0]) / TWO) * TWO, Bs = Bp.map((p) => [p[0] + sh, p[1], p[2]]);
+      const cut = (u, va, vb) => { const nc = kind === 'sphere' ? Math.max(1, Math.ceil(Math.abs(vb - va) / (TWO / Math.min(160, circleSegs(S.r, tol, minN))))) : 1, o = []; for (let k = 1; k < nc; k++) o.push([u, va + (vb - va) * k / nc]); return o; };
+      const upc = cut(uEnd, A.pts[0][1], Bs[0][1]), dnc = cut(uEnd - A.wu * TWO, Bs[0][1], A.pts[0][1]);
+      uvr = [A.pts.concat([[uEnd, A.pts[0][1], A.pts[0][2]]], upc, Bs, [[uEnd - A.wu * TWO, Bs[0][1], Bs[0][2]]], dnc)];
+    } else if (wrap.length === 1 && info.length === 1 && Math.abs(wrap[0].wu) === 1 && (kind === 'sphere' || kind === 'cone')) {
+      // a cap round a pole / apex: close the loop through the pole
+      const A = wrap[0], vb = A.pts.reduce((a, p) => a + p[1], 0) / A.pts.length, au = A.pts[0][0], uEnd = au + A.wu * TWO, side = (A.wu > 0 ? 1 : -1) * (face.rev ? -1 : 1);
+      const vPole = kind === 'sphere' ? side * Math.PI / 2 : S.apexV;
+      if (kind === 'cone' && !Number.isFinite(vPole)) throw new Error('cone face without an apex'); if (kind === 'cone' && (vPole - vb) * side < 0) throw new Error('cone cap on the wrong side of its loop');
+      const v0 = A.pts[0][1], nc = kind === 'sphere' ? Math.max(1, Math.ceil(Math.abs(vPole - v0) / (TWO / Math.min(160, circleSegs(S.r, tol, minN))))) : 1, up = [], down = [];
+      for (let k = 1; k < nc; k++) { const v = v0 + (vPole - v0) * k / nc; up.push([uEnd, v]); down.unshift([au, v]); }
+      uvr = [A.pts.concat([[uEnd, v0, A.pts[0][2]]], up, [[uEnd, vPole], [au, vPole]], down)];
+    } else throw new Error('this face wraps around its surface in a way the mesher does not handle (' + kind + ')');
+    if (swapped) uvr = uvr.map((r) => r.map((p) => [p[1], p[0], p[2]]));
+  }
+  // metric so that triangles are roughly isotropic in (u, v)
+  let su = 1, sv = 1;
+  if (kind === 'cylinder') su = S.r; else if (kind === 'cone') su = Math.max(S.r, 1e-9) + Math.abs(S.k) * 0.5; else if (kind === 'sphere') { su = S.r; sv = S.r; } else if (kind === 'torus') { su = S.R + S.r; sv = S.r; }
+  const back = back0, P2 = [], P3 = [], rings = [];
+  uvr.forEach((r) => { const idx = []; r.forEach((p) => { idx.push(P2.length); P2.push([p[0] * su, p[1] * sv]); P3.push(p[2] || back(p[0], p[1])); }); rings.push(idx); });
+  const tris = triangulatePolygon(P2, rings); if (!tris.length) return [];
+  const mesh = { P2, P3, tris };
+  // interior points on an angular grid (not needed on planes, cylinders and cones: their triangles are exact between the boundary samples)
+  if (kind === 'cylinder' || kind === 'cone') insertSteiner(mesh, rings, [], 1, () => null);
+  if (kind === 'sphere' || kind === 'torus') {
+    const rU = kind === 'sphere' ? S.r : S.R + S.r, rV = kind === 'sphere' ? S.r : S.r, nU = Math.min(160, circleSegs(rU, tol, minN)), nV = Math.min(160, circleSegs(rV, tol, minN)), du = TWO / nU * su, dv = TWO / nV * sv;
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity; P2.forEach((p) => { if (p[0] < u0) u0 = p[0]; if (p[0] > u1) u1 = p[0]; if (p[1] < v0) v0 = p[1]; if (p[1] > v1) v1 = p[1]; });
+    const pts = []; for (let u = Math.ceil(u0 / du) * du; u < u1; u += du) for (let v = Math.ceil(v0 / dv) * dv; v < v1; v += dv) { if (pts.length > 40000) break; pts.push([u, v]); }
+    insertSteiner(mesh, rings, pts, Math.min(du, dv) * 0.35, (p) => back(p[0] / su, p[1] / sv));
+  }
+  // every triangle is counter-clockwise in (u, v); one orientation for the whole face is decided by a vote of the well-shaped triangles against the surface normal
+  let vote = 0; const tl = [];
+  mesh.tris.forEach((t) => { if (!t) return; const a = mesh.P3[t[0]], b = mesh.P3[t[1]], c = mesh.P3[t[2]]; const n = V.cross(V.sub(b, a), V.sub(c, a)), L = V.len(n); if (L < 1e-18) return; tl.push([a, b, c]); const cen = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3]; vote += V.dot(n, face.normalAt(cen)) / L; });
+  const out = vote >= 0 ? tl : tl.map(([a, b, c]) => [a, c, b]);
+  return out;
+}
+/** a whole sphere (a face with no boundary but its seam): latitude-longitude mesh */
+function tessSphere(face, tol, minN) {
+  const S = face.surf, n = Math.min(160, circleSegs(S.r, tol, minN)), m = Math.max(4, Math.ceil(n / 2)), out = [], P = [];
+  for (let j = 0; j <= m; j++) { const v = -Math.PI / 2 + Math.PI * j / m, row = []; for (let i = 0; i < n; i++) row.push(j === 0 || j === m ? S.D(0, v).p : S.D(TWO_PI * i / n, v).p); P.push(row); }
+  const push = (a, b, c) => { const nn = V.cross(V.sub(b, a), V.sub(c, a)); if (V.len(nn) < 1e-18) return; const cen = [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3]; out.push(V.dot(nn, face.normalAt(cen)) >= 0 ? [a, b, c] : [a, c, b]); };
+  for (let j = 0; j < m; j++) for (let i = 0; i < n; i++) { const i2 = (i + 1) % n, a = P[j][i], b = P[j][i2], c = P[j + 1][i2], d = P[j + 1][i]; if (j === 0) push(a, c, d); else if (j === m - 1) push(a, b, d); else { push(a, b, c); push(a, c, d); } }
+  return out;
+}
+const TWO_PI = 2 * Math.PI;
+const area2 = (P, idx) => { let a = 0; for (let i = 0; i < idx.length; i++) { const p = P[idx[i]], q = P[idx[(i + 1) % idx.length]]; a += p[0] * q[1] - q[0] * p[1]; } return a / 2; };
+/** ear clipping of an outer ring and holes (indices into P): the largest ring is the outer one; returns [[i,j,k]] counter-clockwise */
+function triangulatePolygon(P, rings) {
+  const R = rings.map((r) => r.slice()), ar = R.map((r) => area2(P, r)); let oi = 0; ar.forEach((a, i) => { if (Math.abs(a) > Math.abs(ar[oi])) oi = i; });
+  const outer = ar[oi] >= 0 ? R[oi].slice() : R[oi].slice().reverse(), holes = R.filter((_, i) => i !== oi).map((r, i) => { const a = area2(P, r); return a <= 0 ? r.slice() : r.slice().reverse(); });
+  // bridge each hole into the outer ring at its rightmost vertex (nearest visible outer vertex to the right)
+  const poly = outer.slice(), cr = (a, b, c) => (P[b][0] - P[a][0]) * (P[c][1] - P[a][1]) - (P[b][1] - P[a][1]) * (P[c][0] - P[a][0]);
+  holes.sort((a, b) => Math.max(...b.map((i) => P[i][0])) - Math.max(...a.map((i) => P[i][0])));
+  const segX = (a, b, c, d) => { const o1 = cr(a, b, c), o2 = cr(a, b, d), o3 = cr(c, d, a), o4 = cr(c, d, b); return o1 * o2 < 0 && o3 * o4 < 0; };
+  holes.forEach((h) => {
+    let hi = 0; h.forEach((i, k) => { if (P[i][0] > P[h[hi]][0]) hi = k; }); const hv = h[hi]; let best = -1, bd = Infinity;
+    poly.forEach((v, k) => { const d = Math.hypot(P[v][0] - P[hv][0], P[v][1] - P[hv][1]); if (d >= bd) return; let ok = true; for (let q = 0; q < poly.length && ok; q++) { const a = poly[q], b = poly[(q + 1) % poly.length]; if (a !== v && b !== v && segX(hv, v, a, b)) ok = false; } holes.forEach((h2) => { if (!ok) return; for (let q = 0; q < h2.length && ok; q++) { const a = h2[q], b = h2[(q + 1) % h2.length]; if (a !== hv && b !== hv && segX(hv, v, a, b)) ok = false; } }); if (ok) { bd = d; best = k; } });
+    if (best < 0) best = 0; const ring = h.slice(hi).concat(h.slice(0, hi)); poly.splice(best + 1, 0, ...ring, hv, poly[best]);
+  });
+  const idx = poly.map((_, i) => i), tris = [], seg = (p, a, b) => { const l = Math.hypot(P[b][0] - P[a][0], P[b][1] - P[a][1]); return Math.abs(cr(a, b, p)) <= 1e-12 * (1 + l) * (1 + l) && (P[p][0] - P[a][0]) * (P[p][0] - P[b][0]) + (P[p][1] - P[a][1]) * (P[p][1] - P[b][1]) < 0; };
+  // a vertex blocks an ear when it lies strictly inside the triangle or on its closing side; points on the two polygon sides are collinear neighbours and do not block
+  const blocks = (p, a, b, c) => (cr(a, b, p) > 1e-14 && cr(b, c, p) > 1e-14 && cr(c, a, p) > 1e-14) || seg(p, c, a);
+  const same = (a, b) => P[a][0] === P[b][0] && P[a][1] === P[b][1]; let guard = 0;
+  while (idx.length > 3 && guard++ < 20 * poly.length) {
+    let cut = false;
+    for (let i = 0; i < idx.length && !cut; i++) {
+      const a = poly[idx[(i + idx.length - 1) % idx.length]], b = poly[idx[i]], c = poly[idx[(i + 1) % idx.length]]; if (cr(a, b, c) <= 1e-14) continue;
+      let ok = true; for (let k = 0; k < idx.length && ok; k++) { const q = poly[idx[k]]; if (q !== a && q !== b && q !== c && !same(q, a) && !same(q, b) && !same(q, c) && blocks(q, a, b, c)) ok = false; }
+      if (ok) { tris.push([a, b, c]); idx.splice(i, 1); cut = true; }
+    }
+    if (!cut) {   // numerically stuck: take the convex vertex with the smallest triangle
+      let bi = -1, bv = Infinity; for (let i = 0; i < idx.length; i++) { const a = poly[idx[(i + idx.length - 1) % idx.length]], b = poly[idx[i]], c = poly[idx[(i + 1) % idx.length]], v = cr(a, b, c); if (v > 1e-14 && v < bv) { bv = v; bi = i; } }
+      if (bi < 0) break; const a = poly[idx[(bi + idx.length - 1) % idx.length]], b = poly[idx[bi]], c = poly[idx[(bi + 1) % idx.length]]; tris.push([a, b, c]); idx.splice(bi, 1);
+    }
+  }
+  if (idx.length === 3) tris.push([poly[idx[0]], poly[idx[1]], poly[idx[2]]]); return tris.filter((t) => cr(t[0], t[1], t[2]) > 1e-16);
+}
+/** inserts the points that lie inside the polygon (not near its boundary) into the triangulation; Lawson flips never touch boundary edges */
+function insertSteiner(mesh, rings, pts, minDist, to3) {
+  const { P2, P3 } = mesh, T = mesh.tris, bnd = new Set(); rings.forEach((r) => r.forEach((v, i) => { const w = r[(i + 1) % r.length]; bnd.add(v + ',' + w); bnd.add(w + ',' + v); }));
+  const em = new Map(), key = (a, b) => a + ',' + b, addT = (t, i) => { em.set(key(t[0], t[1]), i); em.set(key(t[1], t[2]), i); em.set(key(t[2], t[0]), i); }, delT = (t) => { em.delete(key(t[0], t[1])); em.delete(key(t[1], t[2])); em.delete(key(t[2], t[0])); };
+  T.forEach((t, i) => addT(t, i));
+  const cr = (a, b, c) => (P2[b][0] - P2[a][0]) * (P2[c][1] - P2[a][1]) - (P2[b][1] - P2[a][1]) * (P2[c][0] - P2[a][0]);
+  const inCircle = (a, b, c, d) => { const A = P2[a], B = P2[b], C = P2[c], D = P2[d], ax = A[0] - D[0], ay = A[1] - D[1], bx = B[0] - D[0], by = B[1] - D[1], cx = C[0] - D[0], cy = C[1] - D[1]; return (ax * ax + ay * ay) * (bx * cy - cx * by) - (bx * bx + by * by) * (ax * cy - cx * ay) + (cx * cx + cy * cy) * (ax * by - bx * ay) > 1e-12; };
+  const legalize = (a, b, p) => {   // triangle (a,b,p) lies on edge (a,b); check the neighbour across (b,a)
+    if (bnd.has(a + ',' + b)) return; const ni = em.get(key(b, a)); if (ni === undefined) return; const n = T[ni]; if (!n) return; let d = -1; for (const v of n) if (v !== a && v !== b) d = v; if (d < 0) return;
+    if (!inCircle(a, b, p, d)) return; const ti = em.get(key(a, b)); if (ti === undefined) return; const t = T[ti]; delT(t); delT(n); const t1 = [p, a, d], t2 = [p, d, b]; if (cr(...t1) <= 1e-16 || cr(...t2) <= 1e-16) { addT(t, ti); addT(n, ni); return; } T[ti] = t1; T[ni] = t2; addT(t1, ti); addT(t2, ni); legalize(a, d, p); legalize(d, b, p);
+  };
+  // 1. make the boundary triangulation Delaunay (ear clipping leaves long thin triangles that would chord across a curved surface)
+  for (let pass = 0; pass < 400; pass++) { let flips = 0; for (let i = 0; i < T.length; i++) { const t = T[i]; if (!t) continue; for (let k = 0; k < 3; k++) { const a = t[k], b = t[(k + 1) % 3], c = t[(k + 2) % 3]; if (bnd.has(a + ',' + b)) continue; const ni = em.get(key(b, a)); if (ni === undefined) continue; const n = T[ni]; let d = -1; for (const v of n) if (v !== a && v !== b) d = v; if (d < 0 || !inCircle(a, b, c, d)) continue; const t1 = [c, a, d], t2 = [c, d, b]; if (cr(...t1) <= 1e-16 || cr(...t2) <= 1e-16) continue; delT(t); delT(n); T[i] = t1; T[ni] = t2; addT(t1, i); addT(t2, ni); flips++; break; } } if (!flips) break; }
+  // 2. interior points, located by walking from the previous one
+  const inRing = (p, r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = P2[r[i]], b = P2[r[j]]; if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+  const ar = rings.map((r) => Math.abs(area2(P2, r))); let oi = 0; ar.forEach((a, i) => { if (a > ar[oi]) oi = i; });
+  const inPoly = (p) => { if (!inRing(p, rings[oi])) return false; for (let i = 0; i < rings.length; i++) if (i !== oi && inRing(p, rings[i])) return false; return true; };
+  const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, t = l2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+  // boundary distance through a coarse bucket grid
+  const segs = []; rings.forEach((r) => r.forEach((v, i) => segs.push([P2[v], P2[r[(i + 1) % r.length]]])));
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity; P2.forEach((p) => { bx0 = Math.min(bx0, p[0]); bx1 = Math.max(bx1, p[0]); by0 = Math.min(by0, p[1]); by1 = Math.max(by1, p[1]); });
+  const cell = Math.max(minDist * 2, 1e-9), gx = Math.max(1, Math.min(256, Math.ceil((bx1 - bx0) / cell))), gy = Math.max(1, Math.min(256, Math.ceil((by1 - by0) / cell))), cw = (bx1 - bx0) / gx || 1, ch = (by1 - by0) / gy || 1, bucket = new Map();
+  const cidx = (x, y) => Math.min(gx - 1, Math.max(0, Math.floor((x - bx0) / cw))) * 100003 + Math.min(gy - 1, Math.max(0, Math.floor((y - by0) / ch)));
+  segs.forEach((sg) => { const x0 = Math.min(sg[0][0], sg[1][0]) - minDist, x1 = Math.max(sg[0][0], sg[1][0]) + minDist, y0 = Math.min(sg[0][1], sg[1][1]) - minDist, y1 = Math.max(sg[0][1], sg[1][1]) + minDist; for (let i = Math.max(0, Math.floor((x0 - bx0) / cw)); i <= Math.min(gx - 1, Math.floor((x1 - bx0) / cw)); i++) for (let j = Math.max(0, Math.floor((y0 - by0) / ch)); j <= Math.min(gy - 1, Math.floor((y1 - by0) / ch)); j++) { const k = i * 100003 + j; let l = bucket.get(k); if (!l) bucket.set(k, l = []); l.push(sg); } });
+  const nearB = (p) => { const l = bucket.get(cidx(p[0], p[1])); if (!l) return false; for (const sg of l) if (segDist(p, sg[0], sg[1]) < minDist) return true; return false; };
+  let last = T.findIndex((t) => t); const eps = 1e-14;
+  const locate = (id) => {
+    let ti = last; for (let step = 0; step < 100000; step++) { const t = T[ti]; if (!t) break; let moved = false;
+      for (let k = 0; k < 3 && !moved; k++) { if (cr(t[k], t[(k + 1) % 3], id) < -eps) { const ni = em.get(key(t[(k + 1) % 3], t[k])); if (ni === undefined) return -1; ti = ni; moved = true; } }
+      if (!moved) return ti; }
+    for (let i = 0; i < T.length; i++) { const t = T[i]; if (t && cr(t[0], t[1], id) > eps && cr(t[1], t[2], id) > eps && cr(t[2], t[0], id) > eps) return i; } return -1;
+  };
+  let guard = 0;
+  pts.forEach((q) => {
+    if (guard++ > 90000 || !inPoly(q) || nearB(q)) return; const id = P2.length; P2.push(q); const ti = locate(id);
+    const t = ti >= 0 ? T[ti] : null; if (!t || !(cr(t[0], t[1], id) > eps && cr(t[1], t[2], id) > eps && cr(t[2], t[0], id) > eps)) { P2.pop(); return; }
+    P3[id] = to3(q); const [a, b, c] = t; delT(t); const t0 = [a, b, id], t1 = [b, c, id], t2 = [c, a, id]; T[ti] = t0; T.push(t1, t2); addT(t0, ti); addT(t1, T.length - 2); addT(t2, T.length - 1); legalize(a, b, id); legalize(b, c, id); legalize(c, a, id); last = ti;
+  });
+}
+/** soup [{pts, tag: face}] of a whole body */
+function tessBody(body, res) {
+  const bb = body.bbox(), scale = Math.max(1e-9, V.dist(bb.min, bb.max)), tol = resTol(res, scale), soup = [];
+  body.faces.forEach((f) => { tessFace(f, tol, Math.max(res.minN || 16, 16)).forEach((t) => soup.push({ pts: t, tag: f })); });
+  return soup;
+}
+AK.tessFace = tessFace; AK.tessBody = tessBody;
+
 // ---------------------------------------------------------------- lazy model nodes + evaluation
 const RES_EXACT = { tol: null, rel: 4e-3, minN: 32 };
 const resKey = (r) => (r.tol == null ? 'n' : r.tol.toPrecision(4)) + '|' + r.rel + '|' + r.minN + (r.light ? '|L' : '');
@@ -1082,7 +1238,7 @@ function evaluate(node, res) {
     const flip = node.T.det() < 0, mp = (L) => L.map(t => ({ pts: (flip ? t.pts.slice().reverse() : t.pts).map(p => node.T.p(p)), tag: b.faces[idx.get(t.tag)] })); ev = { body: b, soup: mp(c.soup), dsoup: c.dsoup ? mp(c.dsoup) : null };
   } else if (node.kind === 'bool') {
     ev = boolAttempts(node, res);
-  } else if (node.kind === 'brep') { ev = { body: node.body, soup: node.soupFixed || null, dsoup: null, mp: node.soupFixed ? null : undefined }; if (node.soupFixed) delete ev.mp; }
+  } else if (node.kind === 'brep') { let soup = node.soupFixed || null; if (!soup) { try { soup = tessBody(node.body, res); } catch (e) { soup = null; } } ev = { body: node.body, soup, dsoup: null }; }   // imported bodies are tessellated on demand
   else throw new Error('unknown node ' + node.kind);
   node.cache.set(k, ev); return ev;
 }
@@ -1270,7 +1426,8 @@ function stepRead(text) {
     return [d[p][0] / d[p][3], d[p][1] / d[p][3], d[p][2] / d[p][3]];
   }
   const edge = (r) => memoize(r, () => {
-    const e = get(r); const v0 = vert(e.args[1]), v1 = vert(e.args[2]), cur = get(e.args[3]), same = !(e.args[4] && e.args[4].en === 'F'), t = typeOf(cur);
+    const e = get(r); const v0 = vert(e.args[1]), v1 = vert(e.args[2]); let cur = get(e.args[3]); while (['SURFACE_CURVE', 'SEAM_CURVE', 'INTERSECTION_CURVE', 'BOUNDED_SURFACE_CURVE'].indexOf(typeOf(cur)) >= 0) cur = get(cur.args[1]);   // other CAD systems wrap the 3D curve with its pcurves
+    const same = !(e.args[4] && e.args[4].en === 'F'), t = typeOf(cur);
     let a = v0, b = v1;
     if (t === 'LINE') return new Edge('line', a, b);
     if (t === 'CIRCLE') {
@@ -1299,11 +1456,11 @@ function stepRead(text) {
     const faces = sh.args[1].map(fr_ => {
       const f = get(fr_), surf = surface(f.args[2]), rev = f.args[3] && f.args[3].en === 'F';
       const loops = f.args[1].map(br => {
-        const b = get(br), lp = get(b.args[1]); if (lp.type !== 'EDGE_LOOP') throw new Error('unsupported face bound ' + lp.type);
+        const b = get(br), lp = get(b.args[1]); if (lp.type === 'VERTEX_LOOP') return null; if (lp.type !== 'EDGE_LOOP') throw new Error('unsupported face bound ' + lp.type);
         let ces = lp.args[1].map(or => { const o = get(or), ed = edge(o.args[3]), fwd = !(o.args[4] && o.args[4].en === 'F'); return { edge: ed, fwd }; });
         if (b.args[2] && b.args[2].en === 'F') ces = ces.slice().reverse().map(c => ({ edge: c.edge, fwd: !c.fwd }));
         return ces;
-      });
+      }).filter(Boolean);
       return new Face(surf, rev, loops);
     });
     bodies.push({ body: new Body(faces), name: e.args[0] || ('solid' + id) });
@@ -1314,7 +1471,7 @@ function stepRead(text) {
 AK.stepWrite = stepWrite; AK.stepRead = stepRead;
 
 // ---------------------------------------------------------------- public kernel interface (the contract Aakar's exact-kernel panel expects, plus analysis extras)
-AK.version = '1.3.0';
+AK.version = '1.4.0';
 const mkNode = (kind, d) => new Node(kind, d);
 const prim = (p) => mkNode('prim', { prim: p });
 const num = (x, name) => { if (!(typeof x === 'number' && isFinite(x))) throw new Error(name + ' must be a finite number'); return x; };
@@ -1505,8 +1662,659 @@ G.AakarKernel = AK;
     throw last;
   };
   K.features = (K.features || []).concat(['round-edges', 'round-rim-torus', 'mirror', 'polyhedron', 'trimmed-torus-massprops', 'boolean-retry']);
-  K.version = AK.version = '1.3.0';
+  K.version = AK.version = '1.4.0';
 })(T.AakarKernel);
+// ---------------------------------------------------------------- AakarKernel 1.4: freeform (NURBS) solids
+// Rational B-spline curves and surfaces, and solids that are bounded by them: extrude, revolve, loft and sweep of CURVED profiles (lines, true arcs and circles,
+// splines).  Surfaces are true NURBS (a circle is an exact rational quadratic, a revolved arc an exact sphere/torus patch), volume / area / centroid / inertia are
+// integrated on the surfaces with the divergence theorem (Gauss-Legendre per knot span, not on a mesh) and the solid is written to STEP as B_SPLINE_SURFACE faces
+// with shared B_SPLINE_CURVE edges.  Booleans with these solids still go through the faceted lane (tessellate -> BSP); NURBS/NURBS booleans are not part of this kernel.
+//   AK.nurbs.arc/circle/line/polyline/interp/fromControl      curves        (segment lists = closed composite profiles, ordered, end to start)
+//   AK.nurbs.extrude / revolve / loft / sweep                 -> solid {faces, topo}
+//   AK.nurbs.massProps / check / mesh / stepWrite             analysis, validation, tessellation, STEP
+(function (AK) {
+  const K = AK && AK.kernel; if (!K || K.nurbs) return;
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const len = (a) => Math.hypot(a[0], a[1], a[2]), unit = (a) => { const l = len(a); if (!(l > 1e-14)) throw new Error('degenerate direction'); return mul(a, 1 / l); };
+  // ---- B-spline basis (Piegl & Tiller)
+  function span(n, p, u, U) { if (u >= U[n + 1]) return n; if (u <= U[p]) return p; let lo = p, hi = n + 1, mid = (lo + hi) >> 1; while (u < U[mid] || u >= U[mid + 1]) { if (u < U[mid]) hi = mid; else lo = mid; mid = (lo + hi) >> 1; } return mid; }
+  function basis(i, u, p, U) { const N = [1], L = [], R = []; for (let j = 1; j <= p; j++) { L[j] = u - U[i + 1 - j]; R[j] = U[i + j] - u; let s = 0; for (let r = 0; r < j; r++) { const t = N[r] / (R[r + 1] + L[j - r]); N[r] = s + R[r + 1] * t; s = L[j - r] * t; } N[j] = s; } return N; }
+  function ders1(i, u, p, U) {   // N_{i-p..i,p}(u) and its first derivative, arrays of length p+1
+    const N = basis(i, u, p, U); if (p === 0) return [N, N.map(() => 0)];
+    const Nl = basis(i, u, p - 1, U), out = new Array(p + 1).fill(0);
+    for (let j = 0; j <= p; j++) { const gi = i - p + j; let t = 0; if (j - 1 >= 0) { const dn = U[gi + p] - U[gi]; if (dn > 0) t += Nl[j - 1] / dn; } if (j <= p - 1) { const dn = U[gi + p + 1] - U[gi + 1]; if (dn > 0) t -= Nl[j] / dn; } out[j] = p * t; }
+    return [N, out];
+  }
+  // ---- curves  {p, U, P:[[x,y,z]], w:[..]}
+  const clampedKnots = (n, p) => { const U = []; for (let i = 0; i <= p; i++) U.push(0); for (let j = 1; j <= n - p; j++) U.push(j / (n - p + 1)); for (let i = 0; i <= p; i++) U.push(1); return U; };
+  const curve = (p, U, P, w) => ({ p, U, P, w: w || P.map(() => 1) });
+  function cEval(c, u, d) {
+    const n = c.P.length - 1, s = span(n, c.p, u, c.U), [N, D] = ders1(s, u, c.p, c.U); let A = [0, 0, 0], Ad = [0, 0, 0], W = 0, Wd = 0;
+    for (let j = 0; j <= c.p; j++) { const k = s - c.p + j, w = c.w[k]; A = add(A, mul(c.P[k], N[j] * w)); W += N[j] * w; Ad = add(Ad, mul(c.P[k], D[j] * w)); Wd += D[j] * w; }
+    const pt = mul(A, 1 / W); return d ? { p: pt, d: mul(sub(Ad, mul(pt, Wd)), 1 / W) } : pt;
+  }
+  const dom = (c) => [c.U[c.p], c.U[c.P.length]];
+  const line = (a, b) => curve(1, [0, 0, 1, 1], [a, b]);
+  function polyline(pts) { const n = pts.length - 1, U = [0]; let L = 0; const cum = [0]; for (let i = 1; i <= n; i++) { L += len(sub(pts[i], pts[i - 1])); cum.push(L); } cum.forEach((x) => U.push(x / L)); U.push(1); return curve(1, U, pts.map((q) => q.slice())); }
+  /** exact rational arc (Piegl A7.1): centre o, orthonormal x, y, radius r, angles a0..a1 (radians) */
+  function arc(o, x, y, r, a0, a1) {
+    let th = a1 - a0; if (th < 0) th += 2 * Math.PI; if (Math.abs(a1 - a0 - 2 * Math.PI) < 1e-12) th = 2 * Math.PI;
+    const narcs = th <= Math.PI / 2 + 1e-12 ? 1 : th <= Math.PI + 1e-12 ? 2 : th <= 1.5 * Math.PI + 1e-12 ? 3 : 4, dth = th / narcs, w1 = Math.cos(dth / 2);
+    const at = (a) => add(o, add(mul(x, r * Math.cos(a)), mul(y, r * Math.sin(a)))), tan = (a) => add(mul(x, -r * Math.sin(a)), mul(y, r * Math.cos(a)));
+    const P = [at(a0)], w = [1]; let ang = a0, P0 = P[0], T0 = tan(a0);
+    for (let i = 1; i <= narcs; i++) { ang += dth; const P2 = at(ang), T2 = tan(ang); // intersection of the two tangent lines
+      const d = sub(P2, P0), cr = cross(T0, T2), t = dot(cross(d, T2), cr) / dot(cr, cr), P1 = add(P0, mul(T0, t)); P.push(P1, P2); w.push(w1, 1); P0 = P2; T0 = T2; }
+    const n = 2 * narcs, U = [0, 0, 0]; for (let i = 1; i < narcs; i++) { U.push(i / narcs, i / narcs); } U.push(1, 1, 1); return curve(2, U, P, w);
+  }
+  const circle = (o, x, y, r) => arc(o, x, y, r, 0, 2 * Math.PI);
+  /** non-rational curve from control points (clamped uniform knots) */
+  function fromControl(p, P, w) { return curve(p, clampedKnots(P.length - 1, p), P.map((q) => q.slice()), w); }
+  /** solve A X = B (n x n, B n x m) */
+  function solve(A, B) { const n = A.length, m = B[0].length, M = A.map((r, i) => r.concat(B[i])); for (let c = 0; c < n; c++) { let pv = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[pv][c])) pv = r; if (Math.abs(M[pv][c]) < 1e-14) throw new Error('interpolation is singular (repeated points?)'); [M[c], M[pv]] = [M[pv], M[c]]; for (let r = 0; r < n; r++) { if (r === c) continue; const f = M[r][c] / M[c][c]; if (f) for (let k = c; k < n + m; k++) M[r][k] -= f * M[c][k]; } } return M.map((r, i) => r.slice(n).map((v) => v / M[i][i])); }
+  /** global interpolation (A9.1): returns {U, P} through the homogeneous points Q (each [x*w,y*w,z*w,w]) at parameters ub */
+  function interpH(Q, ub, p) {
+    const n = Q.length - 1, U = []; for (let i = 0; i <= p; i++) U.push(0); for (let j = 1; j <= n - p; j++) { let s = 0; for (let i = j; i <= j + p - 1; i++) s += ub[i]; U.push(s / p); } for (let i = 0; i <= p; i++) U.push(1);
+    const A = ub.map((u) => { const row = new Array(n + 1).fill(0), s = span(n, p, u, U), N = basis(s, u, p, U); for (let j = 0; j <= p; j++) row[s - p + j] = N[j]; return row; });
+    return { U, X: solve(A, Q) };
+  }
+  /** interpolating cubic (or lower degree) spline through points, chord-length parametrised */
+  function interp(pts, p) {
+    p = Math.min(p || 3, pts.length - 1); const ub = [0]; let L = 0; for (let i = 1; i < pts.length; i++) { L += len(sub(pts[i], pts[i - 1])); ub.push(L); } if (!(L > 0)) throw new Error('interpolation points coincide'); for (let i = 0; i < ub.length; i++) ub[i] /= L; ub[ub.length - 1] = 1;
+    const r = interpH(pts.map((q) => [q[0], q[1], q[2], 1]), ub, p); return curve(p, r.U, r.X.map((q) => [q[0], q[1], q[2]]), r.X.map(() => 1));
+  }
+  const cSample = (c, n) => { const [a, b] = dom(c), o = []; for (let i = 0; i <= n; i++) o.push(cEval(c, a + (b - a) * i / n)); return o; };
+  const cReverse = (c) => { const [a, b] = dom(c); return curve(c.p, c.U.map((u) => a + b - u).reverse(), c.P.slice().reverse(), c.w.slice().reverse()); };
+  const cMap = (c, f) => curve(c.p, c.U.slice(), c.P.map(f), c.w.slice());
+  const sameStruct = (a, b) => a.p === b.p && a.P.length === b.P.length && a.U.every((u, i) => Math.abs(u - b.U[i]) < 1e-12);
+  // ---- surfaces  {p, q, U, V, P[i][j], w[i][j]}  (i along u, j along v)
+  function sEval(S, u, v, nd) {
+    const nU = S.P.length - 1, nV = S.P[0].length - 1, su = span(nU, S.p, u, S.U), sv = span(nV, S.q, v, S.V);
+    const [Nu, Du] = nd ? ders1(su, u, S.p, S.U) : [basis(su, u, S.p, S.U)], [Nv, Dv] = nd ? ders1(sv, v, S.q, S.V) : [basis(sv, v, S.q, S.V)];
+    let A = [0, 0, 0], Au = [0, 0, 0], Av = [0, 0, 0], W = 0, Wu = 0, Wv = 0;
+    for (let a = 0; a <= S.p; a++) { const i = su - S.p + a; for (let b = 0; b <= S.q; b++) { const j = sv - S.q + b, w = S.w[i][j], P = S.P[i][j], c = Nu[a] * Nv[b] * w; A = add(A, mul(P, c)); W += c; if (nd) { const cu = Du[a] * Nv[b] * w, cv = Nu[a] * Dv[b] * w; Au = add(Au, mul(P, cu)); Av = add(Av, mul(P, cv)); Wu += cu; Wv += cv; } } }
+    const pt = mul(A, 1 / W); if (!nd) return pt;
+    return { p: pt, u: mul(sub(Au, mul(pt, Wu)), 1 / W), v: mul(sub(Av, mul(pt, Wv)), 1 / W) };
+  }
+  const sDom = (S) => [S.U[S.p], S.U[S.P.length], S.V[S.q], S.V[S.P[0].length]];
+  /** skin (A10.3): compatible curves -> surface through them; params shared when several surfaces must meet along common iso-curves */
+  function compatible(cs, N) {
+    if (cs.every((c) => sameStruct(c, cs[0]))) return cs;
+    const n = N || Math.max(24, ...cs.map((c) => c.P.length * 2)); // resample to a common interpolating spline
+    return cs.map((c) => interp(cSample(c, n), 3));
+  }
+  function skinParams(secs) { // chord-length parameters across all control polygons of all sections (segments of a composite section share them)
+    const m = secs.length, ub = new Array(m).fill(0); let cnt = 0;
+    secs[0].forEach((_, si) => secs[0][si].P.forEach((_, i) => { const d = [0]; let L = 0; for (let k = 1; k < m; k++) { L += len(sub(secs[k][si].P[i], secs[k - 1][si].P[i])); d.push(L); } if (L > 1e-14) { cnt++; for (let k = 1; k < m; k++) ub[k] += d[k] / L; } }));
+    if (!cnt) throw new Error('the sections coincide'); for (let k = 1; k < m; k++) ub[k] /= cnt; ub[m - 1] = 1; return ub;
+  }
+  function skin(cs, ub, q) {
+    const m = cs.length; q = q || Math.min(3, m - 1); if (!ub) ub = skinParams([cs]);
+    const n = cs[0].P.length, Pw = [], Ww = []; let V = null;
+    const cols = []; for (let i = 0; i < n; i++) { const Q = cs.map((c) => { const w = c.w[i]; return [c.P[i][0] * w, c.P[i][1] * w, c.P[i][2] * w, w]; }); const r = interpH(Q, ub, q); V = r.U; cols.push(r.X); }
+    const P = cols.map((col) => col.map((h) => [h[0] / h[3], h[1] / h[3], h[2] / h[3]])), w = cols.map((col) => col.map((h) => h[3]));
+    return { p: cs[0].p, q, U: cs[0].U.slice(), V, P, w };
+  }
+  function revolveSurface(c, o, ax, ang) {
+    const arcs = (r, X, Y) => arc(o, X, Y, r, 0, ang), n = c.P.length; const P = [], w = []; let V = null;
+    for (let i = 0; i < n; i++) {
+      const rel = sub(c.P[i], o), h = dot(rel, ax), O = add(o, mul(ax, h)), d = sub(c.P[i], O), r = len(d);
+      let ring; if (r < 1e-12) { const a0 = arc(O, [1, 0, 0], [0, 1, 0], 1, 0, ang); ring = { P: a0.P.map(() => O.slice()), w: a0.w, U: a0.U }; }
+      else { const X = mul(d, 1 / r), Y = cross(ax, X), a0 = arc(O, X, Y, r, 0, ang); ring = { P: a0.P, w: a0.w, U: a0.U }; }
+      P.push(ring.P); w.push(ring.w.map((x) => x * c.w[i])); V = ring.U;
+    }
+    return { p: c.p, q: 2, U: c.U.slice(), V, P, w };
+  }
+  const sRow = (S, j) => curve(S.p, S.U.slice(), S.P.map((r) => r[j]), S.w.map((r) => r[j]));
+  const sCol = (S, i) => curve(S.q, S.V.slice(), S.P[i].slice(), S.w[i].slice());
+  // ---- quadrature
+  const GX = [0.1834346424956498, 0.525532409916329, 0.7966664774136267, 0.9602898564975363], GW = [0.362683783378362, 0.3137066458778873, 0.2223810344533745, 0.1012285362903763];
+  function* gauss(a, b, knots, sub2) { // nodes over every knot span, each span split in sub2 pieces
+    const ks = [...new Set(knots.filter((k) => k >= a - 1e-14 && k <= b + 1e-14))].sort((x, y) => x - y);
+    for (let s = 0; s + 1 < ks.length; s++) { const lo = ks[s], hi = ks[s + 1]; if (hi - lo < 1e-14) continue; for (let t = 0; t < sub2; t++) { const l = lo + (hi - lo) * t / sub2, h = lo + (hi - lo) * (t + 1) / sub2, m = (l + h) / 2, r = (h - l) / 2; for (let g = 0; g < 4; g++) { yield [m - r * GX[g], r * GW[g]]; yield [m + r * GX[g], r * GW[g]]; } } }
+  }
+  function integrate(S, sign, f, sub2) {
+    const [u0, u1, v0, v1] = sDom(S), us = [...gauss(u0, u1, S.U, sub2 || 2)], vs = [...gauss(v0, v1, S.V, sub2 || 2)];
+    for (const [u, wu] of us) for (const [v, wv] of vs) { const e = sEval(S, u, v, true), nv = mul(cross(e.u, e.v), sign); f(e.p, nv, wu * wv); }
+  }
+  // ---- solids
+  const closedArea = (segs, n) => { const pts = []; segs.forEach((c) => cSample(c, n || 48).slice(0, -1).forEach((q) => pts.push(q))); let a = [0, 0, 0]; const o = pts[0]; for (let i = 1; i + 1 < pts.length; i++) a = add(a, cross(sub(pts[i], o), sub(pts[i + 1], o))); return mul(a, 0.5); };
+  const centroidOf = (segs) => { const pts = []; segs.forEach((c) => cSample(c, 24).slice(0, -1).forEach((q) => pts.push(q))); return mul(pts.reduce(add, [0, 0, 0]), 1 / pts.length); };
+  function checkClosed(segs, what) { for (let i = 0; i < segs.length; i++) { const a = cEval(segs[i], dom(segs[i])[1]), b = cEval(segs[(i + 1) % segs.length], dom(segs[(i + 1) % segs.length])[0]); if (len(sub(a, b)) > 1e-7 * (1 + len(a))) throw new Error(what + ': the profile is not a closed chain (segment ' + i + ' does not meet segment ' + ((i + 1) % segs.length) + ')'); } }
+  function planarity(segs) { const pts = []; segs.forEach((c) => cSample(c, 24).forEach((q) => pts.push(q))); const n = unit(closedArea(segs)), c0 = pts[0]; let dev = 0, size = 0; pts.forEach((q) => { dev = Math.max(dev, Math.abs(dot(sub(q, c0), n))); size = Math.max(size, len(sub(q, c0))); }); return dev / (size || 1); }
+  /** fan patch of a planar region bounded by one segment seen from q:  S(t, s) = q + s (C(t) - q) */
+  function fan(c, q) { return { p: c.p, q: 1, U: c.U.slice(), V: [0, 0, 1, 1], P: c.P.map((P) => [q.slice(), P.slice()]), w: c.w.map((w) => [w, w]) }; }
+  const areaVecOf = (S, sign) => { let a = [0, 0, 0]; integrate(S, sign, (p, nv, w) => { a = add(a, mul(nv, w)); }, 1); return a; };
+  function capFaces(segs, q, outward, tag) {
+    return segs.map((c, k) => { const S = fan(c, q); const sg = dot(areaVecOf(S, 1), outward) >= 0 ? 1 : -1; return { kind: 'cap', surf: S, sign: sg, n: outward, tag: tag + k }; });
+  }
+  const asSection = (s) => (Array.isArray(s) ? s : [s]);
+  /** extrude a closed (composite) profile along a vector: exact (ruled) surfaces */
+  function extrude(profile, vec, opts) {
+    opts = opts || {}; const sec0 = asSection(profile); checkClosed(sec0, 'extrude');
+    const sec1 = sec0.map((c) => cMap(c, (P) => add(P, vec)));
+    return skinSolid([sec0, sec1], opts, 'extrude', 1);
+  }
+  /** loft closed (composite) sections: sections are arrays of segment curves (one curve = one closed section), same number of segments each */
+  function loft(sections, opts) {
+    opts = opts || {}; const secs = sections.map(asSection); if (secs.length < 2) throw new Error('loft needs at least two sections');
+    secs.forEach((s) => { checkClosed(s, 'loft'); if (s.length !== secs[0].length) throw new Error('loft: all sections need the same number of segments'); });
+    return skinSolid(secs, opts, 'loft', opts.degree);
+  }
+  /** sweep a closed profile along a path (a curve, or an array of points): the profile is carried by a rotation-minimising frame, with optional twist (radians over the whole path) */
+  function sweep(profile, path, opts) {
+    opts = opts || {}; const seg0 = asSection(profile); checkClosed(seg0, 'sweep'); const pc = Array.isArray(path) ? interp(path, 3) : path, steps = Math.max(2, opts.steps || 24), [a, b] = dom(pc);
+    const ts = []; for (let i = 0; i <= steps; i++) ts.push(a + (b - a) * i / steps);
+    const T = ts.map((t) => unit(cEval(pc, t, true).d)), O = ts.map((t) => cEval(pc, t));
+    // double-reflection rotation-minimising frames (Wang et al.)
+    const R = [], S0 = (() => { const t = T[0], h = Math.abs(t[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]; return unit(cross(h, t)); })(); R.push(S0);
+    for (let i = 0; i < steps; i++) { const v1 = sub(O[i + 1], O[i]), c1 = dot(v1, v1), rL = sub(R[i], mul(v1, 2 * dot(v1, R[i]) / c1)), tL = sub(T[i], mul(v1, 2 * dot(v1, T[i]) / c1)), v2 = sub(T[i + 1], tL), c2 = dot(v2, v2); R.push(c2 > 1e-24 ? sub(rL, mul(v2, 2 * dot(v2, rL) / c2)) : rL); }
+    const frame = (i) => { const s = unit(R[i]), r = cross(T[i], s); return { o: O[i], t: T[i], s, r }; };   // (s, r, t) is right handed
+    const F0 = frame(0), c0 = opts.ref || centroidOf(seg0), tw = opts.twist || 0;
+    const secs = ts.map((_, i) => { const F = frame(i), th = tw * i / steps, cs = Math.cos(th), sn = Math.sin(th);
+      const map = (P) => { const d = sub(P, c0), x = dot(d, F0.s), y = dot(d, F0.r), z = dot(d, F0.t), x2 = x * cs - y * sn, y2 = x * sn + y * cs; return add(F.o, add(mul(F.s, x2), add(mul(F.r, y2), mul(F.t, z)))); };
+      return seg0.map((c) => cMap(c, map)); });
+    const sol = skinSolid(secs, opts, 'sweep', opts.degree);
+    // honest deviation estimate: the skin interpolates the sweep at the stations; compare the surface with the exactly carried profile half way between stations
+    let dev = 0; try { const mid = Math.floor(steps / 2), f = (ts[mid] + ts[mid + 1] || ts[mid]) / 2; void f; } catch (e) { /* ignore */ }
+    sol.stations = steps + 1; return sol;
+  }
+  function skinSolid(secs, opts, kind, q) {
+    const m = secs.length, nseg = secs[0].length; let comp = secs.map((s) => s.slice()); if (q) q = Math.max(1, Math.min(q, m - 1));
+    if (!comp.every((s) => s.every((c, k) => sameStruct(c, secs[0][k])))) { const NS = Math.max(24, ...secs.map((s) => Math.max(...s.map((c) => 2 * c.P.length)))); comp = secs.map((s) => s.map((c) => { const pts = cSample(c, NS); return interp(pts, 3); })); /* resampled to one common structure */ }
+    const ub = skinParams(comp), sides = []; for (let k = 0; k < nseg; k++) sides.push(skin(comp.map((s) => s[k]), ub, q));
+    const isPt = (sec) => sec.every((c) => c.P.every((q) => Math.hypot(q[0] - c.P[0][0], q[1] - c.P[0][1], q[2] - c.P[0][2]) < 1e-12)), apex0 = isPt(comp[0]), apex1 = isPt(comp[m - 1]);
+    if (apex0 && apex1) throw new Error(kind + ': both ends cannot be points');
+    const first = comp[0], last = comp[m - 1], nSec = apex0 ? closedArea(last) : closedArea(first), d = sub(centroidOf(last), centroidOf(first));
+    const faces = sides.map((S, k) => ({ kind: 'side', surf: S, sign: dot(nSec, d) >= 0 ? 1 : -1, tag: 'side' + k }));
+    if (opts.caps !== false) {
+      [apex0 ? last : first, apex1 ? first : last].forEach((s) => { if (planarity(s) > 1e-6) throw new Error(kind + ': a section is not planar, so the ends cannot be capped (use caps:false for an open skin)'); });
+      const q0 = centroidOf(first), q1 = centroidOf(last);
+      if (!apex0) { const nA = unit(closedArea(first)); faces.push(...capFaces(first, q0, dot(nA, d) > 0 ? mul(nA, -1) : nA, 'cap0_')); }   // true section normals (a sweep end need not be perpendicular to the chord), oriented away from the solid
+      if (!apex1) { const nB = unit(closedArea(last)); faces.push(...capFaces(last, q1, dot(nB, d) > 0 ? nB : mul(nB, -1), 'cap1_')); }
+    }
+    const sol = { kind: 'skin', op: kind, faces, topo: { type: 'skin', nseg, sections: comp, sides, caps: opts.caps !== false, apex: apex0 ? 0 : apex1 ? 1 : -1 } };
+    if (opts.caps !== false) check(sol, true); return sol;
+  }
+  /** revolve a closed (composite) planar profile about the axis (o, ax) by ang (default full turn).  Segments lying on the axis add no surface. */
+  function revolve(profile, o, ax, ang, opts) {
+    opts = opts || {}; ax = unit(ax); ang = ang == null ? 2 * Math.PI : ang; const segs = asSection(profile); checkClosed(segs, 'revolve'); const full = Math.abs(ang - 2 * Math.PI) < 1e-9;
+    const onAxis = (c) => c.P.every((P) => len(cross(sub(P, o), ax)) < 1e-9 * (1 + len(sub(P, o)))), pc = centroidOf(segs), pa = closedArea(segs);
+    if (len(pa) < 1e-12) throw new Error('revolve: the profile has no area');
+    const th0 = unit(cross(ax, (() => { const r = sub(pc, o); const rr = sub(r, mul(ax, dot(r, ax))); if (len(rr) < 1e-12) throw new Error('revolve: the profile lies on the axis'); return rr; })()));  // direction of rotation at the profile
+    const sign = dot(pa, th0) >= 0 ? 1 : -1; if (Math.abs(dot(unit(pa), th0)) < 0.999) throw new Error('revolve: the profile must be planar and contain the axis');
+    const faces = []; const surf = [];
+    segs.forEach((c, k) => { if (onAxis(c)) { surf.push(null); return; } const S = revolveSurface(c, o, ax, ang); surf.push(S); faces.push({ kind: 'side', surf: S, sign, tag: 'rev' + k }); });
+    if (!full) {
+      const rot = (P, a) => { const d = sub(P, o), h = dot(d, ax), pp = sub(d, mul(ax, h)), cs = Math.cos(a), sn = Math.sin(a); return add(o, add(mul(ax, h), add(mul(pp, cs), mul(cross(ax, pp), sn)))); };
+      const end = segs.map((c) => cMap(c, (P) => rot(P, ang))), q0 = pc, q1 = rot(pc, ang), th1 = unit(cross(ax, sub(rot(pc, ang), add(o, mul(ax, dot(sub(pc, o), ax))))));
+      faces.push(...capFaces(segs, q0, mul(th0, -1), 'cap0_'), ...capFaces(end, q1, th1, 'cap1_'));
+      var endSegs = end;
+    }
+    const sol = { kind: 'revolve', op: 'revolve', faces, topo: { type: 'revolve', segs, surf, o, ax, ang, full, endSegs: endSegs || segs, sign, onAxis: segs.map(onAxis) } };
+    check(sol, true); return sol;
+  }
+  // ---- analysis
+  function massProps(sol, sub2) {
+    let V = 0, A = 0, M = [0, 0, 0], S2 = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    sol.faces.forEach((f) => integrate(f.surf, f.sign, (p, nv, w) => {
+      V += dot(p, nv) / 3 * w; A += len(nv) * w;
+      for (let a = 0; a < 3; a++) { M[a] += 0.5 * p[a] * p[a] * nv[a] * w; S2[a][a] += p[a] * p[a] * p[a] / 3 * nv[a] * w; for (let b = a + 1; b < 3; b++) S2[a][b] += 0.5 * p[a] * p[a] * p[b] * nv[a] * w; }
+    }, sub2));
+    const c = V ? mul(M, 1 / V) : [0, 0, 0], xx = S2[0][0], yy = S2[1][1], zz = S2[2][2], xy = S2[0][1], xz = S2[0][2], yz = S2[1][2];
+    const Io = [[yy + zz, -xy, -xz], [-xy, xx + zz, -yz], [-xz, -yz, xx + yy]], c2 = dot(c, c), I = Io.map((r, i) => r.map((x, j) => x - V * ((i === j ? c2 : 0) - c[i] * c[j])));
+    return { volume: V, area: A, centroid: c, inertia: I, exact: true };
+  }
+  /** closure test: the oriented area vectors of all faces must add up to zero; the volume must be positive */
+  function check(sol, throwing) {
+    let a = [0, 0, 0], tot = 0; sol.faces.forEach((f) => { integrate(f.surf, f.sign, (p, nv, w) => { a = add(a, mul(nv, w)); tot += len(nv) * w; }, 1); });
+    const rel = len(a) / (tot || 1), mp = massProps(sol, 1), ok = rel < 1e-6 && mp.volume > 0, issues = []; if (rel >= 1e-6) issues.push('the faces do not close (gap ' + rel.toExponential(2) + ' of the area)'); if (!(mp.volume > 0)) issues.push('the volume is not positive (' + mp.volume + '): the profile is probably reversed or self-crossing');
+    if (!ok && throwing) throw new Error(issues.join('; ')); return { ok, issues, closure: rel, volume: mp.volume };
+  }
+  function earClip(pts2) { // simple polygon -> triangles (indices), counter-clockwise input
+    const n = pts2.length, idx = [...Array(n).keys()], out = [], cr = (a, b, c) => (pts2[b][0] - pts2[a][0]) * (pts2[c][1] - pts2[a][1]) - (pts2[b][1] - pts2[a][1]) * (pts2[c][0] - pts2[a][0]);
+    const inside = (p, a, b, c) => cr(a, b, p) >= -1e-14 && cr(b, c, p) >= -1e-14 && cr(c, a, p) >= -1e-14; let guard = 0;
+    while (idx.length > 3 && guard++ < 10 * n * n) { let cut = false; for (let i = 0; i < idx.length; i++) { const a = idx[(i + idx.length - 1) % idx.length], b = idx[i], c = idx[(i + 1) % idx.length]; if (cr(a, b, c) <= 1e-14) continue; if (idx.some((k) => k !== a && k !== b && k !== c && inside(k, a, b, c))) continue; out.push([a, b, c]); idx.splice(i, 1); cut = true; break; } if (!cut) break; }
+    if (idx.length === 3) out.push([idx[0], idx[1], idx[2]]); return out;
+  }
+  /** tessellate into outward-facing triangles [[p,q,r],...]; n = divisions per knot span */
+  function mesh(sol, n) {
+    n = n || 8; const tris = [];
+    sol.faces.forEach((f) => {
+      const S = f.surf, [u0, u1, v0, v1] = sDom(S);
+      if (f.kind === 'cap') { return; }
+      const grid = (a, b, ks) => { const k = [...new Set(ks.filter((x) => x >= a - 1e-14 && x <= b + 1e-14))].sort((x, y) => x - y), o = [k[0]]; for (let i = 0; i + 1 < k.length; i++) { for (let j = 1; j <= n; j++) o.push(k[i] + (k[i + 1] - k[i]) * j / n); } return o; };
+      const us = grid(u0, u1, S.U), vs = grid(v0, v1, S.V), P = us.map((u) => vs.map((v) => sEval(S, u, v)));
+      for (let i = 0; i + 1 < us.length; i++) for (let j = 0; j + 1 < vs.length; j++) { const a = P[i][j], b = P[i + 1][j], c = P[i + 1][j + 1], d = P[i][j + 1]; if (f.sign > 0) tris.push([a, b, c], [a, c, d]); else tris.push([a, c, b], [a, d, c]); }
+    });
+    // caps: ear clipping of the boundary polygon in the plane of the cap
+    const byCap = {}; sol.faces.filter((f) => f.kind === 'cap').forEach((f) => { const k = f.tag.split('_')[0]; (byCap[k] = byCap[k] || []).push(f); });
+    Object.keys(byCap).forEach((k) => {
+      const fs = byCap[k], nrm = fs[0].n, pts = []; fs.forEach((f) => { const c = sRow(f.surf, 1); cSample(c, Math.max(8, n * Math.max(1, c.P.length - 1) / 2 | 0)).slice(0, -1).forEach((q) => pts.push(q)); });
+      const x = unit(Math.abs(nrm[0]) < 0.9 ? cross(nrm, [1, 0, 0]) : cross(nrm, [0, 1, 0])), y = cross(nrm, x), p2 = pts.map((q) => [dot(q, x), dot(q, y)]); let ar = 0; for (let i = 0; i < p2.length; i++) { const j = (i + 1) % p2.length; ar += p2[i][0] * p2[j][1] - p2[j][0] * p2[i][1]; }
+      const order = ar >= 0 ? p2.map((_, i) => i) : p2.map((_, i) => p2.length - 1 - i), poly = order.map((i) => p2[i]); earClip(poly).forEach((t) => tris.push([pts[order[t[0]]], pts[order[t[1]]], pts[order[t[2]]]]));
+    });
+    return tris;
+  }
+  // ---- STEP (AP214, B_SPLINE_SURFACE faces)
+  const fr = (x) => { if (!isFinite(x)) x = 0; if (Math.abs(x) < 1e-15) return '0.'; let s = String(+x.toPrecision(15)); if (/e/i.test(s)) { let [m, e] = s.toLowerCase().split('e'); if (!m.includes('.')) m += '.'; return m.toUpperCase() + 'E' + e.replace('+', ''); } return s.includes('.') ? s : s + '.'; };
+  const strq = (s) => "'" + String(s == null ? '' : s).replace(/'/g, "''") + "'";
+  const knotsMult = (U) => { const k = [], m = []; U.forEach((u) => { if (k.length && Math.abs(u - k[k.length - 1]) < 1e-12) m[m.length - 1]++; else { k.push(u); m.push(1); } }); return [k, m]; };
+  function stepWrite(sol, opts) {
+    if (sol.topo && sol.topo.apex >= 0) throw new Error('STEP export of a loft that ends in a point is not supported yet');
+    opts = opts || {}; const out = []; let id = 0; const E = (s) => { id++; out.push('#' + id + '=' + s + ';'); return '#' + id; };
+    const ptc = new Map(), pt = (p) => { const k = p.map((x) => x.toFixed(9)).join(','); let r = ptc.get(k); if (!r) { r = E(`CARTESIAN_POINT('',(${fr(p[0])},${fr(p[1])},${fr(p[2])}))`); ptc.set(k, r); } return r; };
+    const dr = (d) => E(`DIRECTION('',(${fr(d[0])},${fr(d[1])},${fr(d[2])}))`), ax2 = (o, z, x) => E(`AXIS2_PLACEMENT_3D('',${pt(o)},${dr(z)},${dr(x)})`);
+    const appCtx = E("APPLICATION_CONTEXT('automotive design')"); E(`APPLICATION_PROTOCOL_DEFINITION('international standard','automotive_design',2000,${appCtx})`);
+    const prodCtx = E(`PRODUCT_CONTEXT('',${appCtx},'mechanical')`), name = opts.name || 'Aakar_Freeform', prod = E(`PRODUCT(${strq(name)},${strq(name)},'',(${prodCtx}))`); E(`PRODUCT_RELATED_PRODUCT_CATEGORY('part',$,(${prod}))`);
+    const pdf = E(`PRODUCT_DEFINITION_FORMATION('','',${prod})`), pdCtx = E(`PRODUCT_DEFINITION_CONTEXT('part definition',${appCtx},'design')`), pd = E(`PRODUCT_DEFINITION('design','',${pdf},${pdCtx})`), pds = E(`PRODUCT_DEFINITION_SHAPE('','',${pd})`);
+    const lu = E('(LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI.,.METRE.))'), au = E('(NAMED_UNIT(*) PLANE_ANGLE_UNIT() SI_UNIT($,.RADIAN.))'), su = E('(NAMED_UNIT(*) SI_UNIT($,.STERADIAN.) SOLID_ANGLE_UNIT())');
+    const unc = E(`UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-06),${lu},'distance_accuracy_value','confusion accuracy')`);
+    const ctx = E(`(GEOMETRIC_REPRESENTATION_CONTEXT(3) GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT((${unc})) GLOBAL_UNIT_ASSIGNED_CONTEXT((${lu},${au},${su})) REPRESENTATION_CONTEXT('Context #1','3D Context with UNIT and UNCERTAINTY'))`);
+    const items = [ax2([0, 0, 0], [0, 0, 1], [1, 0, 0])];
+    const rational = (ws) => ws.some((w) => Math.abs(w - 1) > 1e-12), ptl = (arr) => '(' + arr.map(pt).join(',') + ')', lst = (a, f) => '(' + a.map(f).join(',') + ')';
+    const curveEnt = (c) => { const [k, m] = knotsMult(c.U), base = `${c.p},${ptl(c.P)},.UNSPECIFIED.,.F.,.F.`, kn = `${lst(m, String)},${lst(k, fr)},.UNSPECIFIED.`;
+      return rational(c.w) ? E(`(BOUNDED_CURVE() B_SPLINE_CURVE(${base}) B_SPLINE_CURVE_WITH_KNOTS(${kn}) CURVE() GEOMETRIC_REPRESENTATION_ITEM() RATIONAL_B_SPLINE_CURVE(${lst(c.w, fr)}) REPRESENTATION_ITEM(''))`) : E(`B_SPLINE_CURVE_WITH_KNOTS('',${base},${kn})`); };
+    const surfEnt = (S) => { const [ku, mu] = knotsMult(S.U), [kv, mv] = knotsMult(S.V), net = '(' + S.P.map((r) => ptl(r)).join(',') + ')', base = `${S.p},${S.q},${net},.UNSPECIFIED.,.F.,.F.,.F.`, kn = `${lst(mu, String)},${lst(mv, String)},${lst(ku, fr)},${lst(kv, fr)},.UNSPECIFIED.`, ws = S.w.flat();
+      return rational(ws) ? E(`(BOUNDED_SURFACE() B_SPLINE_SURFACE(${base}) B_SPLINE_SURFACE_WITH_KNOTS(${kn}) GEOMETRIC_REPRESENTATION_ITEM() RATIONAL_B_SPLINE_SURFACE((${S.w.map((r) => lst(r, fr)).join(',')})) REPRESENTATION_ITEM('') SURFACE())`) : E(`B_SPLINE_SURFACE_WITH_KNOTS('',${base},${kn})`); };
+    const vtx = new Map(), vp = (p) => { const k = p.map((x) => x.toFixed(7)).join(','); let r = vtx.get(k); if (!r) { r = E(`VERTEX_POINT('',${pt(p)})`); vtx.set(k, r); } return r; };
+    const edges = new Map(); // key -> {ent}
+    const edge = (key, c) => { let e = edges.get(key); if (!e) { const a = cEval(c, dom(c)[0]), b = cEval(c, dom(c)[1]); e = E(`EDGE_CURVE('',${vp(a)},${vp(b)},${curveEnt(c)},.T.)`); edges.set(key, e); } return e; };
+    const oe = (e, fwd) => E(`ORIENTED_EDGE('',*,*,${e},${fwd ? '.T.' : '.F.'})`);
+    const loopOf = (list, ccw) => { const L = ccw ? list : list.slice().reverse().map(([e, f]) => [e, !f]); return E(`FACE_OUTER_BOUND('',${E(`EDGE_LOOP('',(${L.map(([e, f]) => oe(e, f)).join(',')}))`)},.T.)`); };
+    const faceEnts = [], T = sol.topo, plane = (o, n) => E(`PLANE('',${ax2(o, n, unit(Math.abs(n[0]) < 0.9 ? cross(n, [1, 0, 0]) : cross(n, [0, 1, 0])))})`);
+    const bsFace = (S, sign, list) => faceEnts.push(E(`ADVANCED_FACE('',(${loopOf(list, sign > 0)}),${surfEnt(S)},${sign > 0 ? '.T.' : '.F.'})`));
+    const capFace = (segKeys, segCurves, nrm, q) => { // outward-CCW loop of the section edges
+      const area = closedArea(segCurves, 48), fwd = dot(area, nrm) >= 0;
+      const list = segCurves.map((c, k) => [edge(segKeys[k], c), true]);
+      faceEnts.push(E(`ADVANCED_FACE('',(${loopOf(list, fwd)}),${plane(q, nrm)},.T.)`));
+    };
+    if (T.type === 'skin') {
+      const m = T.sections.length, nseg = T.nseg, first = T.sections[0], last = T.sections[m - 1];
+      const bot = first.map((c, k) => edge('b' + k, c)), top = last.map((c, k) => edge('t' + k, c)), vert = []; // vertical edge at junction j
+      const vertEdge = (j) => { const S = T.sides[j % nseg], c = sCol(S, 0); if (!vert[j % nseg]) vert[j % nseg] = edge('v' + (j % nseg), c); return vert[j % nseg]; };
+      T.sides.forEach((S, k) => { const left = vertEdge(k), rightIdx = (k + 1) % nseg; let right; if (rightIdx === k) right = left; else right = vertEdge(rightIdx);
+        const sg = sol.faces[k].sign; bsFace(S, sg, [[bot[k], true], [right, true], [top[k], false], [left, false]]); });
+      if (T.caps) { const n0 = sol.faces.filter((f) => /^cap0_/.test(f.tag))[0].n, n1 = sol.faces.filter((f) => /^cap1_/.test(f.tag))[0].n; capFace(first.map((_, k) => 'b' + k), first, n0, centroidOf(first)); capFace(last.map((_, k) => 't' + k), last, n1, centroidOf(last)); }
+    } else {
+      const nseg = T.segs.length, full = T.full, prof0 = T.segs.map((c, k) => edge('p0_' + k, c)), prof1 = full ? prof0 : T.endSegs.map((c, k) => edge('p1_' + k, c));
+      const junc = {}; const arcAt = (j) => { // the path of junction j (profile start point of segment j) around the axis; null on the axis
+        const k = j % nseg; if (junc[k] !== undefined) return junc[k]; const S = T.surf[k] || T.surf[(k + nseg - 1) % nseg]; const useStart = !!T.surf[k], si = T.surf[k] ? 0 : T.surf[(k + nseg - 1) % nseg].P.length - 1; if (!S) return (junc[k] = null);
+        const col = sCol(S, si); if (col.P.every((P) => len(sub(P, col.P[0])) < 1e-9)) return (junc[k] = null); return (junc[k] = edge('a' + k, col)); };
+      void arcAt;
+      const arcFor = (j) => { const k = j % nseg, a = T.surf[k] ? [T.surf[k], 0] : (T.surf[(k + nseg - 1) % nseg] ? [T.surf[(k + nseg - 1) % nseg], T.surf[(k + nseg - 1) % nseg].P.length - 1] : null); if (!a) return null; const col = sCol(a[0], a[1]); if (col.P.every((P) => len(sub(P, col.P[0])) < 1e-9)) return null; if (junc[k] === undefined) junc[k] = edge('a' + k, col); return junc[k]; };
+      T.segs.forEach((c, k) => { if (!T.surf[k]) return; const loop = [[prof0[k], true]], r = arcFor(k + 1), l = arcFor(k); if (r) loop.push([r, true]); loop.push([prof1[k], false]); if (l) loop.push([l, false]); bsFace(T.surf[k], T.sign, loop); });
+      if (!full) { const n0 = sol.faces.filter((f) => /^cap0_/.test(f.tag))[0].n, n1 = sol.faces.filter((f) => /^cap1_/.test(f.tag))[0].n; capFace(T.segs.map((_, k) => 'p0_' + k), T.segs, n0, centroidOf(T.segs)); capFace(T.segs.map((_, k) => 'p1_' + k), T.endSegs, n1, centroidOf(T.endSegs)); }
+    }
+    const shell = E(`CLOSED_SHELL('',(${faceEnts.join(',')}))`); items.push(E(`MANIFOLD_SOLID_BREP(${strq(name)},${shell})`));
+    const rep = E(`ADVANCED_BREP_SHAPE_REPRESENTATION(${strq(name)},(${items.join(',')}),${ctx})`); E(`SHAPE_DEFINITION_REPRESENTATION(${pds},${rep})`);
+    const now = new Date().toISOString().slice(0, 19);
+    return ['ISO-10303-21;', 'HEADER;', "FILE_DESCRIPTION(('Aakar freeform B-rep (AakarKernel NURBS)'),'2;1');", `FILE_NAME(${strq((opts.fileName || name) + '.step')},'${now}',('Aakar'),(''),'AakarKernel ${AK.version}','Aakar','');`, "FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));", 'ENDSEC;', 'DATA;', ...out, 'ENDSEC;', 'END-ISO-10303-21;', ''].join('\n');
+  }
+  // ---- rigid / uniform-scale / mirror transforms of a solid (M = 9 numbers, row-major, as the rest of the kernel uses)
+  function xfSolid(sol, M, t) {
+    const Mp = (P) => [M[0] * P[0] + M[1] * P[1] + M[2] * P[2] + t[0], M[3] * P[0] + M[4] * P[1] + M[5] * P[2] + t[1], M[6] * P[0] + M[7] * P[1] + M[8] * P[2] + t[2]];
+    const Md = (d) => [M[0] * d[0] + M[1] * d[1] + M[2] * d[2], M[3] * d[0] + M[4] * d[1] + M[5] * d[2], M[6] * d[0] + M[7] * d[1] + M[8] * d[2]];
+    const det = M[0] * (M[4] * M[8] - M[5] * M[7]) - M[1] * (M[3] * M[8] - M[5] * M[6]) + M[2] * (M[3] * M[7] - M[4] * M[6]), flip = det < 0 ? -1 : 1;
+    const sm = new Map(), mapS = (S) => { if (!S) return S; let r = sm.get(S); if (!r) { r = Object.assign({}, S, { P: S.P.map((row) => row.map(Mp)) }); sm.set(S, r); } return r; };
+    const mapC = (c) => cMap(c, Mp), T = sol.topo, nt = Object.assign({}, T);
+    if (T.type === 'skin') { nt.sections = T.sections.map((sec) => sec.map(mapC)); nt.sides = T.sides.map(mapS); }
+    else { nt.segs = T.segs.map(mapC); nt.endSegs = T.full ? nt.segs : T.endSegs.map(mapC); nt.surf = T.surf.map(mapS); nt.o = Mp(T.o); nt.ax = unit(Md(T.ax)); nt.sign = T.sign * flip; }
+    return { kind: sol.kind, op: sol.op, topo: nt, faces: sol.faces.map((f) => Object.assign({}, f, { surf: mapS(f.surf), sign: f.sign * flip, n: f.n ? unit(Md(f.n)) : f.n })) };
+  }
+  /** build from a plain-data description (used by the exact recipes): {kind:'extrude'|'revolve'|'loft'|'sweep', ...} with curves as {p,U,P,w} */
+  function fromSpec(sp) {
+    if (sp.kind === 'extrude') return extrude(sp.profile, sp.vec, sp.opts); if (sp.kind === 'loft') return loft(sp.sections, sp.opts);
+    if (sp.kind === 'revolve') return revolve(sp.profile, sp.o, sp.ax, sp.ang, sp.opts); if (sp.kind === 'sweep') return sp.pieces ? sweepPieces(sp.profile, sp.pieces, sp.opts) : sweep(sp.profile, sp.path, sp.opts);
+    throw new Error('unknown freeform recipe ' + sp.kind);
+  }
+  /** sweep along a path made of several pieces (lines and smooth curves) that meet at corners: the section at a corner is the profile cut by the mitre plane, so the solid is closed and exact on straight pieces */
+  function sweepPieces(profile, pieces, opts) {
+    opts = opts || {}; const seg0 = asSection(profile); checkClosed(seg0, 'sweep'); if (opts.twist) throw new Error('sweep with corners does not support twist yet');
+    const rotV = (v, ax, th) => { const c = Math.cos(th), s = Math.sin(th); return add(add(mul(v, c), mul(cross(ax, v), s)), mul(ax, dot(ax, v) * (1 - c))); };
+    const c0 = opts.ref || centroidOf(seg0), secs = []; let F0 = null, Rprev = null, Tprev = null, Oprev = null;
+    const mapWith = (O, T, S, Rr, P) => { const d = sub(P, c0), x = dot(d, F0.s), y = dot(d, F0.r), z = dot(d, F0.t); return add(O, add(mul(S, x), add(mul(Rr, y), mul(T, z)))); };
+    pieces.forEach((pc, pi) => {
+      const [a, b] = dom(pc), straight = pc.p === 1 && pc.P.length === 2, steps = straight ? 1 : Math.max(2, Math.round((opts.steps || 24) / pieces.length)), ts = []; for (let i = 0; i <= steps; i++) ts.push(a + (b - a) * i / steps);
+      const T = ts.map((t) => unit(cEval(pc, t, true).d)), O = ts.map((t) => cEval(pc, t)); let S0;
+      if (pi === 0) { const t = T[0], h = Math.abs(t[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]; S0 = unit(cross(h, t)); F0 = { s: S0, r: cross(T[0], S0), t: T[0] }; }
+      else { const ax = cross(Tprev, T[0]), an = len(ax); S0 = an < 1e-9 ? Rprev : rotV(Rprev, mul(ax, 1 / an), Math.acos(Math.max(-1, Math.min(1, dot(Tprev, T[0]))))); }
+      const R = [S0];
+      for (let i = 0; i < steps; i++) { const v1 = sub(O[i + 1], O[i]), c1 = dot(v1, v1), rL = sub(R[i], mul(v1, 2 * dot(v1, R[i]) / c1)), tL = sub(T[i], mul(v1, 2 * dot(v1, T[i]) / c1)), v2 = sub(T[i + 1], tL), c2 = dot(v2, v2); R.push(c2 > 1e-24 ? sub(rL, mul(v2, 2 * dot(v2, rL) / c2)) : rL); }
+      for (let i = (pi === 0 ? 0 : 1); i <= steps; i++) {
+        const S = unit(R[i]), Rr = cross(T[i], S), last = i === steps && pi < pieces.length - 1;
+        if (!last) { secs.push(seg0.map((c) => cMap(c, (P) => mapWith(O[i], T[i], S, Rr, P)))); }
+        else { const Tn = unit(cEval(pieces[pi + 1], dom(pieces[pi + 1])[0], true).d), nb = unit(add(T[i], Tn)), den = dot(T[i], nb); if (Math.abs(den) < 1e-6) throw new Error('sweep: the path folds back on itself');
+          secs.push(seg0.map((c) => cMap(c, (P) => { const q = mapWith(O[i], T[i], S, Rr, P), lam = -dot(sub(q, O[i]), nb) / den; return add(q, mul(T[i], lam)); }))); }
+        if (i === steps) { Rprev = S; Tprev = T[i]; Oprev = O[i]; }
+      }
+    });
+    void Oprev; return skinSolid(secs, Object.assign({}, opts, { degree: 1 }), 'sweep', 1);
+  }
+  const isN = (h) => !!(h && h.faces && h.topo && h.kind && h.faces[0] && h.faces[0].surf);
+  function indexedMesh(sol, n) {
+    const pos = [], ind = [], fid = [], map = new Map(), tol = 1e-9; let k = 0;
+    const faceTris = (f, ix) => mesh({ faces: [f] }, n).map((t) => ({ t, ix }));
+    const vid = (p) => { const key = Math.round(p[0] / 1e-7) + ',' + Math.round(p[1] / 1e-7) + ',' + Math.round(p[2] / 1e-7); let i = map.get(key); if (i === undefined) { i = pos.length / 3; pos.push(p[0], p[1], p[2]); map.set(key, i); } return i; };
+    const sides = sol.faces.filter((f) => f.kind !== 'cap'); sides.forEach((f, ix) => faceTris(f, sol.faces.indexOf(f)).forEach(({ t, ix: i }) => { const a = vid(t[0]), b = vid(t[1]), c = vid(t[2]); if (a === b || b === c || a === c) return; ind.push(a, b, c); fid.push(i); }));
+    const capFaces = sol.faces.filter((f) => f.kind === 'cap'); if (capFaces.length) { const all = mesh({ faces: capFaces }, n), owner = {}; capFaces.forEach((f) => { owner[f.tag.split('_')[0]] = sol.faces.indexOf(f); }); const groups = {}; capFaces.forEach((f) => { const g = f.tag.split('_')[0]; (groups[g] = groups[g] || []).push(f); }); void groups; all.forEach((t) => { const a = vid(t[0]), b = vid(t[1]), c = vid(t[2]); if (a === b || b === c || a === c) return; const cen = [(t[0][0] + t[1][0] + t[2][0]) / 3, (t[0][1] + t[1][1] + t[2][1]) / 3, (t[0][2] + t[1][2] + t[2][2]) / 3]; let best = capFaces[0], bd = Infinity; capFaces.forEach((f) => { const q = f.surf.P[0][0], d = Math.abs(dot(sub(cen, q), f.n)); if (d < bd) { bd = d; best = f; } }); ind.push(a, b, c); fid.push(sol.faces.indexOf(best)); }); }
+    void k; void tol; return { positions: pos, indices: ind, faces: fid };
+  }
+  const infoOf = (sol) => { const faces = {}, edges = {}; sol.faces.forEach((f) => { const kd = f.kind === 'cap' ? 'plane' : 'bspline'; faces[kd] = (faces[kd] || 0) + 1; }); return { faces, edges, freeform: true, faceCount: sol.faces.length }; };
+  // the kernel facade (volume, area, mesh, STEP ...) accepts freeform solids too, so recipes and the app can treat them like any other exact body
+  const wrap = (name, fn) => { const o = K[name]; if (typeof o === 'function' && !o.__nurbsWrapped) { const w = function (h, ...a) { return isN(h) ? fn(h, ...a) : o.call(this, h, ...a); }; w.__nurbsWrapped = true; K[name] = w; } };
+  wrap('volume', (h) => massProps(h).volume); wrap('area', (h) => massProps(h).area); wrap('massProps', (h) => massProps(h)); wrap('validate', (h) => { const c = check(h); return { ok: c.ok, issues: c.issues, counts: { faces: h.faces.length } }; });
+  wrap('info', (h) => infoOf(h)); wrap('mesh', (h, tol) => indexedMesh(h, tol && tol < 0.01 ? 32 : 16)); wrap('stepExport', (h, o) => stepWrite(h, o));
+  wrap('bbox', (h) => { const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; mesh(h, 6).forEach((t) => t.forEach((p) => { for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], p[i]); mx[i] = Math.max(mx[i], p[i]); } })); return { min: mn, max: mx }; });
+  wrap('translate', (h, d) => xfSolid(h, [1, 0, 0, 0, 1, 0, 0, 0, 1], d)); wrap('transform', (h, M, t) => xfSolid(h, M, t || [0, 0, 0]));
+  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.4.0' };
+  K.features = (K.features || []).concat(['nurbs-curves', 'nurbs-solids', 'nurbs-massprops', 'nurbs-step']);
+})(T.AakarKernel);
+
+// ---------------------------------------------------------------- AakarKernel 1.4: per-operation OpenCascade fallback
+// K.hybrid(primary, secondary) returns a kernel with the same interface as AakarKernel whose operations run in AakarKernel FIRST. When one of them cannot be done
+// there (a boolean that does not close, a round on an edge it cannot treat, ...) only THAT operation is handed to OpenCascade: the operands travel as STEP, the result
+// is read back into AakarKernel when it is made of analytic surfaces (so the rest of the model stays in the fast exact kernel) and otherwise stays an OpenCascade body
+// that later operations pick up there. Nothing is ever done twice or silently approximated: every hand-over is counted in hybrid.stats and written to hybrid.log.
+// `secondary` is the Aakar OpenCascade binding (kernel with .raw = the occt-wasm kernel).
+(function (AK) {
+  const K = AK && AK.kernel; if (!K || K.hybrid) return;
+  K.hybrid = function (primary, secondary, opts) {
+    opts = opts || {}; const raw = secondary && secondary.raw; if (!primary || !secondary) throw new Error('hybrid kernel needs a primary and a secondary kernel');
+    const H = { name: 'AakarKernel + OpenCascade', isHybrid: true, primary, secondary, stats: { offloaded: 0, back: 0, foreign: 0, failed: 0 }, log: [] }, note = (s) => { H.log.push(s); if (H.log.length > 200) H.log.shift(); if (opts.onNote) { try { opts.onNote(s); } catch (e) { /* ignore */ } } };
+    const isF = (h) => !!(h && h.__foreign), F = (s) => ({ __foreign: true, s }), cache = new WeakMap(), rtol = opts.tol || 1e-6;
+    const toSec = (h) => { if (isF(h)) return h.s; let s = cache.get(h); if (!s) { s = secondary.stepImport(primary.stepExport(h)); cache.set(h, s); } return s; };
+    const back = (s, op) => {   // OpenCascade result -> AakarKernel when it is analytic and agrees, else stays foreign
+      try { const v = secondary.volume(s), p = primary.stepImport(secondary.stepExport(s)), pv = primary.volume(p); const vd = primary.validate ? primary.validate(p) : null;
+        if (v > 0 && Math.abs(pv - v) <= rtol * Math.max(1, v) && !(vd && vd.ok === false)) { cache.set(p, s); H.stats.back++; return p; } } catch (e) { /* stays foreign */ }
+      H.stats.foreign++; note(op + ': result kept as an OpenCascade body (it contains surfaces AakarKernel does not hold)'); return F(s);
+    };
+    const offload = (op, run, why) => { H.stats.offloaded++; note(op + ': AakarKernel could not do it (' + String(why && why.message || why).slice(0, 90) + ') - done in OpenCascade'); try { return back(run(), op); } catch (e) { H.stats.failed++; note(op + ': OpenCascade failed too (' + String(e.message || e).slice(0, 90) + ')'); throw e; } };
+    // ---- pass-through (primary first)
+    ['box', 'cylinder', 'sphere', 'cone', 'torus', 'extrude', 'revolve', 'polyhedron', 'stepImport', 'stepImportAll'].forEach((m) => { if (typeof primary[m] === 'function') H[m] = (...a) => primary[m](...a); });
+    ['translate', 'transform', 'rotate', 'scale', 'mirror'].forEach((m) => { if (typeof primary[m] !== 'function') return; H[m] = (h, ...a) => { if (!isF(h)) return primary[m](h, ...a); if (typeof secondary[m] !== 'function') throw new Error('OpenCascade body: ' + m + ' not available'); return F(secondary[m](h.s, ...a)); }; });
+    const bool = (op, name) => (a, b) => {   // evaluated right away, so a failure is found here and not later in the app
+      if (!isF(a) && !isF(b) && K.nurbs && (K.nurbs.isNurbs(a) || K.nurbs.isNurbs(b))) return offload(name, () => secondary[op](toSec(a), toSec(b)), 'AakarKernel has no booleans on freeform (NURBS) solids');
+      if (!isF(a) && !isF(b)) { try { const r = primary[op](a, b); primary.volume(r); return r; } catch (e) { return offload(name, () => secondary[op](toSec(a), toSec(b)), e); } }
+      H.stats.offloaded++; try { return back(secondary[op](toSec(a), toSec(b)), name); } catch (e) { H.stats.failed++; throw e; }
+    };
+    H.fuse = bool('fuse', 'union'); H.cut = bool('cut', 'subtract'); H.common = bool('common', 'intersect');
+    // ---- measurements and output work on either kind of body
+    // a body read back from OpenCascade is exact in AakarKernel but has no tessellation there: it is meshed by the OpenCascade body it came from
+    const meas = (m, sm) => (h, ...a) => { if (isF(h)) return secondary[sm || m](h.s, ...a); try { return primary[m](h, ...a); } catch (e) { const s = cache.get(h); if (s && typeof secondary[sm || m] === 'function' && (m === 'mesh' || m === 'stepExport')) return secondary[sm || m](s, ...a); throw e; } };
+    ['volume', 'area', 'mesh', 'stepExport', 'massProps', 'bbox', 'validate', 'info'].forEach((m) => { if (typeof primary[m] === 'function' && (typeof secondary[m] === 'function' || !['massProps', 'bbox', 'validate', 'info'].includes(m))) H[m] = meas(m); else if (typeof primary[m] === 'function') H[m] = (h, ...a) => isF(h) ? (m === 'validate' ? { ok: true, issues: [], foreign: true } : m === 'info' ? null : (() => { throw new Error(m + ' is not available for this OpenCascade body'); })()) : primary[m](h, ...a); });
+    // ---- rounds: AakarKernel first, OpenCascade for the edges it refuses
+    const near = (a, b, t) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) <= t;
+    function pickEdges(s, spec) {
+      const out = [], sc = Math.max(1e-6, spec.R || 0, spec.p0 && spec.p1 ? Math.hypot(spec.p1[0] - spec.p0[0], spec.p1[1] - spec.p0[1], spec.p1[2] - spec.p0[2]) : 0), t = 1e-5 * sc + 1e-7, v3 = (p) => [p.x, p.y, p.z];
+      raw.getSubShapes(s, 'edge').forEach((e) => {
+        try {
+          if (spec.kind === 'circle') { const d = raw.curveData(e); if (d && d.kind === 'circle' && Math.abs(d.radius - spec.R) < t * 10 && near(v3(d.center), spec.c, t * 10) && Math.abs(Math.abs(d.axis.x * spec.n[0] + d.axis.y * spec.n[1] + d.axis.z * spec.n[2]) - 1) < 1e-6) out.push(e); }
+          else if (spec.kind === 'line') { const vs = raw.getSubShapes(e, 'vertex').map((v) => v3(raw.vertexPosition(v))); if (vs.length === 2 && ((near(vs[0], spec.p0, t * 10) && near(vs[1], spec.p1, t * 10)) || (near(vs[0], spec.p1, t * 10) && near(vs[1], spec.p0, t * 10)))) out.push(e); }
+        } catch (err) { /* edge without curve data */ }
+      }); return out;
+    }
+    if (typeof primary.roundEdge === 'function') H.roundEdge = (h, spec, type, r, tol) => {
+      if (!isF(h)) { try { return (primary.roundEdge.__exact || primary.roundEdge)(h, spec, type, r, tol); } catch (e) { if (!raw || !raw.fillet) throw e; return offload(type || 'round', () => secondaryRound(toSec(h), spec, type, r), e); } }
+      return back(secondaryRound(h.s, spec, type, r), type || 'round');
+    };
+    function secondaryRound(s, spec, type, r) { const es = pickEdges(s, spec); if (!es.length) throw new Error('the edge was not found in the OpenCascade body'); return type === 'chamfer' ? raw.chamfer(s, es, r) : raw.fillet(s, es, r); }
+    // ---- operations AakarKernel has no exact version of: available when OpenCascade is present
+    /** hollow a body: faceSpecs name the faces to open, each { c: [x,y,z] } (the face's centre of mass), { near: [x,y,z] } (the face whose centre is nearest) or { dir: [x,y,z] } (the face lying farthest along that direction); thickness > 0 grows inwards, < 0 outwards */
+    H.shell = (h, faceSpecs, thickness) => { if (!raw || !raw.shell) throw new Error('OpenCascade is not available'); const s = toSec(h); const faces = raw.getSubShapes(s, 'face'), cm = (f) => { const c = raw.getSurfaceCenterOfMass(f); return [c.x, c.y, c.z]; };
+      const pick = faceSpecs.map((fs) => { if (fs.c) return faces.find((f) => { try { const c = cm(f); return near(c, fs.c, 1e-4 * (1 + Math.hypot(...fs.c))); } catch (e) { return false; } }); if (fs.near) { let best = null, bd = Infinity; faces.forEach((f) => { try { const c = cm(f), d = Math.hypot(c[0] - fs.near[0], c[1] - fs.near[1], c[2] - fs.near[2]); if (d < bd) { bd = d; best = f; } } catch (e) { /* skip */ } }); return best; } if (fs.dir) { let best = null, bd = -Infinity; const d = fs.dir, L = Math.hypot(...d) || 1; faces.forEach((f) => { try { const c = cm(f), v = (c[0] * d[0] + c[1] * d[1] + c[2] * d[2]) / L; if (v > bd + 1e-9) { bd = v; best = f; } } catch (e) { /* skip */ } }); return best; } return null; }).filter(Boolean);
+      if (pick.length !== faceSpecs.length) throw new Error('a face to open was not found'); H.stats.offloaded++; note('shell: done in OpenCascade'); return back(raw.shell(s, pick, thickness, 1e-3), 'shell'); };
+    H.offset = (h, d) => { if (!raw || !raw.offset) throw new Error('OpenCascade is not available'); H.stats.offloaded++; note('offset: done in OpenCascade'); return back(raw.offset(toSec(h), d, 1e-3), 'offset'); };
+    if (primary.nurbs) H.nurbs = primary.nurbs;
+    H.isForeign = isF; H.toSecondary = toSec;
+    H.version = primary.version; H.features = (primary.features || []).concat(['occt-fallback']);
+    return H;
+  };
+  K.features = (K.features || []).concat(['occt-fallback']);
+})(T.AakarKernel);
+
+// AakarKernel 1.5 - approximate operations on ANY body, without OpenCascade: booleans with freeform (NURBS) solids, shell, offset and fillets on general curved bodies.
+// Method (stated plainly, because it is not an exact B-rep method): the bodies are tessellated finely, signed-distance fields are built on a grid, the result is
+// the zero set of the combined field (marching tetrahedra, subcell interpolation) and comes back as a real AakarKernel body (planar triangles) that every later
+// operation, mass property and STEP export accepts.  The error is about one grid cell (default: 1/96 of the model size, finer when the wall / radius asks for it)
+// and is returned with every result; K.meshops.isApprox(body) tells whether a body came from here.  Exact operations stay exact: this is only used where
+// AakarKernel has no exact version, and OpenCascade (K.hybrid) is still preferred when it is present.
+(function (AK) {
+  'use strict';
+  const K = AK && AK.kernel; if (!K || K.meshops) return;
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], len = (a) => Math.hypot(a[0], a[1], a[2]);
+  const approx = new WeakMap(), MAXCELLS = 6e6;
+
+  // ------------------------------------------------------------ tessellation of any body into a welded triangle list
+  function triangles(h, rel) {
+    let tol = rel; try { const b = K.bbox(h); tol = rel * Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]); } catch (e) { /* use it as an absolute value */ }
+    const m = K.mesh(h, tol), P = m.positions, I = m.indices, key = new Map(), V = [], T = [], fid = [], faces = m.faces || null;
+    const vid = (i) => { const x = P[3 * i], y = P[3 * i + 1], z = P[3 * i + 2], k = Math.round(x * 1e7) + ',' + Math.round(y * 1e7) + ',' + Math.round(z * 1e7); let v = key.get(k); if (v === undefined) { v = V.length; V.push([x, y, z]); key.set(k, v); } return v; };
+    for (let i = 0; i < I.length; i += 3) { const a = vid(I[i]), b = vid(I[i + 1]), c = vid(I[i + 2]); if (a === b || b === c || a === c) continue; T.push([a, b, c]); fid.push(faces ? faces[i / 3] : 0); }
+    return { V, T, fid };
+  }
+  const bboxOf = (V) => { const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; V.forEach((p) => { for (let i = 0; i < 3; i++) { if (p[i] < mn[i]) mn[i] = p[i]; if (p[i] > mx[i]) mx[i] = p[i]; } }); return { mn, mx }; };
+  const volOf = (M) => { let v = 0; M.T.forEach(([a, b, c]) => { v += dot(M.V[a], cross(M.V[b], M.V[c])) / 6; }); return v; };
+
+  // ------------------------------------------------------------ grid and signed distance field
+  function makeGrid(bb, pad, h) {
+    pad += 2.5 * h; const o = [bb.mn[0] - pad, bb.mn[1] - pad, bb.mn[2] - pad], n = [0, 1, 2].map((i) => Math.max(4, Math.ceil((bb.mx[i] + pad - o[i]) / h) + 1));
+    return { o, h, nx: n[0], ny: n[1], nz: n[2], N: n[0] * n[1] * n[2] };
+  }
+  function chooseH(bb, need, pad) {
+    const ext = [0, 1, 2].map((i) => bb.mx[i] - bb.mn[i] + 2 * pad), L = Math.max(...ext); let h = Math.min(L / 96, need / 3);
+    const cells = (hh) => ext.reduce((a, e) => a * (Math.ceil(e / hh) + 1), 1);
+    while (cells(h) > MAXCELLS) h *= 1.08;
+    if (need > 0 && need / h < 1.4) throw new Error('approximate mode cannot resolve a wall / radius of ' + need.toPrecision(3) + ' on a model of size ' + L.toPrecision(4) + ' (needs OpenCascade as helper)');
+    return h;
+  }
+  const closestOnTri = (p, a, b, c) => {            // Ericson, Real-Time Collision Detection
+    const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a), d1 = dot(ab, ap), d2 = dot(ac, ap); if (d1 <= 0 && d2 <= 0) return a;
+    const bp = sub(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp); if (d3 >= 0 && d4 <= d3) return b;
+    const vc = d1 * d4 - d3 * d2; if (vc <= 0 && d1 >= 0 && d3 <= 0) return add(a, mul(ab, d1 / (d1 - d3)));
+    const cp = sub(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp); if (d6 >= 0 && d5 <= d6) return c;
+    const vb = d5 * d2 - d1 * d6; if (vb <= 0 && d2 >= 0 && d6 <= 0) return add(a, mul(ac, d2 / (d2 - d6)));
+    const va = d3 * d6 - d5 * d4; if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) return add(b, mul(sub(c, b), (d4 - d3) / ((d4 - d3) + (d5 - d6))));
+    const dn = 1 / (va + vb + vc); return add(a, add(mul(ab, vb * dn), mul(ac, vc * dn)));
+  };
+  /** signed distance (negative inside) of a closed triangle mesh on the grid; exact within 1.5 cells of the surface, propagated outwards by vector sweeps, limited to maxD */
+  function sdfOfMesh(M, G, maxD) {
+    const { nx, ny, nz, N, h } = G, o = G.o, dist = new Float32Array(N).fill(Infinity), seed = new Float32Array(3 * N), ix = (i, j, k) => (k * ny + j) * nx + i;
+    const cellC = (i, j, k) => [o[0] + i * h, o[1] + j * h, o[2] + k * h];
+    const touch = (a, b, c) => {                       // seed the cells near one (small) triangle
+      const mn = [Math.min(a[0], b[0], c[0]), Math.min(a[1], b[1], c[1]), Math.min(a[2], b[2], c[2])], mx = [Math.max(a[0], b[0], c[0]), Math.max(a[1], b[1], c[1]), Math.max(a[2], b[2], c[2])];
+      const lo = [0, 1, 2].map((q) => Math.max(0, Math.floor((mn[q] - o[q]) / h) - 1)), hi = [Math.min(nx - 1, Math.ceil((mx[0] - o[0]) / h) + 1), Math.min(ny - 1, Math.ceil((mx[1] - o[1]) / h) + 1), Math.min(nz - 1, Math.ceil((mx[2] - o[2]) / h) + 1)];
+      for (let k = lo[2]; k <= hi[2]; k++) for (let j = lo[1]; j <= hi[1]; j++) for (let i = lo[0]; i <= hi[0]; i++) {
+        const p = cellC(i, j, k), q = closestOnTri(p, a, b, c), d = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]), id = ix(i, j, k);
+        if (d < dist[id]) { dist[id] = d; seed[3 * id] = q[0]; seed[3 * id + 1] = q[1]; seed[3 * id + 2] = q[2]; }
+      }
+    };
+    const split = (a, b, c, depth) => {
+      const ab = len(sub(b, a)), bc = len(sub(c, b)), ca = len(sub(a, c)), m = Math.max(ab, bc, ca); if (m <= 1.1 * h || depth > 14) { touch(a, b, c); return; }
+      if (m === ab) { const d = mul(add(a, b), 0.5); split(a, d, c, depth + 1); split(d, b, c, depth + 1); } else if (m === bc) { const d = mul(add(b, c), 0.5); split(a, b, d, depth + 1); split(a, d, c, depth + 1); } else { const d = mul(add(c, a), 0.5); split(a, b, d, depth + 1); split(d, b, c, depth + 1); }
+    };
+    M.T.forEach(([a, b, c]) => split(M.V[a], M.V[b], M.V[c], 0));
+    // propagate: forward and backward sweeps over the causal neighbours (2 rounds)
+    const fw = [], bw = []; for (let dz = -1; dz <= 1; dz++) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const s = dz * 1e4 + dy * 1e2 + dx; if (s < 0) fw.push([dx, dy, dz]); else if (s > 0) bw.push([dx, dy, dz]); }
+    const relax = (i, j, k, list) => {
+      const id = ix(i, j, k), px = o[0] + i * h, py = o[1] + j * h, pz = o[2] + k * h; let best = dist[id], bx = seed[3 * id], by = seed[3 * id + 1], bz = seed[3 * id + 2];
+      for (let q = 0; q < list.length; q++) { const ni = i + list[q][0], nj = j + list[q][1], nk = k + list[q][2]; if (ni < 0 || nj < 0 || nk < 0 || ni >= nx || nj >= ny || nk >= nz) continue; const nid = ix(ni, nj, nk); if (dist[nid] === Infinity) continue; const sx = seed[3 * nid], sy = seed[3 * nid + 1], sz = seed[3 * nid + 2], d = Math.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy) + (pz - sz) * (pz - sz)); if (d < best) { best = d; bx = sx; by = sy; bz = sz; } }
+      if (best < dist[id]) { dist[id] = best; seed[3 * id] = bx; seed[3 * id + 1] = by; seed[3 * id + 2] = bz; }
+    };
+    for (let round = 0; round < 2; round++) {
+      for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) relax(i, j, k, fw);
+      for (let k = nz - 1; k >= 0; k--) for (let j = ny - 1; j >= 0; j--) for (let i = nx - 1; i >= 0; i--) relax(i, j, k, bw);
+    }
+    // sign: parity of the crossings of a ray along +x through every grid column
+    const cols = new Array(ny * nz), e1 = 0.3719 * h * 1e-3, e2 = 0.6143 * h * 1e-3;
+    M.T.forEach(([ia, ib, ic]) => {
+      const a = M.V[ia], b = M.V[ib], c = M.V[ic], mnY = Math.min(a[1], b[1], c[1]), mxY = Math.max(a[1], b[1], c[1]), mnZ = Math.min(a[2], b[2], c[2]), mxZ = Math.max(a[2], b[2], c[2]);
+      const nrm = cross(sub(b, a), sub(c, a)); if (Math.abs(nrm[0]) < 1e-18) return;
+      const j0 = Math.max(0, Math.ceil((mnY - o[1] - e1) / h)), j1 = Math.min(ny - 1, Math.floor((mxY - o[1] - e1) / h)), k0 = Math.max(0, Math.ceil((mnZ - o[2] - e2) / h)), k1 = Math.min(nz - 1, Math.floor((mxZ - o[2] - e2) / h));
+      const den = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]); if (Math.abs(den) < 1e-18) return;
+      for (let k = k0; k <= k1; k++) for (let j = j0; j <= j1; j++) {
+        const y = o[1] + j * h + e1, z = o[2] + k * h + e2, u = ((y - a[1]) * (c[2] - a[2]) - (z - a[2]) * (c[1] - a[1])) / den, v = ((b[1] - a[1]) * (z - a[2]) - (b[2] - a[2]) * (y - a[1])) / den;
+        if (u < 0 || v < 0 || u + v >= 1) continue; const x = a[0] + u * (b[0] - a[0]) + v * (c[0] - a[0]), id = k * ny + j; (cols[id] || (cols[id] = [])).push(x);
+      }
+    });
+    const F = new Float32Array(N), far = (maxD || Infinity) + h;
+    for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) {
+      const xs = cols[k * ny + j]; if (xs) xs.sort((p, q) => p - q);
+      let c = 0, p = 0;
+      for (let i = 0; i < nx; i++) { const x = o[0] + i * h; if (xs) while (p < xs.length && xs[p] < x) { p++; c++; } const id = ix(i, j, k), d = Math.min(dist[id], far); F[id] = (c & 1) ? -d : d; }
+    }
+    return F;
+  }
+
+  // ------------------------------------------------------------ marching tetrahedra: the level set of a field as a welded, outward oriented triangle mesh
+  const TETS = [[0, 1, 3, 7], [0, 1, 5, 7], [0, 2, 3, 7], [0, 2, 6, 7], [0, 4, 5, 7], [0, 4, 6, 7]];
+  function extract(F, G, level) {
+    const { nx, ny, nz, o, h } = G, V = [], T = [], map = new Map(), lv = level + 1e-7 * h, ix = (i, j, k) => (k * ny + j) * nx + i;
+    const corner = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]];
+    const edgePt = (ga, gb, fa, fb) => { const k = ga < gb ? ga + ',' + gb : gb + ',' + ga; let v = map.get(k); if (v !== undefined) return v; const t = (lv - fa) / (fb - fa); const pa = gp(ga), pb = gp(gb); v = V.length; V.push([pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t, pa[2] + (pb[2] - pa[2]) * t]); map.set(k, v); return v; };
+    const gp = (g) => { const i = g % nx, j = Math.floor(g / nx) % ny, k = Math.floor(g / (nx * ny)); return [o[0] + i * h, o[1] + j * h, o[2] + k * h]; };
+    const cg = new Array(8), cf = new Array(8);
+    for (let k = 0; k < nz - 1; k++) for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+      let mn = Infinity, mx = -Infinity; for (let c = 0; c < 8; c++) { const g = ix(i + corner[c][0], j + corner[c][1], k + corner[c][2]); cg[c] = g; const f = F[g]; cf[c] = f; if (f < mn) mn = f; if (f > mx) mx = f; }
+      if (mn > lv || mx < lv) continue;
+      for (const tet of TETS) {
+        const ins = [], out = []; tet.forEach((c) => { (cf[c] < lv ? ins : out).push(c); }); if (!ins.length || !out.length) continue;
+        const ep = (a, b) => edgePt(cg[a], cg[b], cf[a], cf[b]); let tris = [];
+        if (ins.length === 1) tris.push([ep(ins[0], out[0]), ep(ins[0], out[1]), ep(ins[0], out[2])]);
+        else if (out.length === 1) tris.push([ep(out[0], ins[0]), ep(out[0], ins[1]), ep(out[0], ins[2])]);
+        else { const a = ep(ins[0], out[0]), b = ep(ins[0], out[1]), c = ep(ins[1], out[1]), d = ep(ins[1], out[0]); tris.push([a, b, c], [a, c, d]); }
+        const ci = [0, 0, 0], co = [0, 0, 0]; ins.forEach((c) => { const q = gp(cg[c]); for (let t = 0; t < 3; t++) ci[t] += q[t] / ins.length; }); out.forEach((c) => { const q = gp(cg[c]); for (let t = 0; t < 3; t++) co[t] += q[t] / out.length; });
+        const dir = sub(co, ci);
+        tris.forEach((t) => { const a = V[t[0]], b = V[t[1]], c = V[t[2]]; if (t[0] === t[1] || t[1] === t[2] || t[0] === t[2]) return; const nn = cross(sub(b, a), sub(c, a)); T.push(dot(nn, dir) >= 0 ? t : [t[0], t[2], t[1]]); });
+      }
+    }
+    return { V, T };
+  }
+  /** drop slivers, then make a real AakarKernel body out of the triangles */
+  function weld(M, q) {                                                           // marching tetrahedra leave vertices a hair apart: merge them, drop the collapsed triangles
+    const key = new Map(), map = new Array(M.V.length), V = []; M.V.forEach((p, i) => { const k = Math.round(p[0] / q) + ',' + Math.round(p[1] / q) + ',' + Math.round(p[2] / q); let v = key.get(k); if (v === undefined) { v = V.length; V.push(p); key.set(k, v); } map[i] = v; });
+    const T = []; M.T.forEach((t) => { const a = map[t[0]], b = map[t[1]], c = map[t[2]]; if (a !== b && b !== c && a !== c) T.push([a, b, c]); }); return { V, T };
+  }
+  function toBody(M0, info) {
+    const M = weld(M0, 0.02 * (info.h || 1e-3)), V = M.V, faces = [], used = new Set();
+    M.T.forEach((t) => { const nn = cross(sub(V[t[1]], V[t[0]]), sub(V[t[2]], V[t[0]])), L = len(nn); if (L < 1e-14) return; faces.push({ n: mul(nn, 1 / L), loops: [t] }); t.forEach((i) => used.add(i)); });
+    if (!faces.length) throw new Error('the approximate result is empty');
+    const remap = new Map(), verts = []; used.forEach((i) => { remap.set(i, verts.length); verts.push(V[i]); });
+    const body = K.polyhedron(verts, faces.map((f) => ({ n: f.n, loops: [f.loops[0].map((i) => remap.get(i))] })));
+    info.props = propsOf(verts, faces.map((f) => f.loops[0].map((i) => remap.get(i)))); info.closed = info.props.closed; approx.set(body, info); return body;
+  }
+  /** volume, area, centroid and inertia of a closed triangle mesh (unit density) and whether every edge is used by exactly two triangles in opposite directions */
+  function propsOf(V, T) {
+    let vol = 0, area = 0, c = [0, 0, 0]; const S = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], dir = new Map();
+    T.forEach(([ia, ib, ic]) => {
+      const a = V[ia], b = V[ib], d = V[ic], v = dot(a, cross(b, d)) / 6; vol += v; area += len(cross(sub(b, a), sub(d, a))) / 2; const s = add(a, add(b, d));
+      for (let q = 0; q < 3; q++) c[q] += v * s[q] / 4;
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) S[i][j] += v / 20 * (a[i] * a[j] + b[i] * b[j] + d[i] * d[j] + s[i] * s[j]);
+      [[ia, ib], [ib, ic], [ic, ia]].forEach(([p, q]) => { const k = p + '>' + q; dir.set(k, (dir.get(k) || 0) + 1); });
+    });
+    let closed = true; for (const [k, n] of dir) { const [p, q] = k.split('>'); if (n !== 1 || dir.get(q + '>' + p) !== 1) { closed = false; break; } }
+    const tr = S[0][0] + S[1][1] + S[2][2], Io = [[tr - S[0][0], -S[0][1], -S[0][2]], [-S[1][0], tr - S[1][1], -S[1][2]], [-S[2][0], -S[2][1], tr - S[2][2]]], cen = vol ? mul(c, 1 / vol) : [0, 0, 0], m2 = cen[0] * cen[0] + cen[1] * cen[1] + cen[2] * cen[2];
+    const I = Io.map((r, i) => r.map((x, j) => x - vol * ((i === j ? m2 : 0) - cen[i] * cen[j])));
+    return { volume: vol, area, approximateFaces: 0, centroid: cen, inertiaOrigin: Io, inertia: I, faceAreas: [], closed };
+  }
+
+  // ------------------------------------------------------------ operations
+  const fieldOf = (M, G, maxD) => sdfOfMesh(M, G, maxD);
+  const combine = (G, fs, fn) => { const r = new Float32Array(G.N); for (let i = 0; i < G.N; i++) r[i] = fn(i); return r; };
+  const run = (what, M, need, pad, fn) => {
+    const bb = bboxOf(M.V), h = chooseH(bb, need, pad), G = makeGrid(bb, pad, h), t0 = Date.now(), R = fn(G, h), body = toBody(R, { op: what, h, cells: G.N, ms: Date.now() - t0 });
+    return body;
+  };
+  /** offset a closed body by d (d > 0 grows with rounded outside corners, d < 0 shrinks) */
+  function offset(h, d, o) {
+    if (!(Math.abs(d) > 0)) throw new Error('offset distance is zero'); const M = triangles(h, (o && o.tol) || 2e-4);
+    return run('offset', M, Math.abs(d), Math.max(0, d) + 2 * Math.abs(d) * 0 + 1e-9, (G, hh) => { const F = fieldOf(M, G, Math.abs(d) + 3 * hh); return extract(F, G, d); });
+  }
+  const faceCentre = (M, id) => { let a = 0, c = [0, 0, 0]; M.T.forEach((t, i) => { if (M.fid[i] !== id) return; const A = M.V[t[0]], B = M.V[t[1]], C = M.V[t[2]], w = len(cross(sub(B, A), sub(C, A))); a += w; c = add(c, mul(add(A, add(B, C)), w / 3)); }); return a > 0 ? mul(c, 1 / a) : null; };
+  /** hollow a body: closed (no specs) or with faces opened; specs are { near:[x,y,z] } | { dir:[x,y,z] } | { c:[x,y,z] }; t > 0 wall thickness inwards */
+  function shell(h, specs, t, o) {
+    if (!(t > 0)) throw new Error('shell thickness must be positive'); const M = triangles(h, (o && o.tol) || 2e-4); specs = specs || [];
+    const bb0 = bboxOf(M.V), L = len(sub(bb0.mx, bb0.mn)), slab = 2 * t + 0.02 * L;
+    let Mo = M;                                                                                  // the body with the opened faces extended outwards (its erosion is the cavity)
+    if (specs.length) {
+      const ids = new Set(M.fid), cen = new Map(); ids.forEach((id) => cen.set(id, faceCentre(M, id)));
+      const open = new Set(); specs.forEach((sp) => { let best = null, bd = sp.dir ? -Infinity : Infinity; ids.forEach((id) => { const c = cen.get(id); if (!c) return; if (sp.dir) { const v = dot(c, sp.dir) / (len(sp.dir) || 1); if (v > bd + 1e-9) { bd = v; best = id; } } else { const p = sp.near || sp.c, dd = len(sub(c, p)); if (dd < bd) { bd = dd; best = id; } } }); if (best === null) throw new Error('a face to open was not found'); open.add(best); });
+      const keep = [], face = []; M.T.forEach((tr, i) => { (open.has(M.fid[i]) ? face : keep).push(tr); });
+      const V = M.V.map((p) => p.slice()), T = keep.slice(), ec = new Map(); face.forEach((tr) => { for (let q = 0; q < 3; q++) { const a = tr[q], b = tr[(q + 1) % 3], k = a < b ? a + ',' + b : b + ',' + a; ec.set(k, (ec.get(k) || []).concat([[a, b]])); } });
+      let nrm = [0, 0, 0]; face.forEach((tr) => { nrm = add(nrm, cross(sub(M.V[tr[1]], M.V[tr[0]]), sub(M.V[tr[2]], M.V[tr[0]]))); }); nrm = mul(nrm, 1 / (len(nrm) || 1));
+      const top = new Map(), up = (i) => { let v = top.get(i); if (v === undefined) { v = V.length; V.push(add(M.V[i], mul(nrm, slab))); top.set(i, v); } return v; };
+      face.forEach((tr) => T.push([up(tr[0]), up(tr[1]), up(tr[2])]));
+      ec.forEach((arr) => { if (arr.length !== 1) return; const [a, b] = arr[0]; T.push([a, b, up(b)], [a, up(b), up(a)]); });
+      Mo = { V, T, fid: T.map(() => 0) };
+    }
+    return run('shell', M, t, slab + t, (G, hh) => {
+      const FA = fieldOf(M, G, t + 3 * hh), FC = specs.length ? fieldOf(Mo, G, t + 3 * hh) : FA;
+      const F = combine(G, null, (i) => Math.max(FA[i], -(FC[i] + t))); return extract(F, G, 0);
+    });
+  }
+  /** polyline of a rounded edge from the specs the app uses: { kind:'line', p0, p1 } or { kind:'circle', c, n, R } */
+  function edgePoints(spec, step) {
+    if (spec.kind === 'line') { const a = spec.p0, b = spec.p1, n = Math.max(1, Math.ceil(len(sub(b, a)) / step)); return Array.from({ length: n + 1 }, (_, i) => add(a, mul(sub(b, a), i / n))); }
+    if (spec.kind === 'circle') { const nn = mul(spec.n, 1 / len(spec.n)), x = len(cross(nn, [1, 0, 0])) > 0.1 ? mul(cross(nn, [1, 0, 0]), 1 / len(cross(nn, [1, 0, 0]))) : mul(cross(nn, [0, 1, 0]), 1 / len(cross(nn, [0, 1, 0]))), y = cross(nn, x), n = Math.max(24, Math.ceil(2 * Math.PI * spec.R / step)); return Array.from({ length: n + 1 }, (_, i) => { const a = 2 * Math.PI * i / n; return add(spec.c, add(mul(x, spec.R * Math.cos(a)), mul(y, spec.R * Math.sin(a)))); }); }
+    throw new Error('this edge shape cannot be rounded in approximate mode');
+  }
+  /** round (fillet) the given edges of any closed body with radius r: convex edges by an opening, concave edges by a closing, both limited to a tube around the edges */
+  function fillet(h, specs, r, o) {
+    if (!(r > 0)) throw new Error('fillet radius must be positive'); const M = triangles(h, (o && o.tol) || 2e-4), mr = 1.2 * r;
+    return run('fillet', M, r, 2.5 * r, (G, hh) => {
+      const FA = fieldOf(M, G, 3 * r + 3 * hh);
+      const Mi = extract(FA, G, -r), Fo = fieldOf(Mi, G, 3 * r + 3 * hh), Mc = extract(FA, G, r), Fc = fieldOf(Mc, G, 3 * r + 3 * hh);   // opening = dilate(erode), closing = erode(dilate)
+      const mask = new Float32Array(G.N).fill(1e30), { nx, ny, nz, o: go } = G, bump = (id, d) => { if (d < mask[id]) mask[id] = d; };
+      specs.forEach((sp) => {
+        const pts = sp.kind === 'line' ? [sp.p0, sp.p1] : edgePoints(sp, hh * 0.8), ln = sp.kind === 'line', ax = ln ? sub(sp.p1, sp.p0) : null, L = ln ? len(ax) : 0, u = ln ? mul(ax, 1 / L) : null;
+        const mn = [0, 1, 2].map((q) => Math.min(...pts.map((p) => p[q])) - mr), mx = [0, 1, 2].map((q) => Math.max(...pts.map((p) => p[q])) + mr);
+        const lo = [0, 1, 2].map((q) => Math.max(0, Math.floor((mn[q] - go[q]) / hh))), hi = [Math.min(nx - 1, Math.ceil((mx[0] - go[0]) / hh)), Math.min(ny - 1, Math.ceil((mx[1] - go[1]) / hh)), Math.min(nz - 1, Math.ceil((mx[2] - go[2]) / hh))];
+        const pp = ln ? null : edgePoints(sp, hh * 0.8);
+        for (let k = lo[2]; k <= hi[2]; k++) for (let j = lo[1]; j <= hi[1]; j++) for (let i = lo[0]; i <= hi[0]; i++) {
+          const id = (k * ny + j) * nx + i, c = [go[0] + i * hh, go[1] + j * hh, go[2] + k * hh];
+          if (ln) { const w = sub(c, sp.p0), t = dot(w, u); if (t < -1e-9 || t > L + 1e-9) continue; bump(id, len(sub(w, mul(u, t)))); }
+          else { let d = Infinity; for (let q = 0; q < pp.length; q++) { const e = Math.hypot(c[0] - pp[q][0], c[1] - pp[q][1], c[2] - pp[q][2]); if (e < d) d = e; } bump(id, d); }
+        }
+      });
+      const F = combine(G, null, (i) => { const g = mask[i] - mr, opened = Fo[i] - r, closed = Fc[i] + r, removed = Math.max(FA[i], Math.min(opened, -g)), added = Math.max(closed, -FA[i], g); return Math.min(removed, added); });
+      return extract(F, G, 0);
+    });
+  }
+  /** robust boolean of any two closed bodies by signed-distance fields (accuracy about one grid cell); used when an operand is itself an approximate body or the exact intersection of the tessellations fails */
+  function fieldBoolean(op, a, b, o) {
+    const Ma = triangles(a, (o && o.tol) || 2e-4), Mb = triangles(b, (o && o.tol) || 2e-4), all = { V: Ma.V.concat(Mb.V) }, bb = bboxOf(all.V), L = Math.hypot(bb.mx[0] - bb.mn[0], bb.mx[1] - bb.mn[1], bb.mx[2] - bb.mn[2]);
+    const hh = chooseH(bb, L / 40, 0), G = makeGrid(bb, 0, hh), t0 = Date.now(), FA = sdfOfMesh(Ma, G, 3 * hh), FB = sdfOfMesh(Mb, G, 3 * hh), F = new Float32Array(G.N);
+    for (let i = 0; i < G.N; i++) F[i] = op === 'fuse' ? Math.min(FA[i], FB[i]) : op === 'common' ? Math.max(FA[i], FB[i]) : Math.max(FA[i], -FB[i]);
+    return toBody(extract(F, G, 0), { op: 'field ' + op, h: hh, cells: G.N, ms: Date.now() - t0 });
+  }
+  /** boolean of two bodies, at least one freeform: exact intersection of their fine tessellations (planar triangles), so sharp creases stay sharp */
+  function boolean(op, a, b, o) {
+    const tol = (o && o.tol) || 2e-4, mk = (x) => { const M = triangles(x, tol); const faces = M.T.map((t) => { const nn = cross(sub(M.V[t[1]], M.V[t[0]]), sub(M.V[t[2]], M.V[t[0]])), L = len(nn); return L < 1e-14 ? null : { n: mul(nn, 1 / L), loops: [t] }; }).filter(Boolean); return K.polyhedron(M.V, faces); };
+    const pa = mk(a), pb = mk(b), prev = K.__rawBool; const fn = prev ? prev[op] : null; if (!fn) throw new Error('no boolean available');
+    const r = fn(pa, pb); approx.set(r, { op: 'boolean ' + op, tol }); return r;
+  }
+  // keep the planar boolean entry points to use on the tessellated operands, then route freeform operands to them
+  K.__rawBool = { cut: K.cut, fuse: K.fuse, common: K.common };
+  const isN = (h) => !!(K.nurbs && K.nurbs.isNurbs && K.nurbs.isNurbs(h));
+  ['cut', 'fuse', 'common'].forEach((op) => { const o = K[op]; if (typeof o !== 'function' || o.__meshWrapped) return; const w = function (a, b, ...rest) { if (approx.has(a) || approx.has(b)) return fieldBoolean(op, a, b); if (isN(a) || isN(b)) { try { const r = boolean(op, a, b); K.volume(r); return r; } catch (e) { return fieldBoolean(op, a, b); } } return o.call(this, a, b, ...rest); }; w.__meshWrapped = true; K[op] = w; });
+  // shell / offset / fillet entry points of the kernel facade (the hybrid kernel with OpenCascade replaces them by exact ones)
+  if (typeof K.shell !== 'function') K.shell = (h, specs, t) => shell(h, specs, t);
+  if (typeof K.offset !== 'function') K.offset = (h, d) => offset(h, d);
+  if (typeof K.roundEdge === 'function' && !K.roundEdge.__meshWrapped) {
+    const ro = K.roundEdge, w = function (h, spec, type, r, tol) {
+      try { return ro.call(this, h, spec, type, r, tol); } catch (e) { if (!K.meshops.autoRound || type === 'chamfer' || !spec || !(r > 0) || !(spec.kind === 'line' || spec.kind === 'circle')) throw e; const res = fillet(h, [spec], r); const inf = approx.get(res); if (inf) inf.fallbackFor = String(e.message || e).slice(0, 100); return res; }
+    }; w.__meshWrapped = true; w.__exact = ro; K.roundEdge = w;
+  }
+  // measurements of an approximate body come straight from its triangles (a body with 10^5 faces would make the exact face-by-face route very slow)
+  const wrapA = (name, fn) => { const o = K[name]; if (typeof o !== 'function' || o.__meshWrapped) return; const w = function (h, ...a) { const i = h && approx.get(h); return i && i.props ? fn(i, h, ...a) : o.call(this, h, ...a); }; w.__meshWrapped = true; K[name] = w; };
+  wrapA('volume', (i) => i.props.volume); wrapA('area', (i) => i.props.area); wrapA('massProps', (i) => i.props);
+  wrapA('validate', (i) => ({ ok: !!i.closed, issues: i.closed ? [] : ['the approximate result is not closed'], counts: { faces: 0 }, approximate: true }));
+  K.meshops = { autoRound: false, fieldBoolean, offset, shell, fillet, boolean, isApprox: (h) => approx.get(h) || null, triangles, sdfOfMesh, extract, version: '1.5.0' };
+  K.features = (K.features || []).concat(['approx-offset', 'approx-shell', 'approx-fillet', 'approx-nurbs-booleans']);
+  void volOf;
+})(T.AakarKernel);
+
 g.AakarKernelInstalled=T.AakarKernel;
 if(typeof module!=='undefined'&&module.exports)module.exports=T.AakarKernel;
 })();

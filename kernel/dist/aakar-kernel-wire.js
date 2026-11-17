@@ -62,8 +62,25 @@
     X.useKernel(A.kernel, { name: 'AakarKernel (installed)', version: A.kernel.version });
     X.useExactBooleans = stored() !== '0'; if (remember) pref('installed'); chip(); refresh(); return X;
   };
+  /** OpenCascade as a helper for single operations: AakarKernel stays the engine, and an operation it cannot do is handed to OpenCascade (see K.hybrid in 86_hybrid.js) */
+  X.occtInstance = null;
+  X.loadOcct = async function () {
+    if (X.occtInstance) return X.occtInstance;
+    const d = G.document, desk = !!(G.aakarDesktop && G.aakarDesktop.isDesktop); let err = null;
+    if (!G.AakarOcctBinding && desk) { try { const mod = await import(X.moduleUrl); const init = mod.init || (mod.default && mod.default.init); if (init) G.AakarOcctBinding = { name: mod.name || 'occt', version: mod.version || '', init }; } catch (e) { err = e; } }
+    if (!G.AakarOcctBinding && d) { try { await new Promise((res, rej) => { const el = d.createElement('script'); el.src = 'occt/aakar-occt.js'; el.async = true; el.onload = res; el.onerror = () => { el.remove(); rej(new Error('folder occt/ not found next to this file')); }; d.head.appendChild(el); }); } catch (e) { err = e; } }
+    if (!G.AakarOcctBinding) throw new Error(err ? (err.message || String(err)) : 'OpenCascade is not installed');
+    X.occtInstance = await G.AakarOcctBinding.init({ base: desk ? X.moduleUrl.replace(/[^/]*$/, '') : 'occt/' }); return X.occtInstance;
+  };
+  X.useHybrid = async function (remember) {
+    if (!K.hybrid) throw new Error('this kernel build has no OpenCascade fallback');
+    const occ = await X.loadOcct(), cur = X.kernel && X.kernel.isHybrid ? X.kernel.primary : (X.kernel === (G.AakarKernelInstalled && G.AakarKernelInstalled.kernel) ? X.kernel : K);
+    const h = K.hybrid(cur, occ, { onNote: (s) => { try { X.log.push('hybrid: ' + s); } catch (e) { /* ignore */ } } });
+    X.useKernel(h, { name: (cur === K ? 'AakarKernel' : 'AakarKernel (installed)') + ' + OpenCascade', version: cur.version }); X.useExactBooleans = stored() !== '0'; if (remember) pref('hybrid'); chip(); refresh(); return h;
+  };
   X.useAakarKernel();
   try { G.setTimeout(() => { X.checkInstalledKernel().then((r) => { if (r.found && pref() !== 'aakar' && (pref() === 'installed' || r.newer) && X.name === 'AakarKernel') { try { X.useInstalledKernel(); X.log.push('installed AakarKernel ' + r.version + ' is active'); } catch (e) { /* stays built-in */ } } }); }, 700); } catch (e) { /* ignore */ }
+  if (pref() === 'hybrid') { try { G.setTimeout(() => { X.useHybrid().catch((e) => { try { X.log.push('OpenCascade helper not available: ' + (e.message || e)); } catch (e2) { /* ignore */ } }); }, 900); } catch (e) { /* ignore */ } }
   if (pref() === 'occt') { try { G.setTimeout(() => { X.useOpenCascade().then(chip); }, 400); } catch (e) { /* ignore */ } }
   // status-bar chip
   try {

@@ -162,7 +162,8 @@ function stepRead(text) {
     return [d[p][0] / d[p][3], d[p][1] / d[p][3], d[p][2] / d[p][3]];
   }
   const edge = (r) => memoize(r, () => {
-    const e = get(r); const v0 = vert(e.args[1]), v1 = vert(e.args[2]), cur = get(e.args[3]), same = !(e.args[4] && e.args[4].en === 'F'), t = typeOf(cur);
+    const e = get(r); const v0 = vert(e.args[1]), v1 = vert(e.args[2]); let cur = get(e.args[3]); while (['SURFACE_CURVE', 'SEAM_CURVE', 'INTERSECTION_CURVE', 'BOUNDED_SURFACE_CURVE'].indexOf(typeOf(cur)) >= 0) cur = get(cur.args[1]);   // other CAD systems wrap the 3D curve with its pcurves
+    const same = !(e.args[4] && e.args[4].en === 'F'), t = typeOf(cur);
     let a = v0, b = v1;
     if (t === 'LINE') return new Edge('line', a, b);
     if (t === 'CIRCLE') {
@@ -191,11 +192,11 @@ function stepRead(text) {
     const faces = sh.args[1].map(fr_ => {
       const f = get(fr_), surf = surface(f.args[2]), rev = f.args[3] && f.args[3].en === 'F';
       const loops = f.args[1].map(br => {
-        const b = get(br), lp = get(b.args[1]); if (lp.type !== 'EDGE_LOOP') throw new Error('unsupported face bound ' + lp.type);
+        const b = get(br), lp = get(b.args[1]); if (lp.type === 'VERTEX_LOOP') return null; if (lp.type !== 'EDGE_LOOP') throw new Error('unsupported face bound ' + lp.type);
         let ces = lp.args[1].map(or => { const o = get(or), ed = edge(o.args[3]), fwd = !(o.args[4] && o.args[4].en === 'F'); return { edge: ed, fwd }; });
         if (b.args[2] && b.args[2].en === 'F') ces = ces.slice().reverse().map(c => ({ edge: c.edge, fwd: !c.fwd }));
         return ces;
-      });
+      }).filter(Boolean);
       return new Face(surf, rev, loops);
     });
     bodies.push({ body: new Body(faces), name: e.args[0] || ('solid' + id) });

@@ -46,7 +46,7 @@ function evaluate(node, res) {
     const flip = node.T.det() < 0, mp = (L) => L.map(t => ({ pts: (flip ? t.pts.slice().reverse() : t.pts).map(p => node.T.p(p)), tag: b.faces[idx.get(t.tag)] })); ev = { body: b, soup: mp(c.soup), dsoup: c.dsoup ? mp(c.dsoup) : null };
   } else if (node.kind === 'bool') {
     ev = boolAttempts(node, res);
-  } else if (node.kind === 'brep') { ev = { body: node.body, soup: node.soupFixed || null, dsoup: null, mp: node.soupFixed ? null : undefined }; if (node.soupFixed) delete ev.mp; }
+  } else if (node.kind === 'brep') { let soup = node.soupFixed || null; if (!soup) { try { soup = tessBody(node.body, res); } catch (e) { soup = null; } } ev = { body: node.body, soup, dsoup: null }; }   // imported bodies are tessellated on demand
   else throw new Error('unknown node ' + node.kind);
   node.cache.set(k, ev); return ev;
 }
