@@ -1,0 +1,84 @@
+name: Windows verify
+
+# Runs the kernel and the app on a real Windows machine: kernel tests, AakarKernel.exe self-test, and the Electron app
+# started with --smoke-test (loads the real page, waits for the exact kernel, makes a part, pushes a face, checks the numbers
+# and the packed OpenCascade files). Start it by hand (Actions > Windows verify > Run workflow) or by pushing to main.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: [ 'kernel/**', 'main.js', 'preload.js', 'package.json', 'app/index.html', '.github/workflows/windows-verify.yml' ]
+
+permissions:
+  contents: read
+
+jobs:
+  kernel-windows:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults: { run: { shell: bash } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Kernel tests on Windows (all suites, real app/index.html)
+        run: |
+          npm install earcut@2.2.4 occt-wasm --no-save --ignore-scripts
+          node kernel/test/run-all.js app/index.html
+      - name: Pack AakarKernel.exe and run its self-test
+        run: |
+          set -e
+          npx --yes @yao-pkg/pkg@5.16.1 kernel/cli.js --targets node20-win-x64 --output AakarKernel.exe
+          ./AakarKernel.exe --version
+          ./AakarKernel.exe --selftest
+          ./AakarKernel.exe --step plate.step
+          test -s plate.step
+      - uses: actions/upload-artifact@v4
+        with: { name: AakarKernel-exe-verified, path: AakarKernel.exe }
+
+  app-windows:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    defaults: { run: { shell: bash } }
+    env:
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - name: Install packages and the Electron binary
+        run: |
+          set -e
+          if [ -f package-lock.json ]; then npm ci --ignore-scripts; else npm install --ignore-scripts; fi
+          ok=0; for i in 1 2 3 4; do if [ "$i" -ge 3 ]; then export ELECTRON_MIRROR="https://npmmirror.com/mirrors/electron/"; fi; if node node_modules/electron/install.js; then ok=1; break; fi; sleep $((i*20)); done
+          [ "$ok" = 1 ]
+      - name: Fetch the OpenCascade files
+        run: |
+          npm install occt-wasm --no-save --ignore-scripts
+          node scripts/fetch-occt-wasm.js
+      - name: Smoke test the app from source (npx electron .)
+        run: npx electron . --smoke-test=smoke-source.json
+      - name: Show the report
+        if: always()
+        run: cat smoke-source.json || true
+      - name: Build the installer (nsis only)
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: "false" }
+        run: |
+          node tools/read-version.js app/index.html
+          npx electron-builder --win nsis --x64 --publish never
+          ls dist
+      - name: Silent install, then smoke test the INSTALLED app (checks app.asar.unpacked)
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dist -Filter "Aakar-Setup-*.exe" | Select-Object -First 1).FullName
+          $dir = Join-Path $env:RUNNER_TEMP "AakarInstalled"
+          Start-Process -FilePath $setup -ArgumentList "/S", "/D=$dir" -Wait
+          $exe = Join-Path $dir "Aakar.exe"
+          if (-not (Test-Path $exe)) { throw "installed Aakar.exe not found in $dir" }
+          $out = Join-Path $env:RUNNER_TEMP "smoke-installed.json"
+          $p = Start-Process -FilePath $exe -ArgumentList "--smoke-test=$out" -Wait -PassThru
+          if (Test-Path $out) { Get-Content $out }
+          if ($p.ExitCode -ne 0) { throw "smoke test of the installed app failed (exit $($p.ExitCode))" }
+          $un = Join-Path $dir "Uninstall Aakar.exe"
+          if (Test-Path $un) { Start-Process -FilePath $un -ArgumentList "/S" -Wait }
