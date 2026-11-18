@@ -1,0 +1,577 @@
+{
+ "schema": "aakar.tutorial.pack",
+ "schemaVersion": "2.0",
+ "minimumAakarVersion": "8.60.0",
+ "units": "mm",
+ "executionPolicy": "declarative",
+ "assemblyIncluded": false,
+ "packId": "aakar.cross",
+ "title": "Cross-model",
+ "category": "Cross-model",
+ "courses": [
+  {
+   "id": "cross.0-solid-subd",
+   "title": "Cross-model 1 · Solid to SubD and back",
+   "category": "Cross-model",
+   "level": "Beginner",
+   "estimatedMinutes": 5,
+   "objective": "Turn a solid into a soft SubD shape, smooth it, and turn it back into a solid.",
+   "challenge": "Convert the block, set smoothness to 3, convert it back.",
+   "order": 0,
+   "tags": [
+    "cross-model",
+    "subd",
+    "nurbs",
+    "8.77.0",
+    "solid",
+    "subd"
+   ],
+   "steps": [
+    {
+     "title": "Make a practice block",
+     "learn": "You need a solid to start from. This lesson uses a plain block 60 by 40 mm and 30 mm tall. It could just as well come from the Form workspace, a boolean or an imported file.",
+     "instructions": [
+      "Press Do it for me. Aakar draws the block.",
+      "Or build your own: a rectangle extruded 30 mm."
+     ],
+     "why": "Every shape can move between model types. A solid is the usual starting point.",
+     "checkpoint": {
+      "expected": "A block appears in the 3D view."
+     },
+     "recovery": "Nothing appeared? Press Do it for me again.",
+     "guide": {
+      "phase": "Block",
+      "now": "Press “Do it for me” to make the block.",
+      "nums": [
+       [
+        "Block",
+        "60 × 40 × 30 mm"
+       ]
+      ],
+      "detect": "feature:extrude",
+      "auto": "crBox"
+     }
+    },
+    {
+     "title": "Turn the block into a SubD shape",
+     "learn": "Solid to SubD replaces the solid with an editable cage: a few points you can move, extrude or crease. Every SubD tool now works on it. You can also just press a SubD tool while a solid is selected and Aakar converts it for you.",
+     "instructions": [
+      "Open the Model tab, find the Convert group, press Solid to SubD.",
+      "Or press Do it for me."
+     ],
+     "why": "SubD tools only edit SubD shapes. This is the bridge that lets them edit any solid.",
+     "checkpoint": {
+      "expected": "The block is now a smooth cage."
+     },
+     "recovery": "Nothing happened? Click the block first so it is selected.",
+     "guide": {
+      "phase": "To SubD",
+      "now": "Press Solid to SubD.",
+      "nums": [
+       [
+        "Tool",
+        "Convert › Solid to SubD"
+       ],
+       [
+        "Result",
+        "6-face cage"
+       ]
+      ],
+      "detect": "feature:subdFromSolid",
+      "auto": "crToSubd"
+     },
+     "tool": "cvs2sd",
+     "tab": "model",
+     "toolPath": "Model › Convert › Solid to SubD"
+    },
+    {
+     "title": "Make it smoother",
+     "learn": "Smoothness is how many times the cage is rounded off. Level 3 gives a soft pillow.",
+     "instructions": [
+      "Switch to the SubD tab, press Level and choose 3.",
+      "Or press Do it for me."
+     ],
+     "why": "Smoothness is a number you can change any time.",
+     "checkpoint": {
+      "expected": "The block looks like a rounded pillow."
+     },
+     "recovery": "Still sharp? Check the level is 3, not 0.",
+     "guide": {
+      "phase": "Level",
+      "now": "Press Level and choose 3.",
+      "nums": [
+       [
+        "Level",
+        "3"
+       ]
+      ],
+      "detect": "feature:subdEdit",
+      "auto": "crSubdLevel"
+     },
+     "tool": "sdLv",
+     "tab": "subd",
+     "toolPath": "SubD › Level"
+    },
+    {
+     "title": "Turn it back into a solid",
+     "learn": "To solid makes a normal solid from the smooth shape, so you can use Round, Shell, booleans and drawings.",
+     "instructions": [
+      "Press To solid in the SubD tab.",
+      "Or press Do it for me."
+     ],
+     "why": "Finished shapes usually go back to a solid for making.",
+     "checkpoint": {
+      "expected": "A smooth solid pillow appears."
+     },
+     "recovery": "No solid? The SubD must be closed.",
+     "guide": {
+      "phase": "To solid",
+      "now": "Press To solid.",
+      "nums": [
+       [
+        "Tool",
+        "SubD › To solid"
+       ]
+      ],
+      "detect": "feature:subdToSolid",
+      "auto": "crToSolid"
+     },
+     "tool": "sdTo",
+     "tab": "subd",
+     "toolPath": "SubD › To solid"
+    },
+    {
+     "title": "Solid and SubD are linked",
+     "learn": "Solid to SubD makes a cage any SubD tool can edit; To solid brings it back. Curved faces become smooth surfaces, so exact holes and fillets are not kept.",
+     "instructions": [
+      "Read the summary, then press Got it."
+     ],
+     "why": "A short recap helps the idea stick.",
+     "checkpoint": {
+      "expected": "You can say which tool moves a shape between solid, SubD and NURBS."
+     },
+     "recovery": "Want to see it again? Press Start again.",
+     "guide": {
+      "phase": "Finish",
+      "now": "Press Got it to finish.",
+      "nums": [
+       [
+        "Out",
+        "Convert › Solid to SubD"
+       ],
+       [
+        "Back",
+        "SubD › To solid"
+       ]
+      ],
+      "cap": "<b>Done.</b> Solid to SubD makes a cage any SubD tool can edit; To solid brings it back. Curved faces become smooth surfaces, so exact holes and fillets are not kept."
+     }
+    }
+   ]
+  },
+  {
+   "id": "cross.1-nurbs-subd",
+   "title": "Cross-model 2 · NURBS surface to SubD and back",
+   "category": "Cross-model",
+   "level": "Beginner",
+   "estimatedMinutes": 6,
+   "objective": "Turn an exact NURBS surface into an editable SubD cage, then back into exact patches.",
+   "challenge": "Loft a vase, convert it to SubD, convert it back to NURBS.",
+   "order": 1,
+   "tags": [
+    "cross-model",
+    "subd",
+    "nurbs",
+    "8.77.0",
+    "nurbs",
+    "subd",
+    "surface"
+   ],
+   "steps": [
+    {
+     "title": "Make a lofted surface",
+     "learn": "A loft joins several outlines into one smooth NURBS surface. This lesson lofts five circles of different sizes into a vase.",
+     "instructions": [
+      "Press Do it for me. Aakar draws the circles and lofts them."
+     ],
+     "why": "NURBS surfaces are exact but hard to push around freely.",
+     "checkpoint": {
+      "expected": "A vase-shaped surface appears."
+     },
+     "recovery": "Nothing? Press Do it for me again.",
+     "guide": {
+      "phase": "Loft",
+      "now": "Press “Do it for me” to loft the vase.",
+      "nums": [
+       [
+        "Sections",
+        "5 circles"
+       ],
+       [
+        "Result",
+        "NURBS surface"
+       ]
+      ],
+      "detect": "feature:srfLoft",
+      "auto": "crLoft"
+     }
+    },
+    {
+     "title": "Turn the surface into a SubD cage",
+     "learn": "NURBS to SubD samples the surface into a cage that follows it closely. Open edges stay sharp. Now you can edit it with soft SubD tools.",
+     "instructions": [
+      "Open the Model tab, Convert group, press NURBS to SubD.",
+      "Or press Do it for me."
+     ],
+     "why": "SubD is easier to reshape freely than NURBS control points.",
+     "checkpoint": {
+      "expected": "A SubD copy of the vase appears."
+     },
+     "recovery": "Select the surface first if nothing happens.",
+     "guide": {
+      "phase": "To SubD",
+      "now": "Press NURBS to SubD.",
+      "nums": [
+       [
+        "Tool",
+        "Convert › NURBS to SubD"
+       ],
+       [
+        "Fit",
+        "within about 0.3 mm here"
+       ]
+      ],
+      "detect": "feature:sdxFromNurbs",
+      "auto": "crFromNurbs"
+     },
+     "tool": "cvn2sd",
+     "tab": "model",
+     "toolPath": "Model › Convert › NURBS to SubD"
+    },
+    {
+     "title": "Turn the SubD back into NURBS",
+     "learn": "To NURBS makes bicubic patches. They are exact on regular areas and within a set tolerance elsewhere.",
+     "instructions": [
+      "Open the SubD tab and press To NURBS.",
+      "Or press Do it for me."
+     ],
+     "why": "Manufacturing and exchange files want exact surfaces.",
+     "checkpoint": {
+      "expected": "A set of NURBS patches appears."
+     },
+     "recovery": "It can take a few seconds on large cages.",
+     "guide": {
+      "phase": "To NURBS",
+      "now": "Press To NURBS.",
+      "nums": [
+       [
+        "Tool",
+        "SubD › To NURBS"
+       ]
+      ],
+      "detect": "feature:sdxToNurbs",
+      "auto": "crToNurbs"
+     },
+     "tool": "sdxnurbs",
+     "tab": "subd",
+     "toolPath": "SubD › To NURBS"
+    },
+    {
+     "title": "NURBS and SubD are linked",
+     "learn": "NURBS to SubD for free reshaping; SubD to NURBS for exact output. The round trip is an approximation, not an identical surface.",
+     "instructions": [
+      "Read the summary, then press Got it."
+     ],
+     "why": "A short recap helps the idea stick.",
+     "checkpoint": {
+      "expected": "You can say which tool moves a shape between solid, SubD and NURBS."
+     },
+     "recovery": "Want to see it again? Press Start again.",
+     "guide": {
+      "phase": "Finish",
+      "now": "Press Got it to finish.",
+      "nums": [
+       [
+        "Out",
+        "Convert › NURBS to SubD"
+       ],
+       [
+        "Back",
+        "SubD › To NURBS"
+       ]
+      ],
+      "cap": "<b>Done.</b> NURBS to SubD for free reshaping; SubD to NURBS for exact output. The round trip is an approximation, not an identical surface."
+     }
+    }
+   ]
+  },
+  {
+   "id": "cross.2-face-surface",
+   "title": "Cross-model 3 · A surface from a solid face",
+   "category": "Cross-model",
+   "level": "Beginner",
+   "estimatedMinutes": 4,
+   "objective": "Copy a face of a solid as a surface sheet, then make the whole solid a SubD.",
+   "challenge": "Copy the top face as a surface.",
+   "order": 2,
+   "tags": [
+    "cross-model",
+    "subd",
+    "nurbs",
+    "8.77.0",
+    "surface",
+    "face"
+   ],
+   "steps": [
+    {
+     "title": "Make a practice block",
+     "learn": "You need a solid to start from. This lesson uses a plain block 60 by 40 mm and 30 mm tall. It could just as well come from the Form workspace, a boolean or an imported file.",
+     "instructions": [
+      "Press Do it for me. Aakar draws the block.",
+      "Or build your own: a rectangle extruded 30 mm."
+     ],
+     "why": "Every shape can move between model types. A solid is the usual starting point.",
+     "checkpoint": {
+      "expected": "A block appears in the 3D view."
+     },
+     "recovery": "Nothing appeared? Press Do it for me again.",
+     "guide": {
+      "phase": "Block",
+      "now": "Press “Do it for me” to make the block.",
+      "nums": [
+       [
+        "Block",
+        "60 × 40 × 30 mm"
+       ]
+      ],
+      "detect": "feature:extrude",
+      "auto": "crBox"
+     }
+    },
+    {
+     "title": "Click the top face",
+     "learn": "A surface is a face with no thickness. Pick the top face to copy it.",
+     "instructions": [
+      "Click the top face. It turns orange.",
+      "Or press Do it for me."
+     ],
+     "why": "Surface from solid copies the faces you pick.",
+     "checkpoint": {
+      "expected": "The top face is orange."
+     },
+     "recovery": "Not orange? Click it again.",
+     "guide": {
+      "phase": "Pick",
+      "now": "Click the top face.",
+      "nums": [
+       [
+        "Face",
+        "top of the block"
+       ]
+      ],
+      "p": {
+       "pick": "top"
+      },
+      "detect": "faceSel",
+      "auto": "dmPick"
+     }
+    },
+    {
+     "title": "Make a surface of it",
+     "learn": "Surface from solid copies the picked faces as a zero-thickness sheet that follows the solid when it changes. Curved faces become fine triangles, so it is a mesh sheet, not an exact NURBS sheet.",
+     "instructions": [
+      "Model tab, Convert group, press Surface from solid.",
+      "Or press Do it for me."
+     ],
+     "why": "Surfaces can be used for trimming, splitting and shelling.",
+     "checkpoint": {
+      "expected": "A thin sheet lies on top of the block."
+     },
+     "recovery": "Choose “The faces I picked” in the dialog.",
+     "guide": {
+      "phase": "Surface",
+      "now": "Press Surface from solid.",
+      "nums": [
+       [
+        "Tool",
+        "Convert › Surface from solid"
+       ],
+       [
+        "Type",
+        "mesh sheet"
+       ]
+      ],
+      "detect": "feature:srfFromSolid",
+      "auto": "crSrfFace"
+     },
+     "tool": "cvsrf",
+     "tab": "model",
+     "toolPath": "Model › Convert › Surface from solid"
+    },
+    {
+     "title": "You can lift a surface off a solid",
+     "learn": "Pick faces, press Surface from solid. For an exact NURBS version of a whole solid, use Solid to SubD, then SubD › To NURBS.",
+     "instructions": [
+      "Read the summary, then press Got it."
+     ],
+     "why": "A short recap helps the idea stick.",
+     "checkpoint": {
+      "expected": "You can say which tool moves a shape between solid, SubD and NURBS."
+     },
+     "recovery": "Want to see it again? Press Start again.",
+     "guide": {
+      "phase": "Finish",
+      "now": "Press Got it to finish.",
+      "nums": [
+       [
+        "Tool",
+        "Surface from solid"
+       ],
+       [
+        "Exact route",
+        "Solid → SubD → NURBS"
+       ]
+      ],
+      "cap": "<b>Done.</b> Pick faces, press Surface from solid. For an exact NURBS version of a whole solid, use Solid to SubD, then SubD › To NURBS."
+     }
+    }
+   ]
+  },
+  {
+   "id": "cross.3-face-nurbs",
+   "title": "Cross-model 4 · A face as an exact NURBS surface",
+   "category": "Cross-model",
+   "level": "Beginner",
+   "estimatedMinutes": 4,
+   "objective": "Turn the top face of a block with a hole into an exact NURBS surface that keeps its hole.",
+   "challenge": "Convert the top face, then the wall of the hole.",
+   "order": 3,
+   "tags": [
+    "cross-model",
+    "subd",
+    "nurbs",
+    "8.77.0",
+    "nurbs",
+    "face",
+    "exact"
+   ],
+   "steps": [
+    {
+     "title": "Make the practice block",
+     "learn": "This lesson uses a block 60 by 40 mm and 20 mm tall with a round hole 16 mm across.",
+     "instructions": [
+      "Press Do it for me. Aakar draws the block and cuts the hole."
+     ],
+     "why": "A flat face with a hole is the classic test for an exact surface.",
+     "checkpoint": {
+      "expected": "A block with a round hole appears."
+     },
+     "recovery": "Nothing appeared? Press Do it for me again.",
+     "guide": {
+      "phase": "Block",
+      "now": "Press “Do it for me” to make the block with the hole.",
+      "nums": [
+       [
+        "Block",
+        "60 × 40 × 20 mm"
+       ],
+       [
+        "Hole",
+        "16 mm across"
+       ]
+      ],
+      "detect": "feature:extrude",
+      "auto": "mkHoleBlock"
+     }
+    },
+    {
+     "title": "Click the top face",
+     "learn": "The top face is flat and has a round hole in it.",
+     "instructions": [
+      "Click the face in the 3D view. It turns orange.",
+      "Or press Do it for me and Aakar picks it."
+     ],
+     "why": "Direct editing always starts with the face you want to change.",
+     "checkpoint": {
+      "expected": "The face is orange."
+     },
+     "recovery": "Not orange? Click it again. A face is a flat or round side of the part, not an edge.",
+     "guide": {
+      "phase": "Pick",
+      "now": "Click the top face of the block in the 3D view.",
+      "nums": [
+       [
+        "Face",
+        "top of the block"
+       ]
+      ],
+      "p": {
+       "pick": "top"
+      },
+      "detect": "faceSel",
+      "auto": "dmPick"
+     }
+    },
+    {
+     "title": "Make an exact NURBS surface",
+     "learn": "Face to NURBS builds a true NURBS surface. The flat top becomes one exact patch trimmed by its outline, so the hole stays a real hole. Round hole walls become exact rational cylinders. Cones, spheres and free-form faces are not converted.",
+     "instructions": [
+      "Model tab, Convert group, press Face to NURBS.",
+      "Or press Do it for me."
+     ],
+     "why": "Exact surfaces can be used in surface tools and exported without turning into triangles.",
+     "checkpoint": {
+      "expected": "A NURBS surface lies on the top face."
+     },
+     "recovery": "Pick a flat or cylindrical face. Other curved faces say why they cannot convert.",
+     "guide": {
+      "phase": "Face to NURBS",
+      "now": "Press Face to NURBS.",
+      "nums": [
+       [
+        "Tool",
+        "Convert › Face to NURBS"
+       ],
+       [
+        "Hole",
+        "kept as a trim"
+       ]
+      ],
+      "detect": "feature:srfFaceExact",
+      "auto": "crFaceExact"
+     },
+     "tool": "cvfx",
+     "tab": "model",
+     "toolPath": "Model › Convert › Face to NURBS"
+    },
+    {
+     "title": "You can make exact NURBS from faces",
+     "learn": "Pick faces, press Face to NURBS. Flat faces keep their holes; cylinders become exact surfaces.",
+     "instructions": [
+      "Read the summary, then press Got it."
+     ],
+     "why": "A short recap helps the idea stick.",
+     "checkpoint": {
+      "expected": "You can say which tool moves a shape between solid, SubD and NURBS."
+     },
+     "recovery": "Want to see it again? Press Start again.",
+     "guide": {
+      "phase": "Finish",
+      "now": "Press Got it to finish.",
+      "nums": [
+       [
+        "Tool",
+        "Face to NURBS"
+       ],
+       [
+        "Works on",
+        "planes and cylinders"
+       ]
+      ],
+      "cap": "<b>Done.</b> Pick faces, press Face to NURBS. Flat faces keep their holes; cylinders become exact surfaces."
+     }
+    }
+   ]
+  }
+ ]
+}

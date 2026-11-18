@@ -1,0 +1,837 @@
+{
+ "schema": "aakar.tutorial.pack",
+ "schemaVersion": "2.0",
+ "minimumAakarVersion": "8.60.0",
+ "units": "mm",
+ "executionPolicy": "declarative",
+ "assemblyIncluded": false,
+ "packId": "aakar.direct",
+ "title": "Direct editing",
+ "category": "Direct editing",
+ "courses": [
+  {
+   "id": "direct.0-pushpull",
+   "title": "Direct editing 1 · Push and pull a face",
+   "category": "Direct editing",
+   "level": "Beginner",
+   "estimatedMinutes": 5,
+   "objective": "Make a block taller by pulling its top face, then push the face back in.",
+   "challenge": "Pull the top face out 8 mm, then push it in 4 mm.",
+   "order": 0,
+   "tags": [
+    "direct editing",
+    "faces",
+    "8.76.0",
+    "push",
+    "pull",
+    "offset"
+   ],
+   "steps": [
+    {
+     "title": "Make the practice block",
+     "learn": "You need a part with a hole. This lesson uses a block 60 by 40 mm and 20 mm tall, with a round blind hole 16 mm across and 12 mm deep.",
+     "instructions": [
+      "Press Do it for me. Aakar draws the block and cuts the hole.",
+      "Or build your own: a 60 by 40 rectangle extruded 20 mm, then a 16 mm circle on top cut 12 mm deep."
+     ],
+     "why": "Direct editing changes faces of a part that already exists. A block with a hole has flat faces and a round one.",
+     "checkpoint": {
+      "expected": "A block with a round hole in the top face appears in the 3D view."
+     },
+     "recovery": "Nothing appeared? Press Do it for me again. Already have your own part? Use it and skip this step.",
+     "guide": {
+      "phase": "Block",
+      "now": "Press “Do it for me” to make the block with the hole.",
+      "nums": [
+       [
+        "Block",
+        "60 × 40 × 20 mm"
+       ],
+       [
+        "Hole",
+        "16 mm across, 12 mm deep"
+       ]
+      ],
+      "detect": "feature:extrude",
+      "auto": "mkHoleBlock"
+     }
+    },
+    {
+     "title": "Click the top face",
+     "learn": "The top is the flat face on top. Pulling it out adds material, pushing it in removes material.",
+     "instructions": [
+      "Click the face in the 3D view. It turns orange.",
+      "Or press Do it for me and Aakar picks it."
+     ],
+     "why": "Direct editing always starts with the face you want to change.",
+     "checkpoint": {
+      "expected": "The face is orange."
+     },
+     "recovery": "Not orange? Click it again. A face is a flat or round side of the part, not an edge.",
+     "guide": {
+      "phase": "Pick",
+      "now": "Click the top face of the block in the 3D view.",
+      "nums": [
+       [
+        "Face",
+        "top of the block"
+       ],
+       [
+        "Colour",
+        "orange when picked"
+       ]
+      ],
+      "p": {
+       "pick": "top"
+      },
+      "detect": "faceSel",
+      "auto": "dmPick"
+     }
+    },
+    {
+     "title": "Pull the top face out 8 mm",
+     "learn": "Offset face moves a face straight along its own direction. A positive number adds material. The sides stretch with it, so the block stays one clean part.",
+     "instructions": [
+      "Open the Direct+ group and press Offset face.",
+      "Type 8 for the distance and press OK.",
+      "Or press Do it for me."
+     ],
+     "why": "This is push/pull: no sketch, no extrude, just the face.",
+     "checkpoint": {
+      "expected": "The block is 28 mm tall and the hole is still there."
+     },
+     "recovery": "It did nothing? Check a face is orange first. Aakar says why in the status line if a move cannot be made.",
+     "guide": {
+      "phase": "Pull",
+      "now": "Press Offset face, type 8, press OK.",
+      "nums": [
+       [
+        "Distance",
+        "+8 mm"
+       ],
+       [
+        "Result",
+        "block 28 mm tall"
+       ]
+      ],
+      "p": {
+       "type": "w1Offset",
+       "name": "Offset face 8 mm",
+       "pick": "top",
+       "params": {
+        "dist": 8,
+        "chain": "single"
+       }
+      },
+      "detect": "feature:w1Offset",
+      "auto": "dmFeat"
+     },
+     "tool": "w1o",
+     "tab": "model",
+     "toolPath": "Model › Direct+ › Offset face"
+    },
+    {
+     "title": "Push the top face back in 4 mm",
+     "learn": "A negative number pushes the face into the part and removes material. If a move would hit another part of the solid, Aakar stops at the nearest distance that works and tells you.",
+     "instructions": [
+      "Press Offset face again.",
+      "Type -4 and press OK."
+     ],
+     "why": "Push and pull are the same tool with the sign changed.",
+     "checkpoint": {
+      "expected": "The block is 24 mm tall."
+     },
+     "recovery": "Still orange? The face stays selected, so just press Offset face again.",
+     "guide": {
+      "phase": "Push",
+      "now": "Press Offset face, type -4, press OK.",
+      "nums": [
+       [
+        "Distance",
+        "−4 mm"
+       ],
+       [
+        "Result",
+        "block 24 mm tall"
+       ]
+      ],
+      "p": {
+       "type": "w1Offset",
+       "name": "Offset face -4 mm",
+       "pick": "top",
+       "params": {
+        "dist": -4,
+        "chain": "single"
+       }
+      },
+      "detect": "feature:w1Offset",
+      "auto": "dmFeat"
+     },
+     "tool": "w1o",
+     "tab": "model",
+     "toolPath": "Model › Direct+ › Offset face"
+    },
+    {
+     "title": "You can push and pull",
+     "learn": "Pick a face, press Offset face, type a distance. Plus adds, minus removes.",
+     "instructions": [
+      "Read the summary, then press Got it."
+     ],
+     "why": "A short recap helps the idea stick.",
+     "checkpoint": {
+      "expected": "You can say what the tool did and when to use it."
+     },
+     "recovery": "Want to see it again? Press Start again.",
+     "guide": {
+      "phase": "Finish",
+      "now": "Press Got it to finish.",
+      "nums": [
+       [
+        "Tool",
+        "Offset face (Alt+O)"
+       ],
+       [
+        "Plus",
+        "adds material"
+       ],
+       [
+        "Minus",
+        "removes material"
+       ]
+      ],
+      "cap": "<b>Done.</b> Pick a face, press Offset face, type a distance. Plus adds, minus removes."
+     }
+    }
+   ]
+  },
+  {
+   "id": "direct.1-holes",
+   "title": "Direct editing 2 · Resize and move a hole",
+   "category": "Direct editing",
+   "level": "Beginner",
+   "estimatedMinutes": 6,
+   "objective": "Make a hole bigger, then slide it across the block.",
+   "challenge": "Grow the hole by 3 mm, then move it 10 mm along X.",
+   "order": 1,
+   "tags": [
+    "direct editing",
+    "faces",
+    "8.76.0",
+    "hole",
+    "move"
+   ],
+   "steps": [
+    {
+     "title": "Make the practice block",
+     "learn": "You need a part with a hole. This lesson uses a block 60 by 40 mm and 20 mm tall, with a round blind hole 16 mm across and 12 mm deep.",
+     "instructions": [
+      "Press Do it for me. Aakar draws the block and cuts the hole.",
+      "Or build your own: a 60 by 40 rectangle extruded 20 mm, then a 16 mm circle on top cut 12 mm deep."
+     ],
+     "why": "Direct editing changes faces of a part that already exists. A block with a hole has flat faces and a round one.",
+     "checkpoint": {
+      "expected": "A block with a round hole in the top face appears in the 3D view."
+     },
+     "recovery": "Nothing appeared? Press Do it for me again. Already have your own part? Use it and skip this step.",
+     "guide": {
+      "phase": "Block",
+      "now": "Press “Do it for me” to make the block with the hole.",
+      "nums": [
+       [
+        "Block",
+        "60 × 40 × 20 mm"
+       ],
+       [
+        "Hole",
+        "16 mm across, 12 mm deep"
+       ]
+      ],
+      "detect": "feature:extrude",
+      "auto": "mkHoleBlock"
+     }
+    },
+    {
+     "title": "Click the wall of the hole",
+     "learn": "The hole has a round wall and a flat floor. Clicking the wall picks the whole round face.",
+     "instructions": [
+      "Click the face in the 3D view. It turns orange.",
+      "Or press Do it for me and Aakar picks it."
+     ],
+     "why": "Direct editing always starts with the face you want to change.",
+     "checkpoint": {
+      "expected": "The face is orange."
+     },
+     "recovery": "Not orange? Click it again. A face is a flat or round side of the part, not an edge.",
+     "guide": {
+      "phase": "Pick",
+      "now": "Click the round wall of the hole in the 3D view.",
+      "nums": [
+       [
+        "Face",
+        "round wall of the hole"
+       ]
+      ],
+      "p": {
+       "pick": "hole"
+      },
+      "detect": "faceSel",
+      "auto": "dmPick"
+     }
+    },
+    {
+     "title": "Make the hole 3 mm wider on each side",
+     "learn": "On a hole, a negative distance pushes the wall into the material, so the hole grows. Its centre stays where it is.",
+     "instructions": [
+      "Press Offset face.",
+      "Type -3 and press OK."
+     ],
+     "why": "A round face changes its radius. Aakar keeps it a true cylinder.",
+     "checkpoint": {
+      "expected": "The hole is 22 mm across."
+     },
+     "recovery": "The hole did not change? Pick the round wall, not the floor.",
+     "guide": {
+      "phase": "Wider",
+      "now": "Press Offset face, type -3, press OK.",
+      "nums": [
+       [
+        "Distance",
+        "−3 mm"
+       ],
+       [
+        "Hole",
+        "22 mm across"
+       ]
+      ],
+      "p": {
+       "type": "w1Offset",
+       "name": "Hole 3 mm wider",
+       "pick": "hole",
+       "only": "wall",
+       "params": {
+        "dist": -3,
+        "chain": "group"
+       }
+      },
+      "detect": "feature:w1Offset",
+      "auto": "dmFeat"
+     },
+     "tool": "w1o",
+     "tab": "model",
+     "toolPath": "Model › Direct+ › Offset face"
+    },
+    {
+     "title": "Move the hole 10 mm along X",
+     "learn": "Move hole / boss slides the whole hole. Aakar fills the old hole and cuts a new one in the new place, so the result is one clean solid.",
+     "instructions": [
+      "Press Move hole / boss.",
+      "Type 10 for X, leave Y and Z at 0, press OK."
+     ],
+     "why": "A hole can move without redrawing any sketch.",
+     "checkpoint": {
+      "expected": "The hole sits 10 mm further along X."
+     },
+     "recovery": "It says the move is not possible? The hole must stay inside the block; try a smaller distance.",
+     "guide": {
+      "phase": "Move",
+      "now": "Press Move hole / boss, type X = 10, press OK.",
+      "nums": [
+       [
+        "X",
+        "+10 mm"
+       ],
+       [
+        "Y, Z",
+        "0"
+       ]
+      ],
+      "p": {
+       "type": "w1MoveFeat",
+       "name": "Move hole 10",
+       "pick": "hole",
+       "only": "wall",
+       "params": {
+        "dx": 10,
+        "dy": 0,
+        "dz": 0
+       }
+      },
+      "detect": "feature:w1MoveFeat",
+      "auto": "dmFeat"
+     },
+     "tool": "w1mf",
+     "tab": "model",
+     "toolPath": "Model › Direct+ › Move hole / boss"
+    },
+    {
+     "title": "You can resize and move a hole",
+     "learn": "Offset face changes the radius. Move hole / boss slides it. Both keep the hole a true circle.",
+     "instructions": [
+      "Read the summary, then press Got it."
+     ],
+     "why": "A short recap helps the idea stick.",
+     "checkpoint": {
+      "expected": "You can say what the tool did and when to use it."
+     },
+     "recovery": "Want to see it again? Press Start again.",
+     "guide": {
+      "phase": "Finish",
+      "now": "Press Got it to finish.",
+      "nums": [
+       [
+        "Resize",
+        "Offset face"
+       ],
+       [
+        "Slide",
+        "Move hole / boss"
+       ]
+      ],
+      "cap": "<b>Done.</b> Offset face changes the radius. Move hole / boss slides it. Both keep the hole a true circle."
+     }
+    }
+   ]
+  },
+  {
+   "id": "direct.2-delete",
+   "title": "Direct editing 3 · Delete a hole and heal the gap",
+   "category": "Direct editing",
+   "level": "Beginner",
+   "estimatedMinutes": 4,
+   "objective": "Remove a hole by deleting its face. Aakar fills the gap.",
+   "challenge": "Delete the hole and check the top face is whole again.",
+   "order": 2,
+   "tags": [
+    "direct editing",
+    "faces",
+    "8.76.0",
+    "delete",
+    "heal"
+   ],
+   "steps": [
+    {
+     "title": "Make the practice block",
+     "learn": "You need a part with a hole. This lesson uses a block 60 by 40 mm and 20 mm tall, with a round blind hole 16 mm across and 12 mm deep.",
+     "instructions": [
+      "Press Do it for me. Aakar draws the block and cuts the hole.",
+      "Or build your own: a 60 by 40 rectangle extruded 20 mm, then a 16 mm circle on top cut 12 mm deep."
+     ],
+     "why": "Direct editing changes faces of a part that already exists. A block with a hole has flat faces and a round one.",
+     "checkpoint": {
+      "expected": "A block with a round hole in the top face appears in the 3D view."
+     },
+     "recovery": "Nothing appeared? Press Do it for me again. Already have your own part? Use it and skip this step.",
+     "guide": {
+      "phase": "Block",
+      "now": "Press “Do it for me” to make the block with the hole.",
+      "nums": [
+       [
+        "Block",
+        "60 × 40 × 20 mm"
+       ],
+       [
+        "Hole",
+        "16 mm across, 12 mm deep"
+       ]
+      ],
+      "detect": "feature:extrude",
+      "auto": "mkHoleBlock"
+     }
+    },
+    {
+     "title": "Click the wall of the hole",
+     "learn": "Deleting a face removes it and heals the gap.",
+     "instructions": [
+      "Click the face in the 3D view. It turns orange.",
+      "Or press Do it for me and Aakar picks it."
+     ],
+     "why": "Direct editing always starts with the face you want to change.",
+     "checkpoint": {
+      "expected": "The face is orange."
+     },
+     "recovery": "Not orange? Click it again. A face is a flat or round side of the part, not an edge.",
+     "guide": {
+      "phase": "Pick",
+      "now": "Click the round wall of the hole in the 3D view.",
+      "nums": [
+       [
+        "Face",
+        "round wall of the hole"
+       ]
+      ],
+      "p": {
+       "pick": "hole"
+      },
+      "detect": "faceSel",
+      "auto": "dmPick"
+     }
+    },
+    {
+     "title": "Delete the face and heal",
+     "learn": "Delete face removes the wall. Aakar then fills the hole with matching material, so the top face becomes one whole face again.",
+     "instructions": [
+      "Press Delete face in the ribbon (or right-click the face and choose Delete face).",
+      "Keep the mode on Heal and press OK."
+     ],
+     "why": "This undoes a feature without going back in the history.",
+     "checkpoint": {
+      "expected": "The hole is gone and the top is flat."
+     },
+     "recovery": "A message says it cannot heal? Pick a face that belongs to a hole, boss, pocket, fillet or chamfer.",
+     "guide": {
+      "phase": "Delete",
+      "now": "Press Delete face, keep Heal, press OK.",
+      "nums": [
+       [
+        "Mode",
+        "Heal"
+       ],
+       [
+        "Result",
+        "no hole"
+       ]
+      ],
+      "detect": "feature:solDelFace",
+      "auto": "dmDelete"
+     },
+     "tool": "solDelBtn",
+     "tab": "model",
+     "toolPath": "Model › Direct+ › Delete face"
+    },
+    {
+     "title": "You can delete and heal",
+     "learn": "Delete face with Heal removes a hole, boss, pocket, fillet or chamfer and closes the gap.",
+     "instructions": [
+      "Read the summary, then press Got it."
+     ],
+     "why": "A short recap helps the idea stick.",
+     "checkpoint": {
+      "expected": "You can say what the tool did and when to use it."
+     },
+     "recovery": "Want to see it again? Press Start again.",
+     "guide": {
+      "phase": "Finish",
+      "now": "Press Got it to finish.",
+      "nums": [
+       [
+        "Tool",
+        "Delete face"
+       ],
+       [
+        "Mode",
+        "Heal"
+       ]
+      ],
+      "cap": "<b>Done.</b> Delete face with Heal removes a hole, boss, pocket, fillet or chamfer and closes the gap."
+     }
+    }
+   ]
+  },
+  {
+   "id": "direct.3-tilt",
+   "title": "Direct editing 4 · Tilt a face",
+   "category": "Direct editing",
+   "level": "Beginner",
+   "estimatedMinutes": 4,
+   "objective": "Turn the flat top of the block into a gentle slope.",
+   "challenge": "Tilt the top face 8 degrees.",
+   "order": 3,
+   "tags": [
+    "direct editing",
+    "faces",
+    "8.76.0",
+    "tilt",
+    "replace face"
+   ],
+   "steps": [
+    {
+     "title": "Make the practice block",
+     "learn": "You need a part with a hole. This lesson uses a block 60 by 40 mm and 20 mm tall, with a round blind hole 16 mm across and 12 mm deep.",
+     "instructions": [
+      "Press Do it for me. Aakar draws the block and cuts the hole.",
+      "Or build your own: a 60 by 40 rectangle extruded 20 mm, then a 16 mm circle on top cut 12 mm deep."
+     ],
+     "why": "Direct editing changes faces of a part that already exists. A block with a hole has flat faces and a round one.",
+     "checkpoint": {
+      "expected": "A block with a round hole in the top face appears in the 3D view."
+     },
+     "recovery": "Nothing appeared? Press Do it for me again. Already have your own part? Use it and skip this step.",
+     "guide": {
+      "phase": "Block",
+      "now": "Press “Do it for me” to make the block with the hole.",
+      "nums": [
+       [
+        "Block",
+        "60 × 40 × 20 mm"
+       ],
+       [
+        "Hole",
+        "16 mm across, 12 mm deep"
+       ]
+      ],
+      "detect": "feature:extrude",
+      "auto": "mkHoleBlock"
+     }
+    },
+    {
+     "title": "Click the top face",
+     "learn": "Tilt face turns a flat face about a line through its centre.",
+     "instructions": [
+      "Click the face in the 3D view. It turns orange.",
+      "Or press Do it for me and Aakar picks it."
+     ],
+     "why": "Direct editing always starts with the face you want to change.",
+     "checkpoint": {
+      "expected": "The face is orange."
+     },
+     "recovery": "Not orange? Click it again. A face is a flat or round side of the part, not an edge.",
+     "guide": {
+      "phase": "Pick",
+      "now": "Click the top face of the block in the 3D view.",
+      "nums": [
+       [
+        "Face",
+        "top of the block"
+       ]
+      ],
+      "p": {
+       "pick": "top"
+      },
+      "detect": "faceSel",
+      "auto": "dmPick"
+     }
+    },
+    {
+     "title": "Tilt it 8 degrees",
+     "learn": "Material is added where the face rises and removed where it drops. The sides follow the new slope.",
+     "instructions": [
+      "Press Tilt face in the Direct+ group.",
+      "Type 8 for the angle and press OK."
+     ],
+     "why": "A slope without any sketch or cut.",
+     "checkpoint": {
+      "expected": "The top slopes. One end is higher than the other."
+     },
+     "recovery": "Nothing changed? A face with a hole can still tilt, but the tilt must not hit another face.",
+     "guide": {
+      "phase": "Tilt",
+      "now": "Press Tilt face, type 8, press OK.",
+      "nums": [
+       [
+        "Angle",
+        "8°"
+       ],
+       [
+        "About",
+        "the longest edge"
+       ]
+      ],
+      "p": {
+       "type": "w1Tilt",
+       "name": "Tilt face 8",
+       "pick": "top",
+       "params": {
+        "angle": 8,
+        "hinge": "long"
+       }
+      },
+      "detect": "feature:w1Tilt",
+      "auto": "dmFeat"
+     },
+     "tool": "w1t",
+     "tab": "model",
+     "toolPath": "Model › Direct+ › Tilt face"
+    },
+    {
+     "title": "You can tilt a face",
+     "learn": "Tilt face slopes a flat face by an angle. It refuses, with a reason, if the slope would hit other geometry.",
+     "instructions": [
+      "Read the summary, then press Got it."
+     ],
+     "why": "A short recap helps the idea stick.",
+     "checkpoint": {
+      "expected": "You can say what the tool did and when to use it."
+     },
+     "recovery": "Want to see it again? Press Start again.",
+     "guide": {
+      "phase": "Finish",
+      "now": "Press Got it to finish.",
+      "nums": [
+       [
+        "Tool",
+        "Tilt face"
+       ]
+      ],
+      "cap": "<b>Done.</b> Tilt face slopes a flat face by an angle. It refuses, with a reason, if the slope would hit other geometry."
+     }
+    }
+   ]
+  },
+  {
+   "id": "direct.4-fillet",
+   "title": "Direct editing 5 · Change a fillet radius",
+   "category": "Direct editing",
+   "level": "Beginner",
+   "estimatedMinutes": 5,
+   "objective": "Round an edge, then change its radius without redoing the round.",
+   "challenge": "Round the top front edge with R3, then change it to R6.",
+   "order": 4,
+   "tags": [
+    "direct editing",
+    "faces",
+    "8.76.0",
+    "fillet",
+    "radius"
+   ],
+   "steps": [
+    {
+     "title": "Make the practice block",
+     "learn": "You need a part with a hole. This lesson uses a block 60 by 40 mm and 20 mm tall, with a round blind hole 16 mm across and 12 mm deep.",
+     "instructions": [
+      "Press Do it for me. Aakar draws the block and cuts the hole.",
+      "Or build your own: a 60 by 40 rectangle extruded 20 mm, then a 16 mm circle on top cut 12 mm deep."
+     ],
+     "why": "Direct editing changes faces of a part that already exists. A block with a hole has flat faces and a round one.",
+     "checkpoint": {
+      "expected": "A block with a round hole in the top face appears in the 3D view."
+     },
+     "recovery": "Nothing appeared? Press Do it for me again. Already have your own part? Use it and skip this step.",
+     "guide": {
+      "phase": "Block",
+      "now": "Press “Do it for me” to make the block with the hole.",
+      "nums": [
+       [
+        "Block",
+        "60 × 40 × 20 mm"
+       ],
+       [
+        "Hole",
+        "16 mm across, 12 mm deep"
+       ]
+      ],
+      "detect": "feature:extrude",
+      "auto": "mkHoleBlock"
+     }
+    },
+    {
+     "title": "Round the top front edge",
+     "learn": "Rounding makes a smooth fillet along an edge. Use the Round tool on one top edge of the block with a radius of 3 mm.",
+     "instructions": [
+      "Click one top edge of the block.",
+      "Press Round and type 3."
+     ],
+     "why": "We need a fillet to change.",
+     "checkpoint": {
+      "expected": "One top edge is smoothly rounded."
+     },
+     "recovery": "Not rounded? Pick an edge, not a face.",
+     "guide": {
+      "phase": "Round",
+      "now": "Click a top edge, press Round, type 3, press OK.",
+      "nums": [
+       [
+        "Radius",
+        "3 mm"
+       ]
+      ],
+      "detect": "feature:fillet",
+      "auto": "dmRound"
+     },
+     "tool": "fillet",
+     "tab": "model",
+     "toolPath": "Model › Modify › Round"
+    },
+    {
+     "title": "Click the rounded face",
+     "learn": "The fillet is a narrow curved face. Click it so it turns orange.",
+     "instructions": [
+      "Click the curved strip along the rounded edge."
+     ],
+     "why": "Fillet radius works on the picked fillet face.",
+     "checkpoint": {
+      "expected": "The rounded strip is orange."
+     },
+     "recovery": "Hard to hit? Zoom in, or press Select+ and choose Same radius.",
+     "guide": {
+      "phase": "Pick",
+      "now": "Click the rounded face.",
+      "nums": [
+       [
+        "Face",
+        "the fillet"
+       ]
+      ],
+      "p": {
+       "pick": "fillet"
+      },
+      "detect": "faceSel",
+      "auto": "dmPick"
+     }
+    },
+    {
+     "title": "Make it R6",
+     "learn": "Fillet radius heals the old round away and rounds again with the new radius.",
+     "instructions": [
+      "Press Fillet radius in the Direct+ group.",
+      "Type 6 and press OK."
+     ],
+     "why": "Changing a radius should be one number, not a rebuild.",
+     "checkpoint": {
+      "expected": "The rounded edge is clearly bigger."
+     },
+     "recovery": "It refuses? Fillet radius works on 90 degree fillets between two flat faces.",
+     "guide": {
+      "phase": "Radius",
+      "now": "Press Fillet radius, type 6, press OK.",
+      "nums": [
+       [
+        "Radius",
+        "6 mm"
+       ]
+      ],
+      "p": {
+       "type": "w1FilletR",
+       "name": "Fillet radius 6",
+       "pick": "fillet",
+       "params": {
+        "r": 6
+       }
+      },
+      "detect": "feature:w1FilletR",
+      "auto": "dmFeat"
+     },
+     "tool": "w1fr",
+     "tab": "model",
+     "toolPath": "Model › Direct+ › Fillet radius"
+    },
+    {
+     "title": "You can change a fillet radius",
+     "learn": "Pick the rounded face, press Fillet radius, type a new number.",
+     "instructions": [
+      "Read the summary, then press Got it."
+     ],
+     "why": "A short recap helps the idea stick.",
+     "checkpoint": {
+      "expected": "You can say what the tool did and when to use it."
+     },
+     "recovery": "Want to see it again? Press Start again.",
+     "guide": {
+      "phase": "Finish",
+      "now": "Press Got it to finish.",
+      "nums": [
+       [
+        "Tool",
+        "Fillet radius"
+       ],
+       [
+        "Works on",
+        "90° fillets"
+       ]
+      ],
+      "cap": "<b>Done.</b> Pick the rounded face, press Fillet radius, type a new number."
+     }
+    }
+   ]
+  }
+ ]
+}

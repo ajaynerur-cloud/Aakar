@@ -3109,7 +3109,7 @@ G.AakarKernel = AK;
 //   K.direct.offsetFaces(h, [fi...], d)     several faces by the same distance
 //   K.direct.deleteFace(h, fi)              delete the face and heal: hole -> filled, boss -> removed, pocket -> filled, fillet / chamfer -> sharp corner
 //   K.direct.replaceFace(h, fi, plane)      tilt / move a planar face to {n, p}
-//   K.direct.setFilletRadius(h, fi, r)      change the radius of a 90 degree fillet
+//   K.direct.setFilletRadius(h, fi, r)      change the radius of a straight fillet between two flat faces (any angle)
 //   K.direct.select(h, fi, mode)            'tangent' | 'radius' | 'feature' | 'pattern' | 'coplanar' | 'coaxial'
 //   K.direct.snap(h, fi, d, tol)            snap a typed / dragged distance to other faces (up to next face)
 //   K.direct.check(h)                       { ok, issues, slivers }
@@ -3188,7 +3188,7 @@ G.AakarKernel = AK;
   }
   function faces(h) {
     const m = model(h), area = faceAreas(h) || [];
-    return m.FL.map((F) => ({ index: F.i, kind: F.kind, rev: F.rev, convex: F.kind === 'plane' ? null : !F.rev, normal: F.n || null, axis: F.kind === 'plane' ? null : F.z.slice(), origin: F.o.slice(), r: F.r, R: F.R, area: area[F.i], centre: faceCentre(F), neighbours: F.nb.slice() }));
+    return m.FL.map((F) => ({ index: F.i, kind: F.kind, rev: F.rev, convex: F.kind === 'plane' ? null : !F.rev, normal: F.n || null, axis: F.kind === 'plane' ? null : F.z.slice(), origin: F.o.slice(), r: F.r, R: F.R, area: area[F.i], centre: faceCentre(F), neighbours: F.nb.slice(), k: F.k }));
   }
   function faceAreas(h) {
     let mi; try { mi = K.meshInfo(h, 0.002 * model(h).diag); } catch (e) { return null; }   // no triangulator (plain node): areas unknown, the sliver check is skipped
@@ -3302,23 +3302,34 @@ G.AakarKernel = AK;
       else if (G.kind === 'cylinder' && Math.abs(Math.abs(dot(G.z, F.n)) - 1) < 1e-9) { /* axis along the move: stays straight */ }
       else fail('a neighbouring ' + G.kind + ' face is not parallel to the move: it cannot be extended exactly here', 'UNSUPPORTED'); }
     if (straight) return apply(h, prismOver(F, d), d > 0, 'push/pull');
-    // sloped neighbours: the new face lies on the plane moved by d, and every corner slides along the edge between its two neighbours
-    need(F.loops.length === 1 && F.loops[0].every((c) => c.kind === 'line'), 'a face with sloped neighbours must be a single straight-edged outline (no holes or arcs)', 'UNSUPPORTED');
-    const L = F.loops[0], nb = L.map((c) => FL[(m.adj.get(c.id) || []).find((j) => j !== F.i)]), P2 = dot(F.n, F.o) + d;
-    need(nb.every((g) => g.kind === 'plane'), 'sloped neighbours must be planar', 'UNSUPPORTED');
-    const build = (shift, bottomShift) => {   // shift: the neighbour planes move by this much along their outward normals; bottomShift: the start plane along n
-      const top = [], bot = [], n = L.length;
+    // sloped neighbours: the new face lies on the plane moved by d, and every corner slides along the edge between its two neighbours.
+    // every loop is handled on its own (outline and holes): a loop whose neighbours are all flat becomes a frustum, a loop that stays straight (a round hole, a perpendicular wall) a prism;
+    // the region is the outline's solid minus the holes' solids.
+    const ext = (L) => { const mn = [1e30, 1e30, 1e30], mx = [-1e30, -1e30, -1e30], pt = (q) => { for (let k = 0; k < 3; k++) { if (q[k] < mn[k]) mn[k] = q[k]; if (q[k] > mx[k]) mx[k] = q[k]; } };
+      L.forEach((c) => { pt(c.p0); pt(c.p1); pt(edgeMid(c)); if (c.kind === 'circle') { pt(add(c.c, mul(c.ex, c.r))); pt(sub(c.c, mul(c.ex, c.r))); pt(add(c.c, mul(c.ey, c.r))); pt(sub(c.c, mul(c.ey, c.r))); } }); return Math.hypot(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]); };
+    const loops = F.loops.map((L) => { const nbs = L.map((c) => FL[(m.adj.get(c.id) || []).find((j) => j !== F.i)]); return { L, nbs, sloped: nbs.some((G) => G.kind === 'plane' && Math.abs(dot(G.n, F.n)) > 2e-3), ext: ext(L) }; }).sort((a, b) => b.ext - a.ext);
+    loops.forEach((lp) => { if (lp.sloped) { need(lp.L.every((c) => c.kind === 'line'), 'a sloped outline must be made of straight edges (no arcs)', 'UNSUPPORTED'); need(lp.nbs.every((g) => g.kind === 'plane'), 'sloped neighbours must be planar', 'UNSUPPORTED'); } });
+    const P2 = dot(F.n, F.o) + d, sg = d > 0 ? 1 : -1;
+    const corners = (L, nb, shift, bottomShift) => { const top = [], bot = [], n = L.length;
       for (let i = 0; i < n; i++) { const A = nb[(i + n - 1) % n], B = nb[i];
         const q2 = solve3(F.n, P2, A.n, dot(A.n, A.o) + shift, B.n, dot(B.n, B.o) + shift), q1 = solve3(F.n, dot(F.n, F.o) + bottomShift, A.n, dot(A.n, A.o) + shift, B.n, dot(B.n, B.o) + shift);
-        need(q1 && q2, 'two neighbours of a corner are parallel: the corner cannot slide', 'UNSUPPORTED'); top.push(q2); bot.push(q1); }
-      const verts = bot.concat(top), sg = d > 0 ? 1 : -1, faces = [{ n: mul(F.n, -sg), loops: [[...Array(n).keys()]] }, { n: mul(F.n, sg), loops: [[...Array(n).keys()].map((i) => i + n)] }];   // the ring at the old plane is the lower one when pulling, the upper one when pushing
-      for (let i = 0; i < n; i++) { const j = (i + 1) % n; faces.push({ n: nb[i].n, loops: [[i, j, j + n, i + n]] }); }
+        need(q1 && q2, 'two neighbours of a corner are parallel: the corner cannot slide', 'UNSUPPORTED'); top.push(q2); bot.push(q1); } return { top, bot }; };
+    const turn = (pts) => { let a = [0, 0, 0]; for (let i = 0; i < pts.length; i++) a = add(a, cross(pts[i], pts[(i + 1) % pts.length])); return dot(a, F.n); };
+    const refSign = loops[0].sloped ? Math.sign(turn(corners(loops[0].L, loops[0].nbs, 0, 0).top)) || 1 : 1;
+    const frustum = (lp, shift, bottomShift) => {
+      let L = lp.L, nb = lp.nbs, c = corners(L, nb, shift, bottomShift);
+      if (Math.sign(turn(c.top)) * refSign < 0) { L = L.slice().reverse(); nb = nb.slice().reverse(); c = corners(L, nb, shift, bottomShift); }
+      const n = L.length, verts = c.bot.concat(c.top), faces = [{ n: mul(F.n, -sg), loops: [[...Array(n).keys()]] }, { n: mul(F.n, sg), loops: [[...Array(n).keys()].map((i) => i + n)] }];   // the ring at the old plane is the lower one when pulling, the upper one when pushing
+      const hole = lp !== loops[0];   // the walls of a hole face the hole: their normals point into the region of the hole's own frustum
+      for (let i = 0; i < n; i++) { const j = (i + 1) % n; faces.push({ n: hole ? mul(nb[i].n, -1) : nb[i].n, loops: [[i, j, j + n, i + n]] }); }
       try { return K.polyhedron(verts, faces); } catch (e) { fail('the swept region could not be built (' + e.message + ')', 'BOOLEAN'); }
     };
-    const exact = build(0, 0), vex = K.volume(exact);
+    const loopSolid = (lp, shift, bottomShift) => lp.sloped ? frustum(lp, shift, bottomShift) : prismOver(Object.assign({}, F, { loops: [lp.L] }), d);
+    const region = (shift, bottomShift) => { const o = loopSolid(loops[0], shift, bottomShift); if (loops.length === 1) return o; let holes = loopSolid(loops[1], shift, bottomShift); for (let k = 2; k < loops.length; k++) holes = K.fuse(holes, loopSolid(loops[k], shift, bottomShift)); try { return K.cut(o, holes); } catch (e) { fail('the swept region could not be built (' + e.message + ')', 'BOOLEAN'); } };
+    const exact = region(0, 0), vex = K.volume(exact);
     // pushing in: the region overlaps the body's own walls, which the boolean handles badly, so it is made a hair wider than the walls (outside the material, so the result is unchanged)
     if (d > 0) return apply(h, exact, true, 'push/pull');
-    let last; for (const k of [1e-4, 1e-3, 1e-2, 5e-2]) { try { const eps = k * m.diag + 1e-6; return apply(h, build(eps, eps), false, 'push/pull', vex); } catch (e) { last = e; if (e.code === 'UNSUPPORTED') throw e; } }
+    let last; for (const k of [1e-4, 1e-3, 1e-2, 5e-2]) { try { const eps = k * m.diag + 1e-6; return apply(h, region(eps, eps), false, 'push/pull', vex); } catch (e) { last = e; if (e.code === 'UNSUPPORTED') throw e; } }
     throw last;
   }
   function pushPullCylinder(m, F, d) {
@@ -3396,7 +3407,7 @@ G.AakarKernel = AK;
   function setFilletRadius(h, fi, r2) {
     const m = model(h), f = featureOf(h, fi); need(f && f.type === 'fillet' && f.kind === 'cylinder', 'this is not a straight fillet', 'UNSUPPORTED'); need(r2 > 0, 'radius must be positive');
     const F = m.FL[f.face], planes = f.tangent.map((i) => m.FL[i]).filter((G) => G.kind === 'plane'); need(planes.length >= 2, 'a fillet between two planes is needed', 'UNSUPPORTED');
-    const A = planes[0], B = planes[1]; need(Math.abs(dot(A.n, B.n)) < 1e-6, 'only 90 degree fillets can change radius exactly', 'UNSUPPORTED');
+    const A = planes[0], B = planes[1]; need(Math.abs(Math.abs(dot(A.n, B.n)) - 1) > 1e-9, 'a fillet between parallel planes cannot change radius', 'UNSUPPORTED');
     if (Math.abs(r2 - F.r) < m.tol) return h;
     const dir = unit(cross(A.n, B.n)), fr = frameOf(dir, perp(dir)), l2 = (p) => { const q = loc(fr, [0, 0, 0], p); return [q[0], q[1]]; };
     const shared = (G) => { const pts = []; F.loops.forEach((L) => L.forEach((c) => { if ((m.adj.get(c.id) || []).indexOf(G.i) >= 0) pts.push(c.p0, c.p1); })); return pts; };
@@ -3404,8 +3415,10 @@ G.AakarKernel = AK;
     let ax0 = Infinity, ax1 = -Infinity; F.loops.forEach((L) => L.forEach((c) => [c.p0, c.p1, edgeMid(c)].forEach((p) => { const a = dot(p, dir); ax0 = Math.min(ax0, a); ax1 = Math.max(ax1, a); })));
     const q3 = solve3(A.n, dot(A.n, A.o), B.n, dot(B.n, B.o), dir, 0); need(q3, 'the planes do not meet', 'UNSUPPORTED');
     const qc = l2(q3), t1 = l2(sa[0]), t2 = l2(sb[0]), u1 = unit([t1[0] - qc[0], t1[1] - qc[1], 0]), u2 = unit([t2[0] - qc[0], t2[1] - qc[1], 0]);
-    need(Math.abs(u1[0] * u2[0] + u1[1] * u2[1]) < 1e-6, 'only 90 degree fillets can change radius exactly', 'UNSUPPORTED');
-    const T = (u, r) => [qc[0] + u[0] * r, qc[1] + u[1] * r], C = (r) => [qc[0] + (u1[0] + u2[0]) * r, qc[1] + (u1[1] + u2[1]) * r];
+    const cg = u1[0] * u2[0] + u1[1] * u2[1], gam = Math.acos(Math.max(-1, Math.min(1, cg)));   // the angle between the two flat faces at the sharp corner (90 degrees: a quarter round)
+    need(gam > 1e-3 && gam < Math.PI - 1e-3, 'the two flat faces are (almost) parallel', 'UNSUPPORTED');
+    const tl = (r) => r / Math.tan(gam / 2), bis = unit([u1[0] + u2[0], u1[1] + u2[1], 0]), cd = (r) => r / Math.sin(gam / 2);   // tangent length, bisector, centre distance
+    const T = (u, r) => [qc[0] + u[0] * tl(r), qc[1] + u[1] * tl(r)], C = (r) => [qc[0] + bis[0] * cd(r), qc[1] + bis[1] * cd(r)];
     const sweep = (c, p0, p1) => { const a0 = Math.atan2(p0[1] - c[1], p0[0] - c[0]); let d = Math.atan2(p1[1] - c[1], p1[0] - c[0]) - a0; while (d > Math.PI) d -= TAU; while (d <= -Math.PI) d += TAU; return [a0, a0 + d]; };
     const S = (r) => { const c = C(r), t1p = T(u1, r), t2p = T(u2, r), [a0, a1] = sweep(c, t2p, t1p); return K.translate(place(K.extrude([{ segs: [{ k: 'l', a: t1p, b: qc }, { k: 'l', a: qc, b: t2p }, { k: 'a', c, r, a0, a1 }] }], ax1 - ax0), fr, [0, 0, 0]), mul(dir, ax0)); };
     // S(r) is the sliver of material between the sharp corner and a round of radius r; S(small) lies inside S(big), so growing never meets the old round surface
