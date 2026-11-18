@@ -10,7 +10,8 @@ const WEB_PREFS = { preload: path.join(__dirname, 'preload.js'), contextIsolatio
 // Optional exact kernel (OpenCascade WebAssembly). Its files live in app/occt and are served as aakar-asset://occt/<file>:
 // a file:// page cannot fetch WebAssembly or import ES modules from disk, a privileged custom scheme can.
 protocol.registerSchemesAsPrivileged([{ scheme: 'aakar-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
-const OCCT_DIR = path.join(__dirname, 'app', 'occt').replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
+const OCCT_PACKED = path.join(__dirname, 'app', 'occt'), OCCT_UNPACKED = OCCT_PACKED.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
+const OCCT_DIR = (OCCT_UNPACKED !== OCCT_PACKED && fs.existsSync(OCCT_UNPACKED)) ? OCCT_UNPACKED : OCCT_PACKED;   // inside an installed Windows app the files must be read from app.asar.unpacked when present
 const MIME = { '.wasm': 'application/wasm', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.txt': 'text/plain' };
 
 /** request handler for aakar-asset:// (exported for the tests) */
@@ -19,7 +20,7 @@ async function serveAsset(request, dir = OCCT_DIR) {
     const u = new URL(request.url), rel = decodeURIComponent(u.pathname).replace(/^\/+/, '');
     if (u.hostname !== 'occt' || !rel || rel.split(/[\\/]/).includes('..')) return new Response('forbidden', { status: 403 });
     const file = path.join(dir, rel);
-    if (!file.startsWith(path.resolve(dir) + path.sep)) return new Response('forbidden', { status: 403 });
+    if (!path.resolve(file).toLowerCase().startsWith((path.resolve(dir) + path.sep).toLowerCase())) return new Response('forbidden', { status: 403 });
     const data = await fs.promises.readFile(file);
     return new Response(data, { status: 200, headers: { 'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'access-control-allow-origin': '*', 'cache-control': 'no-cache' } });
   } catch (e) { return new Response('not found', { status: 404 }); }

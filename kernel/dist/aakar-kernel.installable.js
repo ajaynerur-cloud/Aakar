@@ -2821,7 +2821,20 @@ G.AakarKernel = AK;
       if (!isF(h)) { try { return (primary.roundEdge.__exact || primary.roundEdge)(h, spec, type, r, tol); } catch (e) { if (!raw || !raw.fillet) throw e; return offload(type || 'round', () => secondaryRound(toSec(h), spec, type, r), e); } }
       return back(secondaryRound(h.s, spec, type, r), type || 'round');
     };
-    function secondaryRound(s, spec, type, r) { const es = pickEdges(s, spec); if (!es.length) throw new Error('the edge was not found in the OpenCascade body'); return type === 'chamfer' ? raw.chamfer(s, es, r) : raw.fillet(s, es, r); }
+    function secondaryRound(s, spec, type, r) {
+      const es = pickEdges(s, spec); if (!es.length) throw new Error('the edge was not found in the OpenCascade body');
+      const run = (list) => type === 'chamfer' ? raw.chamfer(s, list, r) : raw.fillet(s, list, r);
+      const res = run(es);
+      // a rim between a boss and its plate is concave: rounding it must ADD material. Some OpenCascade builds return a body that lost
+      // material instead (wrong edge set or flipped sense); then try the edges one by one and keep the first result that has the right sign.
+      if (spec.boss === true && typeof raw.volume === 'function') {
+        try {
+          const v0 = raw.volume(s), ok = (x) => raw.volume(x) > v0 + 1e-9 * Math.abs(v0);
+          if (!ok(res)) { for (const e of es) { try { const one = run([e]); if (ok(one)) return one; } catch (e2) { /* next */ } } }
+        } catch (e3) { /* volume check unavailable: keep the result */ }
+      }
+      return res;
+    }
     // ---- operations AakarKernel has no exact version of: available when OpenCascade is present
     /** hollow a body: faceSpecs name the faces to open, each { c: [x,y,z] } (the face's centre of mass), { near: [x,y,z] } (the face whose centre is nearest) or { dir: [x,y,z] } (the face lying farthest along that direction); thickness > 0 grows inwards, < 0 outwards */
     H.shell = (h, faceSpecs, thickness) => { if (!isF(h) && K.nurbs && K.nurbs.shellExact && K.nurbs.isNurbs(h)) { const ex = K.nurbs.shellExact(h, faceSpecs, thickness); if (ex) return ex; } if (!raw || !raw.shell) throw new Error('OpenCascade is not available'); const s = toSec(h); const faces = raw.getSubShapes(s, 'face'), cm = (f) => { const c = raw.getSurfaceCenterOfMass(f); return [c.x, c.y, c.z]; };

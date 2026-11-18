@@ -11,7 +11,8 @@
     "start": "electron .",
     "test": "node test.js",
     "dist": "electron-builder --win nsis portable --x64 --publish never",
-    "dist:dir": "electron-builder --win dir --x64 --publish never"
+    "dist:dir": "electron-builder --win dir --x64 --publish never",
+    "fetch-occt": "npm install occt-wasm --no-save && node scripts/fetch-occt-wasm.js"
   },
   "devDependencies": {
     "electron": "33.4.11",
@@ -38,8 +39,18 @@
       "icon": "build/icon.ico",
       "executableName": "Aakar",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {
@@ -55,6 +66,9 @@
     },
     "portable": {
       "artifactName": "Aakar-Portable-${version}.${ext}"
-    }
+    },
+    "asarUnpack": [
+      "app/occt/**/*"
+    ]
   }
 }
