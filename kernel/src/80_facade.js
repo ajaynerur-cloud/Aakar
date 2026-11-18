@@ -124,7 +124,7 @@ const kernel = {
   /** several bodies in one STEP file (one shape each) */
   stepExportAll: (hs, opts) => stepWrite(hs.map((h) => evalExact(h).body), opts),
   stepImport: (text) => { const L = stepRead(typeof text === 'string' ? text : new TextDecoder().decode(text)); return mkNode('brep', { body: L[0].body, name: L[0].name }); },
-  stepImportAll: (text) => stepRead(typeof text === 'string' ? text : new TextDecoder().decode(text)).map(x => mkNode('brep', { body: x.body, name: x.name }))
+  stepImportAll: (text) => stepRead(typeof text === 'string' ? text : new TextDecoder().decode(text), AK.__stepTol ? { tolerant: true } : undefined).map(x => mkNode('brep', { body: x.body, name: x.name }))
 };
 AK.kernel = kernel;
 AK.init = () => Promise.resolve(kernel);

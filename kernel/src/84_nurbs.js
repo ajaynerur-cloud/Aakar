@@ -323,10 +323,10 @@
       if (T.caps) { const n0 = sol.faces.filter((f) => /^cap0_/.test(f.tag))[0].n, n1 = sol.faces.filter((f) => /^cap1_/.test(f.tag))[0].n; capFace(first.map((_, k) => 'b' + k), first, n0, centroidOf(first)); capFace(last.map((_, k) => 't' + k), last, n1, centroidOf(last)); }
     } else if (T.type === 'brep') {
       const known = [], near = (p, q, t) => Math.abs(p[0] - q[0]) < t && Math.abs(p[1] - q[1]) < t && Math.abs(p[2] - q[2]) < t;
-      const midOf = (c) => { const pts = cSample(c, 128), cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + len(sub(pts[i], pts[i - 1]))); const h = cum[cum.length - 1] / 2; let k = 1; while (k < cum.length - 1 && cum[k] < h) k++; const w = (h - cum[k - 1]) / ((cum[k] - cum[k - 1]) || 1); return add(mul(pts[k - 1], 1 - w), mul(pts[k], w)); };
-      const edgeG = (c) => { const [a0, a1] = dom(c), a = cEval(c, a0), b = cEval(c, a1), m = midOf(c);
-        for (const k of known) { if (near(a, k.a, 1e-6) && near(b, k.b, 1e-6) && near(m, k.m, 1e-3 * (1 + len(sub(a, b))))) return [k.e, true]; if (near(a, k.b, 1e-6) && near(b, k.a, 1e-6) && near(m, k.m, 1e-3 * (1 + len(sub(a, b))))) return [k.e, false]; }
-        const e = edge('g' + known.length, c); known.push({ a, b, m, e }); return [e, true]; };
+      const fracOf = (c, fr) => { const pts = cSample(c, 128), cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + len(sub(pts[i], pts[i - 1]))); const h = cum[cum.length - 1] * fr; let k = 1; while (k < cum.length - 1 && cum[k] < h) k++; const w = (h - cum[k - 1]) / ((cum[k] - cum[k - 1]) || 1); return add(mul(pts[k - 1], 1 - w), mul(pts[k], w)); }, midOf = (c) => fracOf(c, 0.5);
+      const edgeG = (c) => { const [a0, a1] = dom(c), a = cEval(c, a0), b = cEval(c, a1), m = midOf(c), q1 = fracOf(c, 0.25), q3 = fracOf(c, 0.75), closed = len(sub(a, b)) < 1e-6, tq = 1e-3 * (1 + len(sub(a, b)) + (closed ? len(sub(q1, m)) : 0));
+        for (const k of known) { if (near(a, k.a, 1e-6) && near(b, k.b, 1e-6) && near(m, k.m, tq) && (!closed || near(q1, k.q1, tq))) return [k.e, true]; if (near(a, k.b, 1e-6) && near(b, k.a, 1e-6) && near(m, k.m, tq) && (!closed || near(q1, k.q3, tq))) return [k.e, false]; }
+        const e = edge('g' + known.length, c); known.push({ a, b, m, q1, q3, e }); return [e, true]; };
       sol.faces.forEach((f) => {
         if (f.kind === 'plan') { const bounds = f.loops.map((loop, i) => loopOf(loop.map(edgeG), true, i > 0)); faceEnts.push(E(`ADVANCED_FACE('',(${bounds.join(',')}),${plane(f.o, f.n)},.T.)`)); }
         else if (f.kind === 'trim') { const bounds = f.loops.map((lp, i) => loopOf(lp.pieces.filter((pc) => pc.c3).map((pc) => edgeG(pc.c3)), f.sign > 0, i > 0)); faceEnts.push(E(`ADVANCED_FACE('',(${bounds.join(',')}),${surfEnt(f.surf)},${f.sign > 0 ? '.T.' : '.F.'})`)); }
@@ -918,7 +918,7 @@
         topo.forEach((o2, oj) => { if (oj !== oi) cur = clipOp(cur, o2); }); faces.push(...cur); }); }));
     if (!faces.length) return null; const res = { kind: 'skin', op: 'cut', faces, topo: { type: 'brep' } }, c = check(res, false); if (!c.ok || !(c.volume > 0)) return null; return res;
   }
-  const isN = (h) => !!(h && h.faces && h.topo && h.kind && h.faces[0] && h.faces[0].surf);
+  const isN = (h) => !!(h && h.faces && h.topo && h.kind && h.faces.length && h.faces.some((f) => f.surf || f.loops));
   function indexedMesh(sol, n) {
     const pos = [], ind = [], fid = [], map = new Map(), tol = 1e-9; let k = 0;
     const faceTris = (f, ix) => mesh({ faces: [f] }, n).map((t) => ({ t, ix }));

@@ -123,8 +123,8 @@ function stepParse(text) {
   }
   return ents;
 }
-function stepRead(text) {
-  const ents = stepParse(text), memo = new Map();
+function stepRead(text, opts) {
+  const ents = stepParse(text), memo = new Map(), skipped = [];
   const get = (r) => { const e = ents.get(r.ref); if (e === undefined) throw new Error('missing STEP entity #' + r.ref); return e; };
   // complex entities are a list of {type,args}: merge them into one lookup
   const typeOf = (e) => (Array.isArray(e) ? e.map(x => x.type).join('+') : e.type);
@@ -189,7 +189,7 @@ function stepRead(text) {
   for (const [id, e] of ents) {
     if (!e || e.type !== 'MANIFOLD_SOLID_BREP') continue;
     const sh = get(e.args[1]); if (sh.type !== 'CLOSED_SHELL') continue;
-    const faces = sh.args[1].map(fr_ => {
+    let faces; try { faces = sh.args[1].map(fr_ => {
       const f = get(fr_), surf = surface(f.args[2]), rev = f.args[3] && f.args[3].en === 'F';
       const loops = f.args[1].map(br => {
         const b = get(br), lp = get(b.args[1]); if (lp.type === 'VERTEX_LOOP') return null; if (lp.type !== 'EDGE_LOOP') throw new Error('unsupported face bound ' + lp.type);
@@ -198,10 +198,11 @@ function stepRead(text) {
         return ces;
       }).filter(Boolean);
       return new Face(surf, rev, loops);
-    });
-    bodies.push({ body: new Body(faces), name: e.args[0] || ('solid' + id) });
+    }); } catch (err) { if (opts && opts.tolerant && /unsupported STEP (surface|curve)/.test(String(err.message))) { skipped.push(id); continue; } throw err; }
+    bodies.push({ body: new Body(faces), name: e.args[0] || ('solid' + id), id });
   }
-  if (!bodies.length) throw new Error('the STEP file contains no MANIFOLD_SOLID_BREP');
+  bodies.skipped = skipped;
+  if (!bodies.length && !(opts && opts.tolerant && skipped.length)) throw new Error('the STEP file contains no MANIFOLD_SOLID_BREP');
   return bodies;
 }
-AK.stepWrite = stepWrite; AK.stepRead = stepRead;
+AK.stepWrite = stepWrite; AK.stepRead = stepRead; AK.stepParse = stepParse;

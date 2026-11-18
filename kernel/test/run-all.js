@@ -4,7 +4,7 @@
 const { spawnSync } = require('child_process'), path = require('path'), fs = require('fs');
 const html = process.argv[2] || process.env.AAKAR_HTML;
 spawnSync(process.execPath, [path.join(__dirname, '..', 'build.js')], { stdio: 'inherit' });
-const suites = ['01_primitives.js', '02_booleans.js', '03_kernel_step.js', '06_sphere_lenses.js', '04_app_integration.js', '05_wired_html.js', '07_occt_adapter.js', '08_kernel_1_3.js', '09_installable.js', '10_nurbs.js', '11_hybrid.js', '12_tess.js', '13_meshops.js', '14_direct.js'];
+const suites = ['01_primitives.js', '02_booleans.js', '03_kernel_step.js', '06_sphere_lenses.js', '04_app_integration.js', '05_wired_html.js', '07_occt_adapter.js', '08_kernel_1_3.js', '09_installable.js', '10_nurbs.js', '11_hybrid.js', '12_tess.js', '13_meshops.js', '14_direct.js', '16_stepfree.js'];
 let bad = 0;
 for (const f of suites) {
   if (/_occt_adapter/.test(f) && !fs.existsSync(path.join(__dirname, '..', '..', 'app', 'occt', 'aakar-occt.mjs'))) { console.log('-- skipped ' + f + ' (app/occt/aakar-occt.mjs not in this tree)'); continue; }
