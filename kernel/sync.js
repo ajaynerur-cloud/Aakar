@@ -7,8 +7,8 @@ const file = process.argv[2]; if (!file) { console.error('usage: node kernel/syn
 require('./build.js');
 const d = (f) => fs.readFileSync(path.join(__dirname, 'dist', f), 'utf8');
 const src = path.join(__dirname, 'src'), rd = (f) => fs.readFileSync(path.join(src, f), 'utf8');
-const EXT = ['82_round.js', '84_nurbs.js', '86_hybrid.js', '88_meshops.js'], core = fs.readdirSync(src).filter(f => /^\d\d_.*\.js$/.test(f) && !EXT.includes(f)).sort().map(rd).join('\n');
+const EXT = ['82_round.js', '84_nurbs.js', '86_hybrid.js', '88_meshops.js', '90_direct.js'], core = fs.readdirSync(src).filter(f => /^\d\d_.*\.js$/.test(f) && !EXT.includes(f)).sort().map(rd).join('\n');
 let html = fs.readFileSync(file, 'utf8');
-const swap = (id, body) => { const a = html.indexOf('<script id="' + id + '">'); if (a < 0) throw new Error('script #' + id + ' not found in ' + file); const s = html.indexOf('>', a) + 1, e = html.indexOf('</script>', s); html = html.slice(0, s) + '\n' + body + '\n' + html.slice(e); };
-swap('aakar-kernel', core); swap('aakar-kernel-round', rd('82_round.js')); swap('aakar-kernel-nurbs', rd('84_nurbs.js')); swap('aakar-kernel-hybrid', rd('86_hybrid.js')); swap('aakar-kernel-meshops', rd('88_meshops.js')); swap('aakar-kernel-wire', d('aakar-kernel-wire.js'));
+const swap = (id, body) => { let a = html.indexOf('<script id="' + id + '">'); if (a < 0 && id === 'aakar-kernel-direct') { const m = html.indexOf('<script id="aakar-kernel-meshops">'), me = html.indexOf('</script>', m) + 9; html = html.slice(0, me) + '\n<script id="aakar-kernel-direct">\n</script>' + html.slice(me); a = html.indexOf('<script id="' + id + '">'); } if (a < 0) throw new Error('script #' + id + ' not found in ' + file); const s = html.indexOf('>', a) + 1, e = html.indexOf('</script>', s); html = html.slice(0, s) + '\n' + body + '\n' + html.slice(e); };
+swap('aakar-kernel', core); swap('aakar-kernel-round', rd('82_round.js')); swap('aakar-kernel-nurbs', rd('84_nurbs.js')); swap('aakar-kernel-hybrid', rd('86_hybrid.js')); swap('aakar-kernel-meshops', rd('88_meshops.js')); swap('aakar-kernel-direct', rd('90_direct.js')); swap('aakar-kernel-wire', d('aakar-kernel-wire.js'));
 fs.writeFileSync(file, html); console.log('kernel refreshed in ' + file);

@@ -59,4 +59,14 @@ run('fillet radius at a non-right angle',()=>{ const Q=[40,10],u1=[0,-1],L2=Math
  const b=body(3),fl=D.features(b).find(x=>x.type==='fillet');
  T('123.7 degree fillet recognised',!!fl&&Math.abs(fl.r-3)<1e-6);
  for(const r2 of [5,2])T('radius 3 -> '+r2,rel(K.volume(D.setFilletRadius(b,fl.face,r2)),A*20-cut(r2))<1e-9)});
+run('exact fillet and chamfer at any edge angle',()=>{ const Q=[40,10],P5=[[0,0],[40,0],[40,10],[10,30],[0,30]],sg=P5.map((a,i)=>({k:'l',a,b:P5[(i+1)%5]})),pr=K.extrude([{segs:sg}],20),L2=Math.hypot(30,20),nA=[1,0,0],nB=[20/L2,30/L2,0];
+ const gm=PI-Math.acos(nA[0]*nB[0]+nA[1]*nB[1]);let A5=0;for(let i=0;i<5;i++){const q=P5[(i+1)%5];A5+=P5[i][0]*q[1]-q[0]*P5[i][1]}A5=Math.abs(A5)/2;const sp={kind:'line',p0:[40,10,0],p1:[40,10,20],nA,nB};
+ for(const r of [3,6]){const b=K.roundEdge(pr,sp,'fillet',r);T('fillet R'+r+' at 123.7 degrees',rel(K.volume(b),A5*20-r*r*(1/Math.tan(gm/2)-(PI-gm)/2)*20)<1e-9)}
+ const ch=K.roundEdge(pr,sp,'chamfer',4);T('chamfer 4 at 123.7 degrees',rel(K.volume(ch),A5*20-0.5*16*Math.sin(gm)*20)<1e-9);
+ const b=K.roundEdge(pr,sp,'fillet',3),fl=D.features(b).find((x)=>x.type==='fillet');T('the exact fillet is recognised',!!fl&&Math.abs(fl.r-3)<1e-9);
+ T('and its radius can be changed',!!fl&&rel(K.volume(D.setFilletRadius(b,fl.face,5)),A5*20-25*(1/Math.tan(gm/2)-(PI-gm)/2)*20)<1e-9)});
+run('tilting a face keeps sloped side walls on their own planes',()=>{ const sb=K.polyhedron([[-30,-30,0],[30,-30,0],[30,30,0],[-30,30,0],[-20,-20,20],[20,-20,20],[20,20,20],[-20,20,20]],[{n:[0,0,-1],loops:[[0,3,2,1]]},{n:[0,0,1],loops:[[4,5,6,7]]},{n:[0,-1,0.5],loops:[[0,1,5,4]]},{n:[1,0,0.5],loops:[[1,2,6,5]]},{n:[0,1,0.5],loops:[[2,3,7,6]]},{n:[-1,0,0.5],loops:[[3,0,4,7]]}]);
+ const top=D.faces(sb).findIndex(x=>x.kind==='plane'&&x.normal[2]>0.99),an=8*PI/180,r=D.attempt('replaceFace',sb,top,{n:[Math.sin(an),0,Math.cos(an)],p:[0,0,20]}),t=Math.tan(an);
+ let v=0,N=1200,h=60/N;for(let i=0;i<N;i++)for(let j=0;j<N;j++){const x=-30+(i+.5)*h,y=-30+(j+.5)*h,z=Math.min(20-x*t,2*(30-Math.abs(x)),2*(30-Math.abs(y)));if(z>0)v+=z*h*h}
+ T('tilted top over sloped walls',r.ok&&rel(K.volume(r.body),v)<1e-4,r.ok?K.volume(r.body)+' vs '+v:r.reason);T('still six faces',r.ok&&D.faces(r.body).length===6)});
 console.log(p + ' passed, ' + f + ' failed'); process.exit(f ? 1 : 0);

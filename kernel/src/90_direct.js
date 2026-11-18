@@ -57,7 +57,7 @@
   /** are the two faces tangent along their shared edges? (normals agree at the edge mid-points) */
   function tangent(m, i, j) {
     const A = m.FL[i], B = m.FL[j]; let any = false;
-    for (const L of A.loops) for (const c of L) { if ((m.adj.get(c.id) || []).indexOf(j) < 0) continue; any = true; const p = edgeMid(c), na = normalAt(A, p), nb = normalAt(B, p); if (dot(na, nb) < 1 - 1e-6) return false; }
+    for (const L of A.loops) for (const c of L) { if ((m.adj.get(c.id) || []).indexOf(j) < 0) continue; any = true; const p = edgeMid(c), na = normalAt(A, p), nb = normalAt(B, p); if (dot(na, nb) < 1 - 1e-4) return false; }
     return any;
   }
   const crossSection = (F) => { const m = null; void m; return F; };
@@ -357,6 +357,15 @@
     const hOf = (p) => (dot(n2, sub(p2, p))) / dot(n2, F.n); let hmax = -Infinity, hmin = Infinity; F.loops.forEach((L) => L.forEach((c) => [c.p0, c.p1, edgeMid(c)].forEach((p) => { const t = hOf(p); hmax = Math.max(hmax, t); hmin = Math.min(hmin, t); })));
     if (hmax - hmin < m.tol * 10 && Math.abs(hmax) < m.tol * 10) return h;
     let cur = h; const half = (o, nrm, side) => { const fr = frameOf(nrm, null), bx = K.box(2 * big, 2 * big, big); return place(K.translate(bx, [-big, -big, side > 0 ? 0 : -big]), fr, o); };   // half space: everything on the +side (or -side) of the plane
+    // sloped side walls: when the walls next to the face are flat and not square to it, the new material is bounded by those wall planes (they carry on), not by the outline straight up
+    let walls = null;
+    if (F.loops.length === 1) { const nbs = F.loops[0].map((c) => m.FL[(m.adj.get(c.id) || []).find((j) => j !== F.i)]); if (nbs.every((g) => g && g.kind === 'plane') && nbs.some((g) => Math.abs(dot(g.n, F.n)) > 1e-6)) { const seen = []; nbs.forEach((g) => { if (!seen.some((q) => dot(q.n, g.n) > 1 - 1e-9 && Math.abs(dot(q.n, sub(g.o, q.o))) < m.tol * 10)) seen.push(g); }); walls = seen; } }
+    const wallRegion = (zone) => { let r = zone; walls.forEach((g) => { r = K.common(r, half(g.o, g.n, -1)); }); return r; };
+    if (walls) {
+      if (hmax > m.tol * 10) { const zone = K.common(half(F.o, F.n, +1), half(p2, n2, -1)); cur = apply(cur, wallRegion(zone), true, 'replace face (added)'); }
+      if (hmin < -m.tol * 10) { const zone = K.common(half(F.o, F.n, -1), half(p2, n2, +1)); cur = apply(cur, wallRegion(zone), false, 'replace face (removed)'); }
+      return cur;
+    }
     if (hmax > m.tol * 10) { const up = prismOver(F, hmax + 1), below = half(p2, n2, -1); let region = K.common(up, below); cur = apply(cur, region, true, 'replace face (added)'); }
     if (hmin < -m.tol * 10) { const m2 = model(cur), F2 = m2.FL.findIndex((G) => G.kind === 'plane' && dot(G.n, F.n) > 1 - 1e-9 && Math.abs(dot(G.n, sub(G.o, F.o))) < m2.tol * 100); void F2; const down = prismOver(F, hmin - 1), above = half(p2, n2, +1); const region = K.common(down, above); cur = apply(cur, region, false, 'replace face (removed)'); }
     return cur;

@@ -8,7 +8,7 @@
 const fs = require('fs'), path = require('path');
 const src = path.join(__dirname, 'src'), out = path.join(__dirname, 'dist');
 const rd = (f) => fs.readFileSync(path.join(src, f), 'utf8');
-const EXT = ['82_round.js', '84_nurbs.js', '86_hybrid.js', '88_meshops.js'];   // extensions: wrapped (function (AK) {...})(window.AakarKernel), loaded after the core
+const EXT = ['82_round.js', '84_nurbs.js', '86_hybrid.js', '88_meshops.js', '90_direct.js'];   // extensions: wrapped (function (AK) {...})(window.AakarKernel), loaded after the core
 const parts = fs.readdirSync(src).filter(f => /^\d\d_.*\.js$/.test(f) && !EXT.includes(f)).sort();
 const core = parts.map(rd).join('\n'), round = EXT.map(rd).join('\n');
 for (const [n, t] of [['core', core], ['round', round]]) if (/<\/script/i.test(t) || /<!--/.test(t)) throw new Error(n + ' must not contain "</script" or "<!--" (embedded in HTML)');

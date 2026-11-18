@@ -779,7 +779,7 @@
      "checkpoint": {
       "expected": "The rounded edge is clearly bigger."
      },
-     "recovery": "It refuses? Fillet radius works on 90 degree fillets between two flat faces.",
+     "recovery": "It refuses? Fillet radius works on straight fillets between two flat faces at any angle, and on rounded rims.",
      "guide": {
       "phase": "Radius",
       "now": "Press Fillet radius, type 6, press OK.",
@@ -825,7 +825,7 @@
        ],
        [
         "Works on",
-        "90° fillets"
+        "straight fillets (any angle) and rounded rims"
        ]
       ],
       "cap": "<b>Done.</b> Pick the rounded face, press Fillet radius, type a new number."

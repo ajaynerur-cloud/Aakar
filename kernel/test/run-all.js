@@ -4,12 +4,12 @@
 const { spawnSync } = require('child_process'), path = require('path'), fs = require('fs');
 const html = process.argv[2] || process.env.AAKAR_HTML;
 spawnSync(process.execPath, [path.join(__dirname, '..', 'build.js')], { stdio: 'inherit' });
-const suites = ['01_primitives.js', '02_booleans.js', '03_kernel_step.js', '06_sphere_lenses.js', '04_app_integration.js', '05_wired_html.js', '07_occt_adapter.js', '08_kernel_1_3.js', '09_installable.js', '10_nurbs.js', '11_hybrid.js', '12_tess.js', '13_meshops.js'];
+const suites = ['01_primitives.js', '02_booleans.js', '03_kernel_step.js', '06_sphere_lenses.js', '04_app_integration.js', '05_wired_html.js', '07_occt_adapter.js', '08_kernel_1_3.js', '09_installable.js', '10_nurbs.js', '11_hybrid.js', '12_tess.js', '13_meshops.js', '14_direct.js'];
 let bad = 0;
 for (const f of suites) {
   if (/_occt_adapter/.test(f) && !fs.existsSync(path.join(__dirname, '..', '..', 'app', 'occt', 'aakar-occt.mjs'))) { console.log('-- skipped ' + f + ' (app/occt/aakar-occt.mjs not in this tree)'); continue; }
   if (/_(app_integration|wired_html|occt_adapter)/.test(f) && !(html || fs.existsSync(path.join(__dirname, '..', '..', 'app', 'index.html')))) { console.log('-- skipped ' + f + ' (no Aakar html found)'); continue; }
-  const r = spawnSync(process.execPath, [path.join(__dirname, f)].concat(html ? [html] : []), { encoding: 'utf8', timeout: 240000, env: Object.assign({}, process.env, html ? { AAKAR_HTML: html } : {}) });
+  const r = spawnSync(process.execPath, ['--require', path.join(__dirname, '_window.js'), path.join(__dirname, f)].concat(html ? [html] : []), { encoding: 'utf8', timeout: 240000, env: Object.assign({}, process.env, html ? { AAKAR_HTML: html } : {}) });
   const out = (r.stdout || '') + (r.stderr || ''), last = out.trim().split('\n').slice(-1)[0];
   const fails = out.split('\n').filter(l => /^FAIL/.test(l));
   console.log((r.status === 0 && !fails.length ? 'PASS ' : 'FAIL ') + f + '  —  ' + last);

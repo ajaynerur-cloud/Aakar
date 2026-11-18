@@ -1627,8 +1627,30 @@ G.AakarKernel = AK;
     return K.translate(ax ? K.rotate(h, ax, ang, [0, 0, 0]) : h, o);
   }
   const need = (ok, msg) => { if (!ok) throw new Error(msg); };
+  /** fillet or chamfer on an edge whose two faces meet at any angle (convex edge): a cross-section polygon, turned into a prism */
+  function slantCutter(s, nA, nB, type, size, v) {
+    const d = sub(s.p1, s.p0), L = len(d); need(L > 1e-9, 'the edge has no length'); const dn = mul(d, 1 / L);
+    need(Math.abs(dot(nA, nB)) < 1 - 1e-6, 'the two faces are (almost) parallel');
+    // directions that run away from the edge inside each face
+    let tA = cross(nA, dn); if (dot(tA, nB) > 0) tA = mul(tA, -1); tA = unit(tA); let tB = cross(nB, dn); if (dot(tB, nA) > 0) tB = mul(tB, -1); tB = unit(tB);
+    const cg = dot(tA, tB), gam = Math.acos(Math.max(-1, Math.min(1, cg))); need(gam > 0.02 && gam < Math.PI - 0.02, 'the faces meet at too sharp or too flat an angle to round');
+    const X = tA, Yv = sub(tB, mul(tA, cg)), Y = unit(Yv); let Z = cross(X, Y); const o = dot(Z, d) >= 0 ? s.p0 : s.p1;
+    const loc = (w) => [dot(w, X), dot(w, Y)], A2 = loc(nA), B2 = loc(nB), tB2 = [Math.cos(gam), Math.sin(gam)];
+    const e = Math.max(size * 0.05, 1e-6 * L), z0 = v.ext ? v.ext * Math.max(size * 0.01, 1e-4 * L) : 0, Lx = L + 2 * z0, m = size * 3 + 1;
+    const P = (a, b, k) => [a[0] + b[0] * k, a[1] + b[1] * k], corner = P(P([0, 0], A2, m), B2, m);
+    let poly, T1, T2, C = null, tl, bi0 = null;
+    if (type === 'fillet') throw new Error('slant fillets are made by roundSlant');
+    { T1 = [size, 0]; T2 = [size * tB2[0], size * tB2[1]]; poly = [T1, P(T1, A2, m), corner, P(T2, B2, m), T2]; }
+    // counter-clockwise outline
+    let ar = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; ar += p[0] * q[1] - q[0] * p[1]; } if (ar < 0) poly.reverse();
+    const segs = poly.map((p, i) => ({ k: 'l', a: p, b: poly[(i + 1) % poly.length] }));
+    let h = K.translate(K.extrude([{ segs }], Lx), [0, 0, -z0]);
+    if (type === 'fillet') h = K.cut(h, K.translate(K.cylinder(size, Lx + 2 * e), [C[0] - (v.k ? bi0[0] * size * v.k : 0), C[1] - (v.k ? bi0[1] * size * v.k : 0), -z0 - e]));
+    return place(h, X, Y, Z, o);
+  }
   function lineCutter(s, type, size, v) {
-    const nA = unit(s.nA), nB = unit(s.nB); need(Math.abs(dot(nA, nB)) < 1e-4, 'only right-angle edges can be rounded exactly');
+    const nA = unit(s.nA), nB = unit(s.nB);
+    if (Math.abs(dot(nA, nB)) >= 1e-4) return slantCutter(s, nA, nB, type, size, v);   // any other angle between the two faces
     const d = sub(s.p1, s.p0), L = len(d); need(L > 1e-9, 'the edge has no length');
     const ex = mul(nA, -1), ey = mul(nB, -1); let ez = cross(ex, ey); const o = dot(ez, d) >= 0 ? s.p0 : s.p1; const e = Math.max(size * 0.05, 1e-6 * L), z0 = v.ext ? v.ext * Math.max(size * 0.01, 1e-4 * L) : 0, Lx = L + 2 * z0;
     if (type === 'fillet') {
@@ -1664,8 +1686,24 @@ G.AakarKernel = AK;
   const VARIANTS_LINE = [{ ext: 0, k: 0 }, { ext: 1, k: 0 }], VARIANTS_FILLET_CIRCLE = [{ ext: 0, k: 0 }, { ext: 0, k: 2e-3 }], VARIANTS = VARIANTS_LINE;
   K.roundCutter = (spec, type, size, v) => { need(type === 'fillet' || type === 'chamfer', 'type must be fillet or chamfer'); need(size > 0, 'size must be positive'); v = v || VARIANTS[0]; return spec.kind === 'circle' ? circleCutter(spec, type, size, v) : lineCutter(spec, type, size, v); };
   /** body - cutter. The first cutter that the boolean accepts is used (touching and tangent surfaces make some placements numerically fragile). */
+  /** fillet on an edge between two flat faces at any angle: cut the corner flat at the tangent points (a chamfer), then add the round segment back.
+   *  Both steps are robust: no surface is tangent to a face of the other body, they only share edges. */
+  K.roundSlant = (h, spec, size) => {
+    const nA = unit(spec.nA), nB = unit(spec.nB), d = sub(spec.p1, spec.p0), L = len(d), dn = mul(d, 1 / L);
+    let tA = cross(nA, dn); if (dot(tA, nB) > 0) tA = mul(tA, -1); tA = unit(tA); let tB = cross(nB, dn); if (dot(tB, nA) > 0) tB = mul(tB, -1); tB = unit(tB);
+    const cg = dot(tA, tB), gam = Math.acos(Math.max(-1, Math.min(1, cg))); need(gam > 0.02 && gam < Math.PI - 0.02, 'the faces meet at too sharp or too flat an angle to round');
+    const tl = size / Math.tan(gam / 2), cd = size / Math.sin(gam / 2);
+    const X = tA, Y = unit(sub(tB, mul(tA, cg))), Z = cross(X, Y), o = dot(Z, d) >= 0 ? spec.p0 : spec.p1, tB2 = [Math.cos(gam), Math.sin(gam)];
+    const bi = unit([1 + tB2[0], tB2[1], 0]), C = [bi[0] * cd, bi[1] * cd], T1 = [tl, 0], T2 = [tl * tB2[0], tl * tB2[1]];
+    const a0 = Math.atan2(T1[1] - C[1], T1[0] - C[0]); let sw = Math.atan2(T2[1] - C[1], T2[0] - C[0]) - a0; while (sw > Math.PI) sw -= 2 * Math.PI; while (sw < -Math.PI) sw += 2 * Math.PI;
+    let seg = K.extrude([{ segs: [{ k: 'l', a: T2, b: T1 }, { k: 'a', c: C, r: size, a0, a1: a0 + sw }] }], L);
+    if (K.volume(seg) < 0) seg = K.extrude([{ segs: [{ k: 'l', a: T1, b: T2 }, { k: 'a', c: C, r: size, a0: a0 + sw, a1: a0 }] }], L);
+    const flat = K.roundEdge(h, spec, 'chamfer', tl);
+    return K.fuse(flat, place(seg, X, Y, Z, o));
+  };
   K.roundEdge = (h, spec, type, size, tol) => {
     let last = null;
+    if (spec.kind === 'line' && type === 'fillet' && Math.abs(dot(unit(spec.nA), unit(spec.nB))) >= 1e-4) { const node = K.roundSlant(h, spec, size); K.volume(node); [size * 0.05, size * 0.01].forEach((t) => K.mesh(node, t)); return node; }
     if (spec.kind === 'circle' && type === 'fillet' && K.roundRim) { try { const node = K.roundRim(h, spec, size); K.volume(node); K.mesh(node, size * 0.05); return node; } catch (e) { last = e; } }
     for (const v of (spec.kind === 'circle' && type === 'fillet' ? VARIANTS_FILLET_CIRCLE : VARIANTS_LINE)) { try { const node = K.cut(h, K.roundCutter(spec, type, size, v)); K.volume(node); [size * 0.05, size * 0.01, size * 0.002].concat(tol > 0 ? [tol] : []).forEach((t) => K.mesh(node, t)); return node; } catch (e) { last = e; if (/only right-angle|more than twice|smaller than the round|wider than the circle|positive|no length/.test(e.message)) throw e; } }
     throw last;
@@ -3159,7 +3197,7 @@ G.AakarKernel = AK;
   /** are the two faces tangent along their shared edges? (normals agree at the edge mid-points) */
   function tangent(m, i, j) {
     const A = m.FL[i], B = m.FL[j]; let any = false;
-    for (const L of A.loops) for (const c of L) { if ((m.adj.get(c.id) || []).indexOf(j) < 0) continue; any = true; const p = edgeMid(c), na = normalAt(A, p), nb = normalAt(B, p); if (dot(na, nb) < 1 - 1e-6) return false; }
+    for (const L of A.loops) for (const c of L) { if ((m.adj.get(c.id) || []).indexOf(j) < 0) continue; any = true; const p = edgeMid(c), na = normalAt(A, p), nb = normalAt(B, p); if (dot(na, nb) < 1 - 1e-4) return false; }
     return any;
   }
   const crossSection = (F) => { const m = null; void m; return F; };
@@ -3459,6 +3497,15 @@ G.AakarKernel = AK;
     const hOf = (p) => (dot(n2, sub(p2, p))) / dot(n2, F.n); let hmax = -Infinity, hmin = Infinity; F.loops.forEach((L) => L.forEach((c) => [c.p0, c.p1, edgeMid(c)].forEach((p) => { const t = hOf(p); hmax = Math.max(hmax, t); hmin = Math.min(hmin, t); })));
     if (hmax - hmin < m.tol * 10 && Math.abs(hmax) < m.tol * 10) return h;
     let cur = h; const half = (o, nrm, side) => { const fr = frameOf(nrm, null), bx = K.box(2 * big, 2 * big, big); return place(K.translate(bx, [-big, -big, side > 0 ? 0 : -big]), fr, o); };   // half space: everything on the +side (or -side) of the plane
+    // sloped side walls: when the walls next to the face are flat and not square to it, the new material is bounded by those wall planes (they carry on), not by the outline straight up
+    let walls = null;
+    if (F.loops.length === 1) { const nbs = F.loops[0].map((c) => m.FL[(m.adj.get(c.id) || []).find((j) => j !== F.i)]); if (nbs.every((g) => g && g.kind === 'plane') && nbs.some((g) => Math.abs(dot(g.n, F.n)) > 1e-6)) { const seen = []; nbs.forEach((g) => { if (!seen.some((q) => dot(q.n, g.n) > 1 - 1e-9 && Math.abs(dot(q.n, sub(g.o, q.o))) < m.tol * 10)) seen.push(g); }); walls = seen; } }
+    const wallRegion = (zone) => { let r = zone; walls.forEach((g) => { r = K.common(r, half(g.o, g.n, -1)); }); return r; };
+    if (walls) {
+      if (hmax > m.tol * 10) { const zone = K.common(half(F.o, F.n, +1), half(p2, n2, -1)); cur = apply(cur, wallRegion(zone), true, 'replace face (added)'); }
+      if (hmin < -m.tol * 10) { const zone = K.common(half(F.o, F.n, -1), half(p2, n2, +1)); cur = apply(cur, wallRegion(zone), false, 'replace face (removed)'); }
+      return cur;
+    }
     if (hmax > m.tol * 10) { const up = prismOver(F, hmax + 1), below = half(p2, n2, -1); let region = K.common(up, below); cur = apply(cur, region, true, 'replace face (added)'); }
     if (hmin < -m.tol * 10) { const m2 = model(cur), F2 = m2.FL.findIndex((G) => G.kind === 'plane' && dot(G.n, F.n) > 1 - 1e-9 && Math.abs(dot(G.n, sub(G.o, F.o))) < m2.tol * 100); void F2; const down = prismOver(F, hmin - 1), above = half(p2, n2, +1); const region = K.common(down, above); cur = apply(cur, region, false, 'replace face (removed)'); }
     return cur;
