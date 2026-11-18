@@ -108,6 +108,8 @@ function triangulatePolygon(P, rings) {
   if (idx.length === 3) tris.push([poly[idx[0]], poly[idx[1]], poly[idx[2]]]); return tris.filter((t) => cr(t[0], t[1], t[2]) > 1e-16);
 }
 /** inserts the points that lie inside the polygon (not near its boundary) into the triangulation; Lawson flips never touch boundary edges */
+/** the host's triangulator (rings of ids, id -> [x, y]) when there is one; otherwise the kernel's own ear clipping, so the kernel also runs on its own (AakarKernel.exe, node) */
+function fallbackEC(rings, get) { const P = []; rings.forEach((r) => r.forEach((i) => { P[i] = get(i); })); return triangulatePolygon(P, rings); }
 function insertSteiner(mesh, rings, pts, minDist, to3) {
   const { P2, P3 } = mesh, T = mesh.tris, bnd = new Set(); rings.forEach((r) => r.forEach((v, i) => { const w = r[(i + 1) % r.length]; bnd.add(v + ',' + w); bnd.add(w + ',' + v); }));
   const em = new Map(), key = (a, b) => a + ',' + b, addT = (t, i) => { em.set(key(t[0], t[1]), i); em.set(key(t[1], t[2]), i); em.set(key(t[2], t[0]), i); }, delT = (t) => { em.delete(key(t[0], t[1])); em.delete(key(t[1], t[2])); em.delete(key(t[2], t[0])); };

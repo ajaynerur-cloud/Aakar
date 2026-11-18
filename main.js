@@ -3,6 +3,7 @@ const { app, BrowserWindow, ipcMain, shell, Menu, dialog, protocol } = require('
 const path = require('path');
 const fs = require('fs');
 
+const SMOKE = process.argv.some((a) => a === '--smoke-test' || a.startsWith('--smoke-test='));   // used by the Windows CI: start, check the kernel, print a JSON report, exit 0 / 1
 const APP_HTML = path.join(__dirname, 'app', 'index.html');
 const BG = '#141922';
 const WEB_PREFS = { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false };
@@ -79,6 +80,29 @@ ipcMain.handle('aakar:win', (event, act) => {
   return true;
 });
 
+
+/** --smoke-test: load the real page, wait for the exact kernel, make a part, push a face, check the numbers, check the packed OpenCascade files, then exit with 0 (all good) or 1. */
+function smokeRun(win) {
+  const out = (process.argv.find((a) => a.startsWith('--smoke-test=')) || '').slice(13), rep = { ok: false, platform: process.platform, packed: __dirname.includes('app.asar'), occtDir: OCCT_DIR, occtFiles: 0 };
+  try { rep.occtFiles = fs.readdirSync(OCCT_DIR).length; } catch (e) { rep.occtError = String(e.message || e); }
+  const finish = (ok, extra) => { Object.assign(rep, extra || {}, { ok }); const txt = JSON.stringify(rep); console.log('SMOKE ' + txt); try { if (out) fs.writeFileSync(out, txt); } catch (e) { /* ignore */ } app.exit(ok ? 0 : 1); };
+  setTimeout(() => finish(false, { error: 'timeout: the page never became ready' }), 90000);
+  const errs = []; win.webContents.on('console-message', (e, level, msg) => { if (level >= 3 && errs.length < 5) errs.push(String(msg).slice(0, 200)); });
+  win.webContents.once('did-finish-load', async () => {
+    try {
+      const r = await win.webContents.executeJavaScript(`(async () => {
+        const o = {}; for (let i = 0; i < 200 && !(window.CAD && CAD.exact && CAD.exact.state === 'ready'); i++) await new Promise((r) => setTimeout(r, 250));
+        o.state = window.CAD && CAD.exact && CAD.exact.state; if (o.state !== 'ready') return o;
+        const k = CAD.exact.kernel; o.version = k.version; const b = k.box(40, 30, 20), D = k.direct; o.hasDirect = !!D;
+        o.v0 = k.volume(b); if (D) { const F = D.faces(b), top = F.findIndex((f) => f.kind === 'plane' && Math.abs(f.normal[2] - 1) < 1e-9 && Math.abs(f.origin[2] - 20) < 1e-9); const r = D.attempt('pushPull', b, top, 5); o.pushOk = !!r.ok; o.v1 = r.ok ? k.volume(r.body) : null; }
+        try { const t = await fetch('aakar-asset://occt/__probe__'); o.assetScheme = t.status; } catch (e) { o.assetScheme = 'ERR ' + e.message; }
+        o.step = /ADVANCED_FACE/.test(k.stepExport(b)); return o; })()`);
+      const good = r.state === 'ready' && Math.abs(r.v0 - 24000) < 1e-6 && r.hasDirect && r.pushOk && Math.abs(r.v1 - 30000) < 1e-6 && r.step && r.assetScheme === 404 && rep.occtFiles > 0;
+      finish(!!good, { page: r, pageErrors: errs });
+    } catch (e) { finish(false, { error: String(e && e.message || e), pageErrors: errs }); }
+  });
+}
+
 function createMainWindow() {
   const win = new BrowserWindow({ width: 1600, height: 960, minWidth: 900, minHeight: 600, backgroundColor: BG, show: false, frame: true, fullscreen: false, fullscreenable: true, autoHideMenuBar: true, title: 'Aakar', icon: path.join(__dirname, 'build', 'icon.ico'), webPreferences: WEB_PREFS });
   win.once('ready-to-show', () => { try { win.setFullScreen(false); } catch (e) { /* ignore */ } win.maximize(); win.show(); });
@@ -86,6 +110,7 @@ function createMainWindow() {
   const fsTell = (v) => { try { win.webContents.send('aakar:fs', v); } catch (e) { /* ignore */ } };
   win.on('enter-full-screen', () => fsTell(true)); win.on('leave-full-screen', () => fsTell(false));
   win.webContents.on('enter-html-full-screen', () => fsTell(true)); win.webContents.on('leave-html-full-screen', () => fsTell(false));
+  if (SMOKE) smokeRun(win);
   win.loadFile(APP_HTML);
   return win;
 }
@@ -125,7 +150,7 @@ app.on('web-contents-created', (_e, contents) => {
   });
 });
 
-const gotLock = app.requestSingleInstanceLock();
+const gotLock = SMOKE ? true : app.requestSingleInstanceLock();
 if (!gotLock) app.quit();
 else {
   app.on('second-instance', () => { const w = BrowserWindow.getAllWindows()[0]; if (w) { if (w.isMinimized()) w.restore(); w.focus(); } });

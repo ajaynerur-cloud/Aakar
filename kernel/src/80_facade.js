@@ -34,7 +34,7 @@ function roundRimSurgery(h, spec, f) {
   const ang = (p) => { const d = V.sub(p, c), u = V.sub(d, V.mul(n, V.dot(d, n))); return Math.atan2(V.dot(u, rim.y), V.dot(u, rim.x)); };
   const ringOf = (face, hgt, rr) => { const A = []; S0.forEach((t) => { if (t.tag !== face) return; t.pts.forEach((p) => { if (Math.abs(ax(p) - hgt) < tol * 50 && Math.abs(rho(p) - rr) < tol * 50) A.push(ang(p)); }); }); A.sort((a, b) => a - b); const o = []; A.forEach((a) => { if (!o.length || a - o[o.length - 1] > 1e-7) o.push(a); }); if (o.length > 1 && o[0] + TAU - o[o.length - 1] < 1e-7) o.pop(); return o; };
   const A1 = ringOf(Fp, 0, R), A2 = ringOf(Fc, 0, R); if (A1.length < 6 || A1.length !== A2.length || A1.some((a, i) => Math.abs(a - A2[i]) > 1e-6)) throw new Error('the rim rings of the two faces do not match');
-  const EC = G.CAD && G.CAD.solid && G.CAD.solid.earcut;
+  const EC = (G.CAD && G.CAD.solid && G.CAD.solid.earcut) || fallbackEC;
   const bad = S0.some((t) => t.tag === Fc && t.pts.some((p) => ax(p) < -tol * 50 && ax(p) > -f - tol * 50));
   if (bad) throw new Error('other geometry lies inside the round');
   const dR = R1 - R, soup = [];
@@ -86,6 +86,13 @@ const kernel = {
   cone: (r, rt, h) => prim(mkCone(pos(r, 'radius'), Math.max(0, num(rt || 0, 'top radius')), pos(h, 'height'))),
   sphere: (r) => prim(mkSphere(pos(r, 'radius'))),
   faces: (h) => evalExact(h).body.faces.map((f) => ({ kind: f.surf.kind, o: f.surf.o.slice(), x: f.surf.x.slice(), z: f.surf.z.slice(), r: f.surf.r, R: f.surf.R, k: f.surf.k, rev: !!f.rev })),
+  /** full boundary of every face (for direct editing): loops of coedges in traversal order, each { id, fwd, kind:'line'|'circle'|'poly', p0, p1 (in traversal order), c,n,r,a0,a1 (circle) }, plus the outward normal of planar faces */
+  faceLoops: (h) => evalExact(h).body.faces.map((f, i) => {
+    const s = f.surf, o = { i, kind: s.kind, rev: !!f.rev, o: s.o.slice(), x: s.x.slice(), z: s.z.slice(), r: s.r, R: s.R, k: s.k, vrange: f.vrange ? f.vrange.slice() : null };
+    if (s.kind === 'plane') o.n = (f.rev ? V.neg(s.z) : s.z).slice();
+    o.loops = f.loops.map((L) => L.map((ce) => { const e = ce.edge, a = ce.fwd ? e.v0.p : e.v1.p, b = ce.fwd ? e.v1.p : e.v0.p, d = { id: e.id, fwd: !!ce.fwd, kind: e.kind, p0: a.slice(), p1: b.slice(), closed: e.v0 === e.v1 };
+      if (e.kind === 'circle') { d.c = e.c.slice(); d.n = V.norm(V.cross(e.x, e.y)); d.r = e.r; d.a0 = e.a0; d.a1 = e.a1; d.ex = e.x.slice(); d.ey = e.y.slice(); } if (e.kind === 'poly') d.pts = e.pts.map((q) => q.slice()); return d; }));
+    return o; }),
   revolve: (loops, ang) => prim(mkRevolve(loops, ang)),
   extrude: (loops, h) => prim(mkExtrude(loops, pos(h, 'height'))),
   polyhedron: (verts, faces) => prim(mkPolyh(verts, faces)),

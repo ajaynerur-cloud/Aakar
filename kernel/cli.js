@@ -13,6 +13,8 @@ if (a[0] === '--step') { const b = K.cut(K.box(60, 40, 10), K.translate(K.cylind
 const t = [['box volume', () => near(K.volume(K.box(40, 30, 20)), 24000)],
   ['box minus cylinder', () => near(K.volume(K.cut(K.box(40, 30, 20), K.translate(K.cylinder(5, 40), [20, 15, -5]))), 24000 - Math.PI * 25 * 20)],
   ['union', () => near(K.volume(K.fuse(K.box(10, 10, 10), K.translate(K.box(10, 10, 10), [5, 0, 0]))), 1500)],
-  ['STEP export', () => /ADVANCED_FACE/.test(K.stepExport(K.box(5, 5, 5)))]];
+  ['STEP export', () => /ADVANCED_FACE/.test(K.stepExport(K.box(5, 5, 5)))],
+  ['direct push/pull of a face', () => { const b = K.box(40, 30, 20), D = K.direct, F = D.faces(b), top = F.findIndex((f) => f.kind === 'plane' && Math.abs(f.normal[2] - 1) < 1e-9 && Math.abs(f.origin[2] - 20) < 1e-9), r = D.attempt('pushPull', b, top, 5); return r.ok && near(K.volume(r.body), 30000); }],
+  ['STEP round trip then direct edit', () => { const b = K.cut(K.box(60, 40, 20), K.translate(K.cylinder(8, 40), [30, 20, -5])), c = K.stepImport(K.stepExport(b)), D = K.direct, F = D.faces(c), top = F.findIndex((f) => f.kind === 'plane' && f.normal[2] > 0.999 && Math.abs(f.origin[2] - 20) < 1e-6), r = D.attempt('pushPull', c, top, 4); return r.ok && Math.abs(K.volume(r.body) - (K.volume(c) + 4 * (60 * 40 - Math.PI * 64))) < 0.05; }]];
 let bad = 0; t.forEach(([n, f]) => { let ok = false; try { ok = f(); } catch (e) { /* fail */ } if (!ok) bad++; console.log((ok ? 'OK   ' : 'FAIL ') + n); });
 console.log(bad ? bad + ' failed' : 'AakarKernel ' + K.version + ': all checks passed'); process.exit(bad ? 1 : 0);

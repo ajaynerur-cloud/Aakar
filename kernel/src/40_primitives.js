@@ -151,7 +151,7 @@ function mkExtrude(loopsIn, h) {
     });
     rings.forEach(({ P, own }) => { const n = P.length; for (let i = 0; i < n; i++) { const j = (i + 1) % n, b0 = [P[i][0], P[i][1], 0], b1 = [P[j][0], P[j][1], 0], t0 = [P[i][0], P[i][1], h], t1 = [P[j][0], P[j][1], h]; o.push({ pts: [b0, b1, t1], tag: own[i] }, { pts: [b0, t1, t0], tag: own[i] }); } });
     const all = [], idx = []; rings.forEach(({ P }) => { const s0 = all.length, ids = []; P.forEach(p => { ids.push(all.length); all.push(p); }); idx.push(ids); });
-    const EC = G.CAD && G.CAD.solid && G.CAD.solid.earcut; if (!EC) throw new Error('triangulator missing');
+    const EC = (G.CAD && G.CAD.solid && G.CAD.solid.earcut) || fallbackEC;
     const tris = EC(idx, (i) => all[i]);
     tris.forEach(t => { let A = all[t[0]], B = all[t[1]], C = all[t[2]]; const ar = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]); if (ar < 0) { const x = B; B = C; C = x; } o.push({ pts: [[A[0], A[1], h], [B[0], B[1], h], [C[0], C[1], h]], tag: topF }, { pts: [[A[0], A[1], 0], [C[0], C[1], 0], [B[0], B[1], 0]], tag: botF }); });
     return o;
@@ -217,7 +217,7 @@ function mkRevolvePartial(loopsIn, ang) {
         if (ra && rb) continue; if (ra) o.push({ pts: [a0, b1, b0], tag: f }); else if (rb) o.push({ pts: [a0, a1, b0], tag: f }); else o.push({ pts: [a0, a1, b1], tag: f }, { pts: [a0, b1, b0], tag: f });
       } });
     const all = [], idx = []; loops.forEach(segs => { const ids = []; segs.forEach(s => { const q = profOf(s); q.slice(0, q.length - 1).forEach(p => { ids.push(all.length); all.push(p); }); }); idx.push(ids); });
-    const EC = G.CAD && G.CAD.solid && G.CAD.solid.earcut; if (!EC) throw new Error('triangulator missing');
+    const EC = (G.CAD && G.CAD.solid && G.CAD.solid.earcut) || fallbackEC;
     EC(idx, (i) => all[i]).forEach(t => { let A = all[t[0]], B = all[t[1]], C = all[t[2]]; if ((B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]) < 0) { const x = B; B = C; C = x; } o.push({ pts: [R3(A, 0), R3(B, 0), R3(C, 0)], tag: cap0 }, { pts: [R3(A, ang), R3(C, ang), R3(B, ang)], tag: cap1 }); });
     return o;
   } };
