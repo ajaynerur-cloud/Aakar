@@ -295,10 +295,11 @@ body.aaktouch #aakNavPill{display:flex}
 </header>
 <div id="main">
   <aside id="left" class="panel">
-    <div class="tabs"><button class="tab active" data-tab="features">Features <span class="badge" id="featCount">0</span></button><button class="tab" data-tab="bodies">Bodies</button><button class="tab" data-tab="table" title="Every feature, face, edge and sketch entity in a table">Table</button></div>
+    <div class="tabs"><button class="tab active" data-tab="features">Features <span class="badge" id="featCount">0</span></button><button class="tab" data-tab="parts" title="Part Organiser: sort, group, search, folders, tags">Parts</button><button class="tab" data-tab="bodies">Bodies</button><button class="tab" data-tab="table" title="Every feature, face, edge and sketch entity in a table">Table</button></div>
     <div class="tabbody" id="tab-features"><div id="featList"></div>
       <p class="muted small">Double-click a feature to edit its dimensions (live preview). ◉ suppress · ⇥ roll back · ✕ delete. Shift+double-click a sketch to change its plane.</p></div>
     <div class="tabbody hidden" id="tab-table"></div>
+    <div class="tabbody hidden" id="tab-parts"></div>
     <div class="tabbody hidden" id="tab-bodies"><div id="bodyList"></div><p class="muted small">Solids, exact NURBS surfaces, SubD and analysis models. Click to select · double-click a surface/SubD to edit its control points.</p></div>
   </aside>
   <section id="viewport">
@@ -12507,7 +12508,7 @@ function faceEdgeItems(loops) {
       if (v.face) { if (!(st.sel && st.sel.type === 'face')) return; plane = facePlane(); }
       else plane = String(v.name).indexOf('ref:') === 0 ? { kind: 'ref', ref: String(v.name).slice(4), offset: v.offset || 0 } : { kind: 'std', name: v.name, offset: v.offset || 0 };
     }
-    openSketcher(null, plane);
+    if (window.__pnAskSketch) window.__pnAskSketch(plane, () => openSketcher(null, plane)); else openSketcher(null, plane);
   }
   function planeLabel(P) { if (P.kind === 'custom') return 'free plane'; if (P.kind === 'ref') { const r = st.state && st.state.refs && st.state.refs.get(P.ref); return (r ? r.name : 'reference plane') + (P.offset ? ' @ ' + P.offset + ' mm' : ''); } return P.kind === 'std' ? P.name + ' plane' + (P.offset ? ' @ ' + P.offset + ' mm' : '') : 'face of ' + ((bodyByKey(P.body) || {}).name || 'body'); }
   function openSketcher(feature, plane, dataOv) {
@@ -13259,6 +13260,25 @@ function profLabel(r, i) { try { let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e1
       if (has('tan0')) H.push({ id: 't0', p: v3.madd(c0, a, Math.max(0.05, t0) * L * 0.5), from: c0, axis: { o: c0, d: a }, val: () => (isFinite(c.values().tan0) ? c.values().tan0 : 0), k: 1 / (L * 0.5), snap: 0.05, min: 0, col: [0.5, 0.82, 1], apply: (x) => ({ tan0: x }) });
       if (has('tan1')) H.push({ id: 't1', p: v3.madd(c1, a, -Math.max(0.05, t1) * L * 0.5), from: c1, axis: { o: c1, d: a }, val: () => (isFinite(c.values().tan1) ? c.values().tan1 : 0), k: -1 / (L * 0.5), snap: 0.05, min: 0, col: [0.5, 0.82, 1], apply: (x) => ({ tan1: x }) }); return H; };
     // ---- the engine
+    // ---- match points: every circle centre, mid-height centre, body centre, corner and face centre of the visible solids (shown as dots while a handle with .match is on screen)
+    const MPC = new WeakMap(), r3m = (x) => Math.round(x * 1000) / 1000;
+    const bodyMatch = (b) => {
+      const sd = b.solid; let c = MPC.get(sd); if (c) return c; c = []; const circ = [];
+      try {
+        sd.F.forEach((f) => { if (!f.loops) return; f.loops.forEach((l, li) => {
+          const n = l.length; if (n < 3 || c.length > 500) return; let cx = 0, cy = 0, cz = 0; l.forEach((vi) => { const q = sd.V[vi]; cx += q[0]; cy += q[1]; cz += q[2]; }); const cen = [cx / n, cy / n, cz / n];
+          if (n >= 12) { const rs = l.map((vi) => { const q = sd.V[vi]; return Math.hypot(q[0] - cen[0], q[1] - cen[1], q[2] - cen[2]); }), rm = rs.reduce((a, x) => a + x, 0) / n; if (rm > 1e-6 && Math.max(...rs.map((x) => Math.abs(x - rm))) / rm < 0.03 && !f.group) { c.push({ p: cen, kind: 'Circle centre', c: [0.2, 1, 1], bias: -5 }); circ.push({ p: cen, r: rm, n: f.n }); } }
+          else if (!f.group) { l.forEach((vi) => { c.push({ p: sd.V[vi].slice(), kind: 'Corner', c: [1, 0.9, 0.3], bias: 0 }); }); if (li === 0) c.push({ p: cen, kind: 'Face centre', c: [0.5, 1, 0.5], bias: -1 }); }
+        }); });
+        for (let i = 0; i < circ.length && i < 40; i++) for (let j = i + 1; j < circ.length && j < 40; j++) { const A = circ[i], B = circ[j], d = v3.sub(B.p, A.p), L = Math.hypot(d[0], d[1], d[2]); if (L < 1e-6 || Math.abs(A.r - B.r) > 0.01 * A.r) continue; if (Math.abs(Math.abs(v3.dot(d, A.n)) / L - 1) < 1e-3) c.push({ p: v3.scale(v3.add(A.p, B.p), 0.5), kind: 'Mid-height centre', c: [1, 0.5, 1], bias: -4 }); }
+        const bb = sd.bbox(); c.push({ p: [0, 1, 2].map((k) => (bb.min[k] + bb.max[k]) / 2), kind: 'Body centre', c: [1, 1, 1], bias: -3 });
+      } catch (eB) { /* partial list is fine */ }
+      MPC.set(sd, c); return c;
+    };
+    const allMatch = () => { const P2 = window.PRISM, out = []; ((P2 && P2.st && P2.st.bodies) || []).forEach((b) => { if (b && b.visible !== false && b.solid) bodyMatch(b).forEach((m) => out.push(m)); }); return out; };
+    const nearMatch = (mx, my) => { const M = R.matrices(); let best = null, bd = 16; allMatch().forEach((m) => { const q = R.project(m.p, M); if (!(q[3] > 0)) return; const d = Math.hypot(q[0] - mx, q[1] - my) + m.bias; if (d < bd) { bd = d; best = m; } }); return best; };
+    window.AAKAR_MATCH = { all: allMatch, nearest: nearMatch, face: (x, y) => { const P2 = window.PRISM; try { return P2.pickFace(R.ray(x, y, R.matrices())); } catch (e) { return null; } } };
+    const posHandle = (o, d, ap) => ({ id: 'pos', free: true, match: true, applyVec: (q) => ap(o, q), p: o, from: o, axis: { o, d }, snap: 0.1, col: [1, 1, 1], apply: () => ({}) });
     function mount(c, get) {
       const cv = document.getElementById('cv'); let drag = null, hov = null, dead = false, adjId = null;
       const alive = () => !dead && c.form.isConnected && (c.noModal || !document.getElementById('modal').classList.contains('hidden')), H = () => (alive() ? (safe(get) || []) : []);
@@ -13274,7 +13294,7 @@ function profLabel(r, i) { try { let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e1
           else if (h.axis) { pushL(L, h.from, col, 1); pushL(L, p, col, 1); const dd = nrm(v3.sub(p, h.from)), px = 12 * (R.pixelSize ? R.pixelSize(p, M) : 0.1), pp = Math.abs(dd[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0], s1 = nrm(v3.cross(dd, pp)), back = v3.madd(p, dd, -px * 1.6); const s2 = nrm(v3.cross(dd, s1)); for (let j = 0; j < 12; j++) { const a0 = j / 12 * TAU3, a1 = (j + 1) / 12 * TAU3, q0 = v3.madd(back, v3.add(v3.scale(s1, Math.cos(a0)), v3.scale(s2, Math.sin(a0))), px * 0.6), q1 = v3.madd(back, v3.add(v3.scale(s1, Math.cos(a1)), v3.scale(s2, Math.sin(a1))), px * 0.6); pushL(T9, q0, col, 1); pushL(T9, q1, col, 1); pushL(T9, p, col, 1); } }
           if (!h.show) pushL(Pt, p, col, 1); });
         const PV = [], PS = []; try { if (drag && drag.free) { const o0 = drag.h.axis.o; if (drag.hl && drag.hl.b.solid) { const f = drag.hl.b.solid.F[drag.hl.fi], V = drag.hl.b.solid.V; if (f) f.loops.forEach((l) => { for (let k = 0; k < l.length; k++) { for (let w = 0; w < 2; w++) { pushL(L, V[l[k]], [1, 0.92, 0.2], 1); pushL(L, V[l[(k + 1) % l.length]], [1, 0.92, 0.2], 1); } if (k % 3 === 0 || l.length < 12) pushL(PV, V[l[k]], [1, 0.95, 0.3], 1); } }); } const pp = drag.hl ? drag.pt : drag.h.p; const cur2 = drag.cur || pp; if (cur2) { const ax = [[1, 0, 0, [1, 0.35, 0.35]], [0, 1, 0, [0.4, 0.9, 0.4]], [0, 0, 1, [0.45, 0.6, 1]]]; let a = o0; ax.forEach(([x, y, z, c3]) => { const b2 = [a[0] + (cur2[0] - o0[0]) * x, a[1] + (cur2[1] - o0[1]) * y, a[2] + (cur2[2] - o0[2]) * z]; pushL(L, a, c3, 1); pushL(L, b2, c3, 1); a = b2; }); if (drag.hl && drag.pt) pushL(PV, drag.pt, [1, 1, 1], 1); if (drag.snapName && drag.pt) pushL(PS, drag.pt, [0.2, 1, 1], 1); } } } catch (eHL) { /* feedback is cosmetic */ }
-        RR.lines(new Float32Array(L), { overlay: true }); if (PV.length) RR.points(new Float32Array(PV), 9, { overlay: true }); if (PS.length) RR.points(new Float32Array(PS), 22, { overlay: true }); if (T9.length && RR.overlayTris) RR.overlayTris(new Float32Array(T9)); if (Pt.length) RR.points(new Float32Array(Pt), 18, { overlay: true });
+        try { if (hs.some((h) => h.match)) { const MP = []; allMatch().forEach((m) => pushL(MP, m.p, m.c, 1)); if (MP.length) RR.points(new Float32Array(MP), 11, { overlay: true }); } } catch (eMP) { /* cosmetic */ } RR.lines(new Float32Array(L), { overlay: true }); if (PV.length) RR.points(new Float32Array(PV), 9, { overlay: true }); if (PS.length) RR.points(new Float32Array(PS), 22, { overlay: true }); if (T9.length && RR.overlayTris) RR.overlayTris(new Float32Array(T9)); if (Pt.length) RR.points(new Float32Array(Pt), 18, { overlay: true });
         try { const fm = (x) => Math.round(x * 100) / 100, items = hs.filter((h) => !h.show).map((h) => { const q = R.project(pos(h), M), lb = AKUI.label(h); let vs = ''; if (h.val) { const vv = safe(() => h.val()); if (vv != null && isFinite(vv)) vs = '<small>' + fm(vv) + lb[1] + '</small>'; } return { id: h.id, x: q[0], y: q[1], vis: q[3] > 0, color: 'rgb(' + h.col.map((x) => Math.round(x * 255)).join(',') + ')', html: lb[0] + vs, down: (e) => beginGrip(h, e) }; });
           AKUI.sync(items); const cl = hs.filter((h) => !h.show && !h.plane).map((h) => ({ id: h.id, name: AKUI.label(h)[0], free: !!h.free })); if (!cl.some((c) => c.id === adjId)) adjId = cl[0] ? cl[0].id : null; AKUI.chips(cl, adjId, (id) => { if (id === '__snap') { window.__gzSnapFace = window.__gzSnapFace === false; try { localStorage.setItem('aakar.gz.snapface', window.__gzSnapFace === false ? '0' : '1'); } catch (e9) { /* ok */ } } else adjId = id; try { P.redraw(); } catch (e2) { /* ok */ } }); } catch (eT) { /* labels are optional */ }
       };
@@ -13292,7 +13312,7 @@ function profLabel(r, i) { try { let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e1
       const down = (e) => { if (!alive()) return stop(); if (e.button !== 0 || !onCv(e)) return; const h = hit(e);
         if (AKUI.mode() === 'B' && !(h && h.plane)) { const a = adjH(); if (!a) return; e.preventDefault(); e.stopImmediatePropagation(); try { cv.setPointerCapture(e.pointerId); } catch (e0) { /* ok */ } if (a.free) { drag = { h: a, free: true }; cv.style.cursor = 'grabbing'; return; } drag = { h: a, adj: true, v0: a.val(), x0: e.clientX, y0: e.clientY }; cv.style.cursor = 'grabbing'; return; }
         if (!h) return; e.preventDefault(); e.stopImmediatePropagation(); beginGrip(h, e); };
-      const freeMove = (e) => { const h = drag.h;  const r = R.ray(...xy(e), R.matrices()), o = h.axis.o; let q = null; drag.hl = null; drag.snapName = null; if (window.__gzSnapFace !== false && !e.altKey) { let fh = null; try { const P2 = window.PRISM; if (P2 && P2.pickFace) { const sv = P2.st.bodies; fh = P2.pickFace(r); if (fh && fh.body && fh.body.key === h.skipBody) { fh = null; } } } catch (eF) { fh = null; } if (fh) { const fc = fh.body.solid && fh.body.solid.F && fh.body.solid.F[fh.fi], fn = fc && fc.n; if (fn && fn.length === 3) drag.plane = { o: fh.p, n: fn }; drag.onFace = true; drag.hl = { b: fh.body, fi: fh.fi }; let sp = fh.p, sk = null; try { const M3 = R.matrices(), [mx, my] = xy(e), fcc = fh.body.solid.F[fh.fi], V3 = fh.body.solid.V, cands = []; if (fcc) { fcc.loops.forEach((l, li) => { const curved = l.length > 12; let sx = 0, sy = 0, sz = 0; for (let k = 0; k < l.length; k++) { const a = V3[l[k]], b2 = V3[l[(k + 1) % l.length]]; if (!curved) { cands.push([a, 'Vertex', -5]); cands.push([v3.scale(v3.add(a, b2), 0.5), 'Midpoint', 0]); } sx += a[0]; sy += a[1]; sz += a[2]; } if (li === 0 && l.length) cands.push([[sx / l.length, sy / l.length, sz / l.length], 'Center', -2]); }); } let bd = 18; cands.forEach(([c, nm, bias]) => { const pq = R.project(c, M3); if (!(pq[3] > 0)) return; const d = Math.hypot(pq[0] - mx, pq[1] - my) + bias; if (d < bd) { bd = d; sp = c; sk = nm; } }); } catch (eS) { /* no snap point */ } drag.pt = sp; drag.snapName = sk; q = v3.sub(sp, o); } else if (drag.plane) { const pn = drag.plane.n, dn2 = v3.dot(r.d, pn); if (Math.abs(dn2) > 1e-6) { const t2 = v3.dot(v3.sub(drag.plane.o, r.o), pn) / dn2; if (t2 > 0) q = v3.sub(v3.madd(r.o, r.d, t2), o); } } } if (!q) { let n = r.d; const wz = Math.abs(r.d[2]) > 0.2 && !e.altKey; if (wz) n = [0, 0, 1]; const dn = v3.dot(r.d, n); if (Math.abs(dn) < 1e-6) return; const t = v3.dot(v3.sub(o, r.o), n) / dn; q = v3.sub(v3.madd(r.o, r.d, t), o); } const sn = drag.snapName ? 1e-4 : e.shiftKey ? 0.01 : 0.5, v = q.map((x) => Math.round(x / sn) * sn); drag.cur = v3.add(h.axis.o, v); put(h.applyVec(v)); const L2 = Math.hypot(v[0], v[1], v[2]); AKUI.showBig((drag.snapName ? '◆ ' + drag.snapName + ' · ' : drag.onFace ? 'On face · ' : '') + 'Step  ' + v.map((x) => Math.round(x * 100) / 100).join(', ') + '  =  ' + Math.round(L2 * 100) / 100 + ' mm long'); return;  };
+      const freeMove = (e) => { const h = drag.h;  const r = R.ray(...xy(e), R.matrices()), o = h.axis.o; let q = null; drag.hl = null; drag.snapName = null; let mq = null; try { if (h.match && !e.altKey) { const xy2 = xy(e); mq = nearMatch(xy2[0], xy2[1]); } } catch (eM) { mq = null; } if (mq) { drag.pt = mq.p; drag.snapName = mq.kind; drag.onFace = false; q = v3.sub(mq.p, o); } if (!mq && window.__gzSnapFace !== false && !e.altKey) { let fh = null; try { const P2 = window.PRISM; if (P2 && P2.pickFace) { const sv = P2.st.bodies; fh = P2.pickFace(r); if (fh && fh.body && fh.body.key === h.skipBody) { fh = null; } } } catch (eF) { fh = null; } if (fh) { const fc = fh.body.solid && fh.body.solid.F && fh.body.solid.F[fh.fi], fn = fc && fc.n; if (fn && fn.length === 3) drag.plane = { o: fh.p, n: fn }; drag.onFace = true; drag.hl = { b: fh.body, fi: fh.fi }; let sp = fh.p, sk = null; try { const M3 = R.matrices(), [mx, my] = xy(e), fcc = fh.body.solid.F[fh.fi], V3 = fh.body.solid.V, cands = []; if (fcc) { fcc.loops.forEach((l, li) => { const curved = l.length > 12; let sx = 0, sy = 0, sz = 0; for (let k = 0; k < l.length; k++) { const a = V3[l[k]], b2 = V3[l[(k + 1) % l.length]]; if (!curved) { cands.push([a, 'Vertex', -5]); cands.push([v3.scale(v3.add(a, b2), 0.5), 'Midpoint', 0]); } sx += a[0]; sy += a[1]; sz += a[2]; } if (li === 0 && l.length) cands.push([[sx / l.length, sy / l.length, sz / l.length], 'Center', -2]); }); } let bd = 18; cands.forEach(([c, nm, bias]) => { const pq = R.project(c, M3); if (!(pq[3] > 0)) return; const d = Math.hypot(pq[0] - mx, pq[1] - my) + bias; if (d < bd) { bd = d; sp = c; sk = nm; } }); } catch (eS) { /* no snap point */ } drag.pt = sp; drag.snapName = sk; q = v3.sub(sp, o); } else if (drag.plane) { const pn = drag.plane.n, dn2 = v3.dot(r.d, pn); if (Math.abs(dn2) > 1e-6) { const t2 = v3.dot(v3.sub(drag.plane.o, r.o), pn) / dn2; if (t2 > 0) q = v3.sub(v3.madd(r.o, r.d, t2), o); } } } if (!q) { let n = r.d; const wz = Math.abs(r.d[2]) > 0.2 && !e.altKey; if (wz) n = [0, 0, 1]; const dn = v3.dot(r.d, n); if (Math.abs(dn) < 1e-6) return; const t = v3.dot(v3.sub(o, r.o), n) / dn; q = v3.sub(v3.madd(r.o, r.d, t), o); } const sn = drag.snapName ? 1e-4 : e.shiftKey ? 0.01 : 0.5, v = q.map((x) => Math.round(x / sn) * sn); drag.cur = v3.add(h.axis.o, v); put(h.applyVec(v)); const L2 = Math.hypot(v[0], v[1], v[2]); AKUI.showBig((drag.snapName ? '◆ ' + drag.snapName + ' · ' : drag.onFace ? 'On face · ' : '') + 'Step  ' + v.map((x) => Math.round(x * 100) / 100).join(', ') + '  =  ' + Math.round(L2 * 100) / 100 + ' mm long'); return;  };
       const move = (e) => { if (!alive()) return stop(); if (!drag) { const h = onCv(e) ? hit(e) : null, id = h ? h.id : null; if (id !== hov) { hov = id; cv.style.cursor = id ? 'grab' : ''; try { P.redraw(); } catch (e1) { /* ok */ } } return; }
         e.preventDefault(); e.stopImmediatePropagation(); const h = drag.h; let val;
         if (drag.free) { drag.last = e; if (!drag.raf) drag.raf = requestAnimationFrame(() => { drag.raf = 0; if (drag && drag.free) freeMove(drag.last); }); return; }
@@ -13319,7 +13339,7 @@ function profLabel(r, i) { try { let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e1
       return [
         { id: 'end', p: pt(pitch * turns), from: pt(0), axis: { o: ax.o, d }, val: () => Math.max(0.1, +c.values().turns || 5), k: 1 / pitch, snap: 0.05, min: 0.1, col: [1, 0.7, 0.28], apply: (x) => ({ turns: x }) },
         { id: 'pitch', p: pt(pitch), from: pt(0), axis: { o: ax.o, d }, val: () => Math.max(0.1, +c.values().pitch || 3), k: 1, snap: 0.1, min: 0.1, col: [0.5, 0.82, 1], apply: (x) => ({ pitch: x }) },
-        ring];
+        ring].concat(k.indexOf('line:') === 0 ? [] : [posHandle(ax.o, d, (o2, q) => ({ px: r3m(o2[0] + q[0]), py: r3m(o2[1] + q[1]), pz: r3m(o2[2] + q[2]) }))]);
     };
     const axU = (k) => { const m = /^([+-]?)([xyz])$/.exec(String(k)); if (!m) return [0, 0, 1]; const a = [0, 0, 0]; a[{ x: 0, y: 1, z: 2 }[m[2]]] = m[1] === '-' ? -1 : 1; return a; };
     const bodyV = (stt, v) => stt.bodies.get(v.body) || null, numv = (c, k, d0) => { const x = parseFloat(c.values()[k]); return isFinite(x) ? x : d0; };
@@ -13331,7 +13351,8 @@ function profLabel(r, i) { try { let x0 = 1e18, y0 = 1e18, x1 = -1e18, y1 = -1e1
       return [{ id: 'end', p: v3.madd(o, d, pitch * turns), from: o, axis: { o, d }, val: () => Math.max(0.25, numv(c, 'turns', 5)), k: 1 / pitch, snap: 0.25, min: 0.25, col: [1, 0.7, 0.28], apply: (x) => ({ turns: x }) },
         { id: 'pitch', p: v3.madd(o, d, pitch), from: o, axis: { o, d }, val: () => Math.max(0.1, numv(c, 'pitch', 5)), k: 1, snap: 0.1, min: 0.1, col: [0.5, 0.82, 1], apply: (x) => ({ pitch: x }) },
         { id: 'R', p: v3.madd(o, B.u, Rr), from: o, axis: { o, d: B.u }, val: () => Math.max(0.2, numv(c, 'R', 10)), k: 1, snap: 0.5, min: 0.2, col: [0.4, 1, 0.65], apply: (x) => ({ R: x }) },
-        { id: 'phi0', ring: { c: o, a: d, u: B.u, w: B.w, th: () => numv(c, 'phi0', 0) * Math.PI / 180, r: Rr * 1.7 }, from: o, val: () => numv(c, 'phi0', 0), snap: 5, col: [0.4, 1, 0.65], apply: (x) => ({ phi0: x }) }]; };
+        { id: 'phi0', ring: { c: o, a: d, u: B.u, w: B.w, th: () => numv(c, 'phi0', 0) * Math.PI / 180, r: Rr * 1.7 }, from: o, val: () => numv(c, 'phi0', 0), snap: 5, col: [0.4, 1, 0.65], apply: (x) => ({ phi0: x }) },
+        posHandle(o, d, (o2, q) => ({ px: r3m(o2[0] + q[0]), py: r3m(o2[1] + q[1]), pz: r3m(o2[2] + q[2]) }))]; };
     SPEC.ptCoil = helixSpec; SPEC.ptHelix = helixSpec;
     SPEC.w1Scale = (c, p0, stt) => { const base = scaleUnused(c, p0, stt); return () => { const v = c.values(); if (v.uni !== false && v.uni !== 'false') return base(); const b = stt.bodies.get(v.body); if (!b) return []; const [ctr, bb] = bbc(b), H = [];
       [['sx', 0, 'sxx', [1, 0.45, 0.4]], ['sy', 1, 'syy', [0.5, 1, 0.5]], ['sz', 2, 'szz', [0.5, 0.7, 1]]].forEach(([k, i, id, col]) => { const e = [0, 0, 0]; e[i] = 1; const half = Math.max(0.5, (bb.max[i] - bb.min[i]) / 2), s0 = numw(c, k, 100); H.push({ id, p: v3.madd(ctr, e, half * s0 / 100), from: ctr, axis: { o: ctr, d: e }, val: () => numw(c, k, 100), k: 100 / half, snap: 1, min: 1, col, apply: (x) => ({ [k]: x }) }); }); return H; }; };
@@ -24116,7 +24137,9 @@ precision mediump float; void main(){}`;
   Object.assign(CAD.featExt, {
     ptHSweep(f, st2, h) {
       const p = f.params, sk = h.getSketch(st2, p.sketch, f, 'Thread profile sketch'), tools = hsweepTools(sk, h, p, f);
-      return h.applyOp(st2, f, tools, p.op || 'join', p.body && p.body !== 'auto' ? [p.body] : undefined);
+      let tg = p.body && p.body !== 'auto' && p.body !== 'all' ? [p.body] : undefined;
+      if ((!p.body || p.body === 'auto') && (!p.op || p.op === 'join' || p.op === 'cut')) { const one = autoTarget(st2, tools); if (one) tg = one; }
+      return h.applyOp(st2, f, tools, p.op || 'join', tg);
     },
     ptPlace(f, st2, h) {   // rigid move + turn of one body (assembly position): turn about an axis through (px,py,pz), then translate
       const p = f.params, b = h.bodyOf(st2, p.body), a = AD.axisVec(p.axis || '+z'), C = [num(p.px, 0), num(p.py, 0), num(p.pz, 0)], phi = rad(num(p.angle, 0)), d = [num(p.dx, 0), num(p.dy, 0), num(p.dz, 0)], O = [0, 0, 0];
@@ -24140,7 +24163,7 @@ precision mediump float; void main(){}`;
           optionsFn: (v) => { let L = [['all', 'All closed shapes together']]; try { const sk1 = stt.sketches.get(v.sketch || p.sketch || AD.lastSketch(stt)); CAD.sketch.shapes(sk1.data, 24).filter((s) => s.closed).forEach((s) => L.push(['shape:' + s.key, s.name + (s.hidden ? ' (hidden)' : '')])); } catch (e) { /* none */ } return L; } },
         { key: 'axis', label: 'Thread axis (a line of the sketch — turn Names on in the sketch to see L1, L2 …)', value: p.axis || '+z', optionsFn: (v) => lineOpts(stt.sketches.get(v.sketch)).concat(AD.AXOPTS.map((o) => [o[0], 'Direction ' + o[1] + ' through the point below'])) },
         { key: 'op', label: 'Operation', value: p.op || 'join', options: [['join', 'Join (thread ridge)'], ['cut', 'Cut (thread groove)'], ['new', 'New body']] },
-        { key: 'body', label: 'Solid to join / cut', value: p.body || 'auto', optionsFn: () => [['auto', 'Automatic (the solid it touches)']].concat(AD.bodyOpts(stt)) },
+        { key: 'body', label: 'Solid to join / cut (⌖ Solid below picks it in 3D)', value: p.body || 'auto', optionsFn: () => [['auto', 'Automatic (the one solid the thread sits on)'], ['all', 'Every solid it touches (joins them into one)']].concat(AD.bodyOpts(stt)) },
         { key: 'pitch', label: 'Pitch — rise per turn (mm)', value: p.pitch == null ? 3 : p.pitch },
         { key: 'turns', label: 'Number of turns', value: p.turns == null ? 5 : p.turns },
         { key: 'hand', label: 'Handedness', value: p.hand || 'right', options: [['right', 'Right-hand'], ['left', 'Left-hand']] },
@@ -24305,6 +24328,72 @@ precision mediump float; void main(){}`;
     if (f) { f.name = 'Pattern+ ' + (f.params.mode === 'polar' ? '× ' + f.params.count + (f.params.rise ? ' helix' : '') : f.params.n1 + '×' + f.params.n2); P.refreshPanels(); P.fitView(); }
   }
   Object.assign(AD, { helixGeom, helixPts, coilSolid, grooveTool, cylInfo, cmdHelix, cmdCoil, cmdThread, COARSE, specOf, insetPoly, cmdHSweep, cmdPlace, cmdPat });
+  // ---- the solid a thread tooth really sits on (several can touch its box): the body holding the tooth's centre, else the one it overlaps most
+  function autoTarget(st2, tools) {
+    const hit = []; st2.bodies.forEach((b, k) => { try { const r = CAD.csg.booleanMany('intersect', [b.solid], tools); if (r && r.length) hit.push({ k, b, v: r.reduce((a, x) => a + Math.abs(x.volume()), 0) }); } catch (e) { /* skip */ } });
+    if (hit.length < 2) return hit.length ? [hit[0].k] : null;
+    const bb = tools.map((t) => t.bbox()), C = [0, 1, 2].map((i) => (Math.min(...bb.map((q) => q.min[i])) + Math.max(...bb.map((q) => q.max[i]))) / 2);
+    const inside = hit.filter((q) => { const x = q.b.solid.bbox(); return [0, 1, 2].every((i) => C[i] >= x.min[i] - 1e-6 && C[i] <= x.max[i] + 1e-6); });
+    const vol = (q) => { const x = q.b.solid.bbox(); return (x.max[0] - x.min[0]) * (x.max[1] - x.min[1]) * (x.max[2] - x.min[2]); };
+    if (inside.length) return [inside.sort((a, b) => vol(a) - vol(b))[0].k];
+    return [hit.sort((a, b) => b.v - a.v)[0].k];
+  }
+  // ---- a round face (shaft / hole wall) or a round cap gives axis direction, a point on the axis, the radius and the length
+  function seedFromFace(b, fi) {
+    let C, a, r, len = null;
+    try { const ci = cylInfo(b, fi); a = ci.a; C = v3.madd(ci.C, ci.a, ci.t0); r = ci.r; len = ci.t1 - ci.t0; }
+    catch (e) {
+      const sd = b.solid, f = sd.F[fi], l = f && f.loops && f.loops[0]; if (!l || l.length < 12) return null;
+      let cx = 0, cy = 0, cz = 0; l.forEach((vi) => { const q = sd.V[vi]; cx += q[0]; cy += q[1]; cz += q[2]; }); C = [cx / l.length, cy / l.length, cz / l.length];
+      const rs = l.map((vi) => Math.hypot(sd.V[vi][0] - C[0], sd.V[vi][1] - C[1], sd.V[vi][2] - C[2])); r = rs.reduce((x, y) => x + y, 0) / rs.length;
+      if (!(r > 1e-6) || Math.max(...rs.map((x) => Math.abs(x - r))) / r > 0.03) return null; a = v3.norm(f.n);
+    }
+    const dirs = [['+x', [1, 0, 0]], ['-x', [-1, 0, 0]], ['+y', [0, 1, 0]], ['-y', [0, -1, 0]], ['+z', [0, 0, 1]], ['-z', [0, 0, -1]]];
+    let best = dirs[0], bd = -2; dirs.forEach((d) => { const q = v3.dot(a, d[1]); if (q > bd) { bd = q; best = d; } });
+    const rd = (x) => Math.round(x * 1000) / 1000;
+    return { axis: best[0], px: rd(C[0]), py: rd(C[1]), pz: rd(C[2]), R: rd(r), len, square: bd > 0.9995, body: b.key };
+  }
+  window.AAKAR_HELIX = { seed: seedFromFace, bodyAt: (key) => P.bodyByKey && P.bodyByKey(key) };
+  function helixSeed() {
+    const b = AD.selBody(), fi = b ? AD.selFaces() : []; if (!b || fi.length !== 1) return null;
+    const sd = seedFromFace(b, fi[0]); if (!sd) return null;
+    if (!sd.square) toast('The face axis is not along X, Y or Z, so the nearest of those was used', true);
+    return sd;
+  }
+  const oldCmdHelix = cmdHelix, oldCmdCoil = cmdCoil;
+  AD.cmdHelix = async function () {
+    const sd = helixSeed(); if (!sd) { toast('Tip: select the bolt’s round face first and the helix starts on it. In the dialog, drag the white Move dot onto a match point (centres, corners) or use ⌖ Move axis to a point.'); return oldCmdHelix(); }
+    const pitch = hv.pitch, turns = sd.len ? Math.max(1, Math.min(60, Math.round(sd.len / pitch * 2) / 2)) : hv.turns;
+    const f = await P.createViaFUI('ptHelix', 'Helix (guide curve)', Object.assign({}, hv, { axis: sd.axis, px: sd.px, py: sd.py, pz: sd.pz, R: sd.R, turns }));
+    if (f) { f.name = 'Helix R' + fmt(f.params.R, 1) + ' × ' + fmt(f.params.turns, 1); P.refreshPanels(); }
+  };
+  AD.cmdCoil = async function () {
+    const sd = helixSeed(); if (!sd) return oldCmdCoil();
+    const f = await P.createViaFUI('ptCoil', 'Coil / spring', Object.assign({}, hv, { prof: 'round', w: 2, hgt: 1, axis: sd.axis, px: sd.px, py: sd.py, pz: sd.pz, R: sd.R }));
+    if (f) { f.name = 'Coil Ø' + fmt(2 * f.params.R, 1) + ' × ' + fmt(f.params.turns, 1) + ' turns'; P.refreshPanels(); P.fitView(); }
+  };
+  // ---- Separate solids: a body that is really several unconnected pieces becomes one body per piece
+  CAD.featNames = Object.assign(CAD.featNames || {}, { ptSplitLumps: 'Separate solids' });
+  Object.assign(CAD.featExt, {
+    ptSplitLumps(f, st2, h) {
+      const b = h.bodyOf(st2, f.params.body), sd = b.solid, sh = sd.shells().map((fs) => ({ fs, s: new CAD.Solid(sd.V, fs.map((i) => sd.F[i])) }));
+      const outer = sh.filter((q) => q.s.volume() > 1e-9), voids = sh.filter((q) => !(q.s.volume() > 1e-9));
+      if (outer.length < 2) throw new Error('This body is one connected piece already, so there is nothing to separate');
+      const bx = (q) => q.s.bbox(), inB = (a, c) => [0, 1, 2].every((i) => a.min[i] >= c.min[i] - 1e-6 && a.max[i] <= c.max[i] + 1e-6);
+      const faces = outer.map((q) => q.fs.slice()); voids.forEach((v) => { let bi = -1, bv = Infinity; outer.forEach((q, i) => { if (!inB(bx(v), bx(q))) return; const x = bx(q), vv = (x.max[0] - x.min[0]) * (x.max[1] - x.min[1]) * (x.max[2] - x.min[2]); if (vv < bv) { bv = vv; bi = i; } }); if (bi >= 0) faces[bi] = faces[bi].concat(v.fs); });
+      const parts = faces.map((fs) => new CAD.Solid(sd.V, fs.map((i) => sd.F[i])));
+      if (f.params.as === 'components') { parts.forEach((q, i) => { if (CAD.exact && CAD.exact.lazyPoly) CAD.exact.lazyPoly(q); const k = i === 0 ? b.key : b.key + '.' + (i + 1); st2.bodies.set(k, { key: k, name: i === 0 ? b.name : b.name + ' (' + (i + 1) + ')', solid: q, src: i === 0 ? b.src : f.id + '.c' + i, bim: b.bim || null }); }); return st2; }
+      h.putBodies(st2, b.key, b.name, parts, b.src, b.bim); return st2;
+    }
+  });
+  P.FUI.ptSplitLumps = (f, stt) => ({ fields: [{ key: 'body', label: 'Body to separate', value: f.params.body || '', optionsFn: () => AD.bodyOpts(stt) }, { key: 'as', label: 'Make the pieces', value: f.params.as || 'components', options: [['components', 'Separate components (each can be moved, mated, listed in the BOM)'], ['bodies', 'Independent bodies of the same part']] }], note: 'Each unconnected piece of the chosen body becomes its own solid (the first keeps the name, the others get “(2)”, “(3)” …). Pieces that really touch stay together. Two sketches extruded as “New body” are already separate components.', apply: (v) => Object.assign({}, f.params, { body: v.body, as: v.as }) });
+  AD.cmdLumps = async function () {
+    const b = AD.selBody(); if (!b) return toast('Select the body first (click it in the 3D view)', true);
+    let n = 1; try { n = b.solid.shells().filter((q) => true).length; } catch (e) { n = 1; }
+    if (n < 2) return toast('“' + b.name + '” is one connected piece already — nothing to separate', true);
+    const f = await P.createViaFUI('ptSplitLumps', 'Separate solids', { body: b.key, as: 'components' });
+    if (f) { f.name = 'Separate ' + b.name; P.refreshPanels(); }
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /* Aakar 8.7 · Part+ : WALL-THICKNESS ANALYSIS (ray casting through a BVH, colour map + report) */
@@ -25630,7 +25719,8 @@ CAD.cellsOf = function (s, faces) { const g = new Set(), sel = new Set(faces); f
     ['pxsurfpath', 'Surface Path', AD.cmdSurfPath, 'Shortest or smoothest curve on a solid between two points, with a live preview of both', I.wrap],
     ['pxsplitcurve', 'Split face by curve', AD.cmdSplitByCurve, 'Cut a face into separate faces along any curve lying on it (Surface Path, Projected curve, Split line)', I.wrap],
     ['pxsrfcut', 'Surface Cut', AD.cmdSurfCut, 'Cut a solid with a surface: remove, keep, or split into two bodies', I.split],
-    ['pxcombine', 'Combine…', AD.cmdCombine, 'Add, subtract or keep the common part of several solids in one dialog', I.wrap]
+    ['pxcombine', 'Combine…', AD.cmdCombine, 'Add, subtract or keep the common part of several solids in one dialog', I.wrap],
+    ['pxlumps', 'Separate solids', () => AD.cmdLumps(), 'Turn a body that is really several unconnected pieces (e.g. a roller and a bolt that ended up in one body) into one body per piece', I.split]
   ]);
   P.addGroup('partx', 'Threads & coils', [
     ['pxthread', 'Thread', AD.cmdThread, 'ISO metric thread on a shaft or hole: cosmetic or modelled helical groove', I.thr],
@@ -32362,7 +32452,7 @@ function stepRead(text, opts) {
 AK.stepWrite = stepWrite; AK.stepRead = stepRead; AK.stepParse = stepParse;
 
 // ---------------------------------------------------------------- public kernel interface (the contract Aakar's exact-kernel panel expects, plus analysis extras)
-AK.version = '1.4.0';
+AK.version = '1.5.0';
 const mkNode = (kind, d) => new Node(kind, d);
 const prim = (p) => mkNode('prim', { prim: p });
 const num = (x, name) => { if (!(typeof x === 'number' && isFinite(x))) throw new Error(name + ' must be a finite number'); return x; };
@@ -32551,8 +32641,14 @@ G.AakarKernel = AK;
       try {
         if (G.AakarKernelInstalled && G.AakarKernelInstalled.kernel) return fin(true);
         const d = G.document; if (!d) return fin(false, 'no document');
-        const el = d.createElement('script'); el.src = 'kernel/aakar-kernel.installable.js'; el.async = true;
-        el.onload = () => fin(!!(G.AakarKernelInstalled && G.AakarKernelInstalled.kernel), 'the file loaded but holds no kernel'); el.onerror = () => { el.remove(); fin(false, 'folder kernel/ not found next to this file'); }; d.head.appendChild(el);
+        const paths = ['kernel/aakar-kernel.installable.js', 'kernel/dist/aakar-kernel.installable.js', '../kernel/aakar-kernel.installable.js', '../kernel/dist/aakar-kernel.installable.js'];   // beside index.html, or the repository layout Aakar-main/app + Aakar-main/kernel/dist
+        const tryAt = (i) => {
+          if (i >= paths.length) return fin(false, 'no kernel file found: put aakar-kernel.installable.js in a folder kernel/ next to index.html (tried ' + paths.join(', ') + ')');
+          const el = d.createElement('script'); el.src = paths[i]; el.async = true;
+          el.onload = () => (G.AakarKernelInstalled && G.AakarKernelInstalled.kernel ? fin(true) : (el.remove(), tryAt(i + 1)));
+          el.onerror = () => { el.remove(); tryAt(i + 1); }; d.head.appendChild(el);
+        };
+        tryAt(0);
       } catch (e) { fin(false, e.message || String(e)); }
     });
   };
@@ -34949,7 +35045,7 @@ body.x855 #x86fab{display:none!important}
   'use strict';
   const AK = G.AakarKernel, CAD = G.CAD; if (!AK || !AK.kernel) return;
   const K = AK.kernel;
-  K.version = AK.version = '1.4.0';
+  K.version = AK.version = '1.5.0';
   K.features = ['exact-brep', 'booleans', 'mass-properties', 'step', 'clash', 'persistent-face-ids'];
   const tri9 = (m) => { const out = new Float64Array(m.indices.length * 3), p = m.positions; for (let i = 0; i < m.indices.length; i++) { const v = m.indices[i] * 3; out[i * 3] = p[v]; out[i * 3 + 1] = p[v + 1]; out[i * 3 + 2] = p[v + 2]; } return out; };
   const scaleOf = (m) => { let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity]; for (let i = 0; i < m.positions.length; i += 3) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], m.positions[i + k]); mx[k] = Math.max(mx[k], m.positions[i + k]); } return Math.hypot(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]); };
@@ -35068,7 +35164,7 @@ body.x855 #x86fab{display:none!important}
     throw last;
   };
   K.features = (K.features || []).concat(['round-edges', 'round-rim-torus', 'mirror', 'polyhedron', 'trimmed-torus-massprops', 'boolean-retry']);
-  K.version = AK.version = '1.4.0';
+  K.version = AK.version = '1.5.0';
 })(window.AakarKernel);
 </script>
 <script id="aakar-kernel-nurbs">
@@ -36176,7 +36272,7 @@ body.x855 #x86fab{display:none!important}
     } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
   }
   const boolExact = (op, a, b) => boolPrisms(op, a, b);
-  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, faceAt, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, boolPrisms, boolExact, isPrism, shellExact, offsetPrism, shellPrism, roundPrism, offsetLoopCurves, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.4.0' };
+  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, faceAt, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, boolPrisms, boolExact, isPrism, shellExact, offsetPrism, shellPrism, roundPrism, offsetLoopCurves, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.5.0' };
   K.features = (K.features || []).concat(['nurbs-curves', 'nurbs-solids', 'nurbs-massprops', 'nurbs-step']);
 })(window.AakarKernel);
 
@@ -42049,7 +42145,7 @@ const SurfPath = (function () {
     const AK = G.AakarKernel;
     if (AK) {
       AK.construct = A; if (AK.kernel) AK.kernel.construct = A;
-      AK.version = '1.4.0'; if (AK.kernel) AK.kernel.version = '1.4.0';
+      AK.version = '1.5.0'; if (AK.kernel) AK.kernel.version = '1.5.0';
       A.selfTest = function () {
         const T = [], t = (n, c) => T.push({ name: n, ok: !!c }), near = (a, b, e) => Math.abs(a - b) <= (e || 1e-9), nv = (a, b) => V.dist(a, b) <= 1e-9;
         t('plane offset', nv(A.planeOffset(A.stdPlane('XY'), 7).o, [0, 0, 7]));
@@ -59973,6 +60069,419 @@ body.aaktouch .aakhit{position:relative}body.aaktouch .aakhit::after{content:"";
   vp.addEventListener('pointerdown',function(){ if(!el.hidden&&S.mode==='after') hide(); },true);
   P.hooks.draw.push(function(){ if(el.hidden) return; if(S.mode==='after'&&sigNow()!==S.sig&&!S.busy){ hide(); return; } place(); });
   window.AAKAR_HV={show:show,hide:hide,el:el,state:S,commit:commit};
+})();
+</script>
+
+<script id="aakPartOrg">
+(function () {
+  'use strict';
+  const G = window, P = G.PRISM, CAD = G.CAD; if (!P || !CAD || !CAD.feat || !P.st) return;
+  const F = CAD.feat, st = P.st, $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const meta = () => P.meta();
+  const MM = () => { const m = meta(); ['pn', 'pnUsed', 'pnx', 'fold', 'tags', 'pin', 'mat', 'lock'].forEach((k) => { if (!m[k]) m[k] = {}; }); if (!m.folders) m.folders = []; if (!m.pv) m.pv = { sort: 'created', desc: false, group: 'none', flt: 'all', q: '', collapsed: {}, order: [] }; return m; };
+  const NAT = (a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+  const toast = (m, e) => { try { P.toast(m, e); } catch (x) { /* ignore */ } };
+  const PREF = 'aakar.pn.v1', DEF = { ask: true, extra: true, remember: false, last: '' };
+  const prefs = () => { try { return Object.assign({}, DEF, JSON.parse(localStorage.getItem(PREF) || '{}')); } catch (e) { return Object.assign({}, DEF); } };
+  const setPrefs = (o) => { try { localStorage.setItem(PREF, JSON.stringify(Object.assign(prefs(), o))); } catch (e) { /* ignore */ } };
+  const RECK = 'aakar.pn.recent', recents = () => { try { return JSON.parse(localStorage.getItem(RECK) || '[]'); } catch (e) { return []; } };
+  const pushRecent = (n) => { try { const L = recents().filter((x) => x !== n); L.unshift(n); localStorage.setItem(RECK, JSON.stringify(L.slice(0, 5))); } catch (e) { /* ignore */ } };
+  const DENS = { steel: 7.85, stainless: 8.0, 'a2-70': 8.0, aluminium: 2.7, aluminum: 2.7, al: 2.7, brass: 8.5, bronze: 8.8, copper: 8.96, titanium: 4.5, iron: 7.2, abs: 1.05, pla: 1.24, petg: 1.27, nylon: 1.15, wood: 0.6, oak: 0.75, pine: 0.5, glass: 2.5, rubber: 1.1, brick: 1.9, concrete: 2.4 };
+  const dens = (m) => { const s = String(m || '').toLowerCase(); for (const k of Object.keys(DENS)) if (s.indexOf(k) >= 0) return DENS[k]; return 0; };
+
+  // ============================================================ part registry
+  const volC = new WeakMap(), bbC = new WeakMap(), jsC = new WeakMap();
+  const vol = (b) => { try { if (!b.solid) return 0; let v = volC.get(b.solid); if (v == null) { v = Math.abs(b.solid.volume()); volC.set(b.solid, v); } return v; } catch (e) { return 0; } };
+  const bbc = (b) => { try { if (!b.solid) return null; let v = bbC.get(b.solid); if (!v) { const x = b.solid.bbox(); v = [0, 1, 2].map((i) => (x.min[i] + x.max[i]) / 2); v.min = x.min; v.max = x.max; bbC.set(b.solid, v); } return v; } catch (e) { return null; } };
+  const pjson = (f) => { let s = jsC.get(f.params); if (s == null) { try { s = JSON.stringify(f.params); } catch (e) { s = ''; } jsC.set(f.params || f, s); } return s; };
+  const featById = (id) => st.doc.features.find((f) => f.id === id);
+  const keyRoot = (k) => String(k).split('.')[0];
+  function parts() {
+    const M = MM(), feats = st.doc.features, idx = new Map(); feats.forEach((f, i) => idx.set(f.id, i));
+    const out = [];
+    st.bodies.forEach((b, n) => {
+      const src = b.src || keyRoot(b.key), fi = idx.has(src) ? idx.get(src) : idx.has(keyRoot(b.key)) ? idx.get(keyRoot(b.key)) : n;
+      let ed = fi; if (M.pv.sort === 'edited') for (let i = feats.length - 1; i > fi; i--) { if (pjson(feats[i]).indexOf(b.key) >= 0) { ed = i; break; } }
+      out.push({ key: b.key, kind: 'body', name: b.name, color: b.color, visible: b.visible !== false, vol: vol(b), c: bbc(b), created: fi, edited: ed, src, comp: (featById(src) || {}).name || src, obj: b, bim: b.bim });
+    });
+    st.items.forEach((it, n) => {
+      const src = it.src || keyRoot(it.key), fi = idx.has(src) ? idx.get(src) : idx.has(keyRoot(it.key)) ? idx.get(keyRoot(it.key)) : st.bodies.length + n;
+      out.push({ key: it.key, kind: 'item', name: it.name, color: null, visible: it.visible !== false, vol: 0, c: null, created: fi, edited: fi, src, comp: (featById(src) || {}).name || src, obj: it, ikind: it.kind });
+    });
+    out.forEach((p) => { p.fold = M.fold[p.key] || ''; p.tags = M.tags[p.key] || []; p.mat = M.mat[p.key] || ''; p.pin = !!M.pin[p.key]; p.lock = !!M.lock[p.key]; p.typ = p.kind === 'body' ? (p.bim ? 'BIM' : 'Solid') : ({ surface: 'NURBS', subd: 'SubD', frame: 'FEA', msurf: 'Trimmed', curve: 'Curve', cloud: 'Points' }[p.ikind] || 'Item'); });
+    return out;
+  }
+  const selKeys = () => { const s = st.sel, o = new Set(); if (s) { if (s.type === 'body' && s.bodyIds) s.bodyIds.forEach((k) => o.add(k)); else if (s.bodyId) o.add(s.bodyId); } if (st.itemSel) o.add(st.itemSel); return o; };
+  const isDefaultName = (p) => { const f = featById(keyRoot(p.key)); return !!f && (p.name === f.name || /^(Extrude|Revolve|Sweep|Loft|Box|Cylinder|Sphere|Cone|Torus|Sketch|Surface|SubD|Part)\b[\s\d]*$/i.test(p.name)) && !MM().names[p.key]; };
+
+  // ============================================================ name pop-up
+  const css = document.createElement('style'); css.id = 'aakPartOrgCss'; css.textContent = `
+.pn-ov{position:fixed;inset:0;background:#0007;z-index:100000;display:flex;align-items:center;justify-content:center;font:13px system-ui,sans-serif}
+.pn-dlg{width:min(400px,94vw);background:#121d33;border:1px solid #2c3f63;border-radius:14px;padding:16px;box-shadow:0 20px 60px #000b;color:#d7e3f8}
+.pn-dlg h3{margin:0 0 4px;font-size:15px}.pn-dlg p{margin:0 0 10px;color:#8296b8;font-size:12px}
+.pn-dlg label{display:block;color:#8296b8;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 4px}
+.pn-dlg input[type=text],.pn-dlg select{width:100%;background:#0a1222;border:1px solid #22314d;border-radius:8px;padding:8px 10px;color:#fff;font:inherit}
+.pn-dlg input.pn-name{border-color:#4a8dff;box-shadow:0 0 0 3px #4a8dff33}
+.pn-sug{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}.pn-sug button{font-size:11px;border:1px solid #22314d;border-radius:12px;padding:2px 8px;color:#9db4de;background:transparent;cursor:pointer}
+.pn-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.pn-dlg label.pn-ck{color:#8296b8;font-size:12px;margin-top:12px;display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0}
+.pn-ft{display:flex;align-items:center;gap:8px;margin-top:14px}.pn-ft .sp{flex:1}.pn-b{padding:7px 14px;border-radius:8px;border:1px solid #22314d;background:#16233c;color:#d7e3f8;cursor:pointer;font:inherit}.pn-b.p{background:#ff8a3d;border-color:#ff8a3d;color:#1a0d02;font-weight:700}
+.pn-warn{color:#ffb074;font-size:11.5px;min-height:14px;margin-top:4px}
+#tab-parts{padding:2px 0}.po-bar{display:flex;gap:5px;align-items:center;margin-bottom:6px;flex-wrap:wrap}
+.po-bar input[type=text],.po-bar select{flex:1;min-width:90px;height:26px;font-size:12px;background:#0f141d;color:inherit;border:1px solid #2a3445;border-radius:6px;padding:0 7px}
+.po-btn{font-size:11.5px;padding:3px 9px;border-radius:7px;border:1px solid #2a3445;background:#16233c;color:#cfe0ff;cursor:pointer;white-space:nowrap}.po-btn.hot{border-color:#ff8a3d;color:#ffd8bd}
+.po-chip{font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid #2a3445;background:transparent;color:#9fb0c8;cursor:pointer}.po-chip.on{background:#2a1a0b;color:#ffd8bd;border-color:#ff8a3d}
+.po-lst{border:1px solid #2a3445;border-radius:8px;overflow-y:auto;max-height:46vh;min-height:120px}
+.po-gh{display:flex;gap:7px;align-items:center;padding:5px 9px;background:#121925;font-size:11.5px;font-weight:600;color:#b8c7de;border-bottom:1px solid #2a3445;position:sticky;top:0;z-index:1;cursor:pointer}.po-gh small{margin-left:auto;font-weight:400;color:#6f7f98}.po-gh.drop{outline:2px solid #ff8a3d}
+.po-row{display:flex;align-items:center;gap:6px;padding:4px 8px 4px 14px;border-bottom:1px solid #15223a;cursor:pointer;font-size:12px}.po-row:hover{background:#19243b}.po-row.sel{background:#14284d}.po-row.hid{opacity:.5}
+.po-row .sw{width:11px;height:11px;border-radius:3px;flex:none}.po-row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.po-row .tg{font-size:10px;padding:0 6px;border-radius:9px;background:#1b2b49;color:#9db4de;white-space:nowrap}
+.po-row .vl{color:#7d8fae;font-size:11px;min-width:54px;text-align:right}.po-row .ic{color:#7d8fae;cursor:pointer;min-width:15px;text-align:center}.po-row .ic.on{color:#ff8a3d}
+.po-row input[type=checkbox],.fcb{accent-color:#4a8dff;width:14px;height:14px;flex:none;margin:0;cursor:pointer}
+.po-sel{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.po-sum{color:#7d8fae;font-size:11px;margin:5px 0}
+.po-pop{position:fixed;z-index:100001;background:#142038;border:1px solid #2c3f63;border-radius:10px;padding:10px;box-shadow:0 14px 40px #000a;font:12px system-ui,sans-serif;color:#d7e3f8;min-width:230px;max-width:340px}
+.po-pop input[type=text],.po-pop input[type=number],.po-pop select{width:100%;background:#0a1222;border:1px solid #22314d;border-radius:7px;padding:6px 8px;color:#fff;font:inherit;margin:3px 0}
+.po-pop .it{padding:5px 8px;border-radius:6px;cursor:pointer}.po-pop .it:hover{background:#1d3566}.po-pop .h{color:#8296b8;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;margin:6px 0 2px}
+.po-pop .rw{display:flex;gap:6px;margin-top:8px;justify-content:flex-end}
+#fbulk{margin:0 0 6px;padding:5px 7px;border:1px solid #2a3445;border-radius:8px;background:#0f1726;font-size:11.5px}#fbulk .r1{display:flex;gap:6px;align-items:center;flex-wrap:wrap}#fbulk .r2{display:none;gap:5px;flex-wrap:wrap;margin-top:6px}#fbulk.has .r2{display:flex}
+.fitem .fcb{margin:0 6px 0 0}.fitem.fcbsel{background:#14284d}`;
+  document.head.appendChild(css);
+
+  let chain = Promise.resolve();
+  function askName(o) {
+    chain = chain.then(() => new Promise((res) => {
+      const pf = prefs(), M = MM(), taken = () => new Set([...st.bodies.map((b) => b.name), ...st.items.map((i) => i.name), ...Object.values(M.names)]);
+      const uniq = (b) => { const t = taken(); if (!t.has(b)) return b; for (let i = 2; i < 999; i++) if (!t.has(b + ' ' + i)) return b + ' ' + i; return b; };
+      const ov = document.createElement('div'); ov.className = 'pn-ov'; ov.id = 'pnOv';
+      const folders = [...new Set([...(M.folders || []), ...Object.values(M.fold)])].filter(Boolean).sort(NAT);
+      const sug = [uniq(o.base || 'Part'), ...recents().map((r) => uniq(r))].filter((x, i, a) => a.indexOf(x) === i).slice(0, 5);
+      ov.innerHTML = '<div class="pn-dlg" role="dialog" aria-label="Name this part"><h3>' + esc(o.title || 'Name this part') + '</h3><p>' + esc(o.sub || 'It will appear with this name in the Parts list, the BOM and exports.') + '</p><label>Name</label><input type="text" class="pn-name" id="pnName" autocomplete="off"><div class="pn-warn" id="pnWarn"></div><div class="pn-sug" id="pnSug"></div>'
+        + (pf.extra ? '<div class="pn-two"><div><label>Folder (optional)</label><select id="pnFold"><option value="">(none)</option>' + folders.map((f) => '<option>' + esc(f) + '</option>').join('') + '<option value="__new">＋ New folder…</option></select><input type="text" id="pnNewF" placeholder="Folder name" style="display:none;margin-top:4px"></div><div><label>Material (optional)</label><input type="text" id="pnMat" list="pnMats" placeholder="e.g. steel"><datalist id="pnMats">' + Object.keys(DENS).map((k) => '<option>' + k + '</option>').join('') + '</datalist></div></div>' : '')
+        + '<label class="pn-ck"><input type="checkbox" id="pnNo"> Don’t ask again (turn it back on in Parts ▸ ⚙ Naming)</label><div class="pn-ft"><button class="pn-b" id="pnSkip" type="button">Skip — auto name “' + esc(o.auto || 'Part') + '”</button><span class="sp"></span><button class="pn-b p" id="pnOk" type="button">Name it  ↵</button></div></div>';
+      document.body.appendChild(ov);
+      const inp = $('#pnName', ov), warn = $('#pnWarn', ov), sg = $('#pnSug', ov);
+      inp.value = o.preset || sug[0] || 'Part'; setTimeout(() => { inp.focus(); inp.select(); }, 30);
+      sg.innerHTML = sug.map((s) => '<button type="button">' + esc(s) + '</button>').join('');
+      sg.onclick = (e) => { const b = e.target.closest('button'); if (b) { inp.value = b.textContent; chk(); inp.focus(); } };
+      const chk = () => { const v = inp.value.trim(), t = taken(); warn.textContent = v && t.has(v) ? '“' + v + '” already exists (allowed)' : ''; }; inp.oninput = chk; chk();
+      const fs = $('#pnFold', ov); if (fs) fs.onchange = () => { $('#pnNewF', ov).style.display = fs.value === '__new' ? '' : 'none'; };
+      const done = (r) => { if ($('#pnNo', ov).checked) { setPrefs({ ask: false }); toast('Naming pop-up turned off. Turn it back on in Parts ▸ ⚙ Naming.'); } ov.remove(); document.removeEventListener('keydown', kd, true); res(r); };
+      const ok = () => { const name = inp.value.trim(); if (!name) { done(null); return; } let folder = ''; if (fs) folder = fs.value === '__new' ? ($('#pnNewF', ov).value || '').trim() : fs.value; const mat = ($('#pnMat', ov) || {}).value || ''; pushRecent(name); done({ name, folder, mat: mat.trim() }); };
+      const kd = (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); ok(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); } };
+      document.addEventListener('keydown', kd, true);
+      $('#pnOk', ov).onclick = ok; $('#pnSkip', ov).onclick = () => done(null);
+    })).catch(() => null);
+    return chain;
+  }
+
+  // ============================================================ naming rules: when to ask, when the name is carried over
+  const EXCL = /^(import|x10Insert|x10Place|deleteBody|sketch|w1Offset)$/;
+  let quiet = false, ready = false; setTimeout(() => { ready = true; }, 1500);
+  const auto = () => { try { return !!navigator.webdriver && !G.__pnForce; } catch (e) { return false; } };
+  const oc = P.commitFeature; P.commitFeature = function (f, q) { const p = quiet; quiet = q === true; try { return oc.apply(this, arguments); } finally { quiet = p; } };
+  const snapKeys = () => ({ b: new Set(st.bodies.map((b) => b.key)), i: new Set(st.items.map((i) => i.key)) });
+  const refresh = (f) => { try { F.invalidate(st.doc, Math.max(0, st.doc.features.indexOf(f))); P.regenerate(); } catch (e) { /* ignore */ } };
+  const nameOfKey = (k) => { const M = MM(); if (M.names[k]) return M.names[k]; const b = st.bodies.find((x) => x.key === k); if (b) return b.name; const i = st.items.find((x) => x.key === k); if (i) return i.name; const f = featById(keyRoot(k)); return f ? f.name : ''; };
+  function lineage(f) {
+    const p = f.params || {}, M = MM(); let sid = null;
+    if (p.sketch && M.pn[p.sketch]) sid = p.sketch; else if (Array.isArray(p.sections)) sid = p.sections.find((x) => M.pn[x]) || null; else if (p.profile && M.pn[p.profile]) sid = p.profile;
+    if (sid) return { name: M.pn[sid], sid, used: (M.pnUsed[sid] || 0) > 0, x: M.pnx[sid] };
+    const t = p.target || p.surface || p.body || p.item || p.src;
+    if (typeof t === 'string' && t) { const nm = nameOfKey(t); if (nm && !/^(Preview)$/.test(nm)) return { name: nm, sid: null, used: false, conv: true }; }
+    return null;
+  }
+  function apply(f, nw, base, r) {
+    const M = MM();
+    nw.forEach((n, i) => { const nm = nw.length > 1 ? base + ' ' + (i + 1) : base; M.names[n.key] = nm; if (r && r.folder) { M.fold[n.key] = r.folder; if (M.folders.indexOf(r.folder) < 0) M.folders.push(r.folder); } if (r && r.mat) M.mat[n.key] = r.mat; });
+    f.name = base; refresh(f);
+  }
+  function afterAdd(f, before) {
+    try {
+      if (!st.doc.features.includes(f) || f.suppressed) return;
+      if (f.type === 'sketch') { const pl = f.params && f.params.plane; const pd = G.__pnPending; G.__pnPending = null;
+        if (pd && Date.now() - pd.t < 20 * 60 * 1000) { if (pd.skip) return; const M0 = MM(); M0.pn[f.id] = pd.name; M0.pnx[f.id] = { folder: pd.folder, mat: pd.mat }; f.name = pd.name + ' sketch'; refresh(f); return; }
+        if (pl && pl.kind === 'face') return; if (!prefs().ask) return;
+        const n = st.doc.features.filter((x) => x.type === 'sketch').length; askName({ title: 'Name this part', base: 'Part', auto: f.name || 'Sketch ' + n, sub: 'You are starting a new sketch. The part keeps this name when the sketch becomes a solid, a surface or a SubD.' }).then((r) => { if (!r || !st.doc.features.includes(f)) return; const M = MM(); M.pn[f.id] = r.name; M.pnx[f.id] = { folder: r.folder, mat: r.mat }; f.name = r.name + ' sketch'; refresh(f); }); return; }
+      if (EXCL.test(f.type)) return;
+      const nb = st.bodies.filter((b) => !before.b.has(b.key)), ni = st.items.filter((i) => !before.i.has(i.key));
+      const nw = nb.map((b) => ({ key: b.key, kind: 'body' })).concat(ni.map((i) => ({ key: i.key, kind: 'item' })));
+      if (!nw.length || nw.length > 12) return;
+      const lin = lineage(f);
+      if (lin && !lin.used) { apply(f, nw, lin.name, lin.x); if (lin.sid) { const M = MM(); M.pnUsed[lin.sid] = (M.pnUsed[lin.sid] || 0) + nw.length; } return; }
+      if (!prefs().ask) return;
+      const baseSug = lin ? lin.name : '';
+      askName({ title: nw.length > 1 ? 'Name these ' + nw.length + ' parts' : 'Name this part', base: baseSug || 'Part', preset: baseSug ? baseSug + ' 2' : undefined, auto: f.name, sub: nw.length > 1 ? 'They are numbered from this name (Name 1, Name 2 …).' : undefined }).then((r) => { if (r && st.doc.features.includes(f)) apply(f, nw, r.name, r); });
+    } catch (e) { console.warn('part naming', e); }
+  }
+  // asked BEFORE the sketcher opens (plane picked): the name is kept and attached when the sketch is committed
+  const os0 = P.openSketcher; if (os0) P.openSketcher = function (feature, plane) {
+    const self = this, args = arguments;
+    if (!feature && plane && plane.kind !== 'face' && ready && !auto() && prefs().ask && !document.getElementById('pnOv')) {
+      return askName({ title: 'Name this part', base: 'Part', auto: 'Sketch ' + (st.doc.features.filter((x) => x.type === 'sketch').length + 1), sub: 'You are starting a new sketch. The part keeps this name when the sketch becomes a solid, a surface or a SubD.' }).then((r) => { G.__pnPending = r ? { name: r.name, folder: r.folder, mat: r.mat, t: Date.now() } : { skip: true, t: Date.now() }; return os0.apply(self, args); });
+    }
+    return os0.apply(this, arguments);
+  };
+  G.__pnAskSketch = function (plane, go) {
+    if (plane && plane.kind !== 'face' && ready && !auto() && prefs().ask && !document.getElementById('pnOv')) {
+      askName({ title: 'Name this part', base: 'Part', auto: 'Sketch ' + (st.doc.features.filter((x) => x.type === 'sketch').length + 1), sub: 'You are starting a new sketch. The part keeps this name when the sketch becomes a solid, a surface or a SubD.' }).then((r) => { G.__pnPending = r ? { name: r.name, folder: r.folder, mat: r.mat, t: Date.now() } : { skip: true, t: Date.now() }; go(); });
+    } else go();
+  };
+  const add0 = F.add; F.add = function (doc, f) {
+    const track = ready && !quiet && !auto() && doc === st.doc && f && prefs() && true; const before = track ? snapKeys() : null;
+    const r = add0.apply(this, arguments); if (track) setTimeout(() => afterAdd(f && f.id ? f : r, before), 40); return r;
+  };
+
+  // ============================================================ Parts tab
+  const tabBtn = $('#left .tab[data-tab=parts]'), pane = $('#tab-parts'); if (!tabBtn || !pane) return;
+  let selAnchor = null; const PS = { sel: new Set(), lastSel: '' };
+  const menu = (x, y, html, on) => { $$('.po-pop').forEach((e) => e.remove()); const m = document.createElement('div'); m.className = 'po-pop'; m.innerHTML = html; document.body.appendChild(m); const w = m.offsetWidth, h = m.offsetHeight; m.style.left = Math.max(6, Math.min(x, innerWidth - w - 8)) + 'px'; m.style.top = Math.max(6, Math.min(y, innerHeight - h - 8)) + 'px'; on(m); const away = (e) => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('pointerdown', away, true); } }; setTimeout(() => document.addEventListener('pointerdown', away, true), 0); return m; };
+  const closePop = () => $$('.po-pop').forEach((e) => e.remove());
+  const fmtV = (v) => v >= 1e6 ? (v / 1e6).toFixed(2) + ' dm³' : v >= 1000 ? (v / 1000).toFixed(v >= 1e5 ? 0 : 1) + ' cm³' : v ? v.toFixed(0) + ' mm³' : '';
+  const SORTS = [['created', 'Creation order'], ['az', 'Name A → Z'], ['za', 'Name Z → A'], ['big', 'Size — biggest first'], ['small', 'Size — smallest first'], ['x', 'Position X (left → right)'], ['y', 'Position Y'], ['z', 'Position Z (bottom → top)'], ['dist', 'Distance from selected part'], ['mat', 'Material'], ['color', 'Colour'], ['edited', 'Last edited (feature order)'], ['comp', 'Component / source feature'], ['manual', 'Manual (drag to reorder)']];
+  const GROUPS = [['none', 'None'], ['comp', 'Component / source feature'], ['mat', 'Material'], ['color', 'Colour'], ['tag', 'Tag'], ['fold', 'Folder (mine)'], ['typ', 'Type (solid, NURBS, SubD …)'], ['vis', 'Visible / hidden']];
+  const colName = (p) => (p.color ? p.color.map((c) => (c * 255) | 0).join(',') : 'zzz');
+  function sorter(sort, desc, list) {
+    const sel = [...selKeys()][0], sp = list.find((p) => p.key === sel), M = MM(), ord = M.pv.order || [];
+    const cmp = { created: (a, b) => a.created - b.created || NAT(a.key, b.key), az: (a, b) => NAT(a.name, b.name), za: (a, b) => NAT(b.name, a.name), big: (a, b) => b.vol - a.vol, small: (a, b) => a.vol - b.vol,
+      x: (a, b) => ((a.c || [0])[0] || 0) - ((b.c || [0])[0] || 0), y: (a, b) => ((a.c || [0, 0])[1] || 0) - ((b.c || [0, 0])[1] || 0), z: (a, b) => ((a.c || [0, 0, 0])[2] || 0) - ((b.c || [0, 0, 0])[2] || 0),
+      dist: (a, b) => { const d = (p) => (p.c && sp && sp.c ? Math.hypot(p.c[0] - sp.c[0], p.c[1] - sp.c[1], p.c[2] - sp.c[2]) : 1e18); return d(a) - d(b); }, mat: (a, b) => NAT(a.mat || '~', b.mat || '~'), color: (a, b) => NAT(colName(a), colName(b)), edited: (a, b) => b.edited - a.edited, comp: (a, b) => NAT(a.comp, b.comp) || a.created - b.created,
+      manual: (a, b) => { const i = ord.indexOf(a.key), j = ord.indexOf(b.key); return (i < 0 ? 1e9 : i) - (j < 0 ? 1e9 : j) || a.created - b.created; } }[sort] || ((a, b) => a.created - b.created);
+    list.sort((a, b) => (b.pin - a.pin) || (desc ? -cmp(a, b) : cmp(a, b))); return list;
+  }
+  const groupKey = (p, g) => g === 'comp' ? p.comp : g === 'mat' ? (p.mat || '(no material)') : g === 'color' ? (p.color ? 'RGB ' + colName(p) : '(no colour)') : g === 'tag' ? (p.tags[0] || '(no tag)') : g === 'fold' ? (p.fold || '(no folder)') : g === 'typ' ? p.typ : g === 'vis' ? (p.visible ? 'Visible' : 'Hidden') : '';
+  function filtered(all) {
+    const pv = MM().pv, q = (pv.q || '').trim().toLowerCase();
+    return all.filter((p) => {
+      if (q && ![p.name, p.mat, p.fold, p.comp, p.typ, ...p.tags].join(' ').toLowerCase().includes(q)) return false;
+      switch (pv.flt) { case 'vis': return p.visible; case 'hid': return !p.visible; case 'lock': return p.lock; case 'pin': return p.pin; case 'nomat': return !p.mat; case 'unnamed': return isDefaultName(p); default: return true; }
+    });
+  }
+  function bodyRows() { return [...$('#bodyList').children]; }
+  function clickPart(p, e) {
+    const rows = bodyRows(); let el = null;
+    if (p.kind === 'body') { const i = st.bodies.findIndex((b) => b.key === p.key); el = rows[i]; } else { el = rows.slice(st.bodies.length).find((r) => (($('.nm', r) || {}).textContent || '') === p.name); }
+    if (el) el.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: !!(e && (e.shiftKey || e.ctrlKey || e.metaKey)) }));
+  }
+  function zoomTo(p) { try { const c = p.c; if (!c || !p.obj.solid) return; const R = P.R, d = Math.hypot(c.max[0] - c.min[0], c.max[1] - c.min[1], c.max[2] - c.min[2]); R.cam.target = c.slice(0, 3); R.cam.dist = Math.max(20, d * 0.62 / Math.tan(R.cam.fov / 2) / Math.min(1, R.w / Math.max(1, R.h))); P.redraw(); } catch (e) { /* ignore */ } }
+  function flash(p) { if (p.kind !== 'body') return; let n = 0; const t = setInterval(() => { st.hover = n % 2 === 0 ? { body: p.obj, kind: 'body' } : null; P.redraw(); if (++n > 5) { clearInterval(t); st.hover = null; P.redraw(); } }, 140); }
+  const setVis = (p, v) => { const m = P.meta(); m.vis = m.vis || {}; if (v) delete m.vis[p.key]; else m.vis[p.key] = false; p.obj.visible = v; };
+  let rendering = false, lastSelSig = '';
+  function render() {
+    if (rendering || pane.classList.contains('hidden') && !G.__poForce) return; rendering = true;
+    try {
+      const M = MM(), pv = M.pv, all = parts(), live = new Set(all.map((p) => p.key)); [...PS.sel].forEach((k) => { if (!live.has(k)) PS.sel.delete(k); });
+      const list = sorter(pv.sort, pv.desc, filtered(all)), sk = selKeys(), selSig = [...sk].join(',');
+      const counts = { all: all.length, vis: all.filter((p) => p.visible).length, hid: all.filter((p) => !p.visible).length, lock: all.filter((p) => p.lock).length, pin: all.filter((p) => p.pin).length, nomat: all.filter((p) => !p.mat).length, unnamed: all.filter(isDefaultName).length };
+      const chips = [['all', 'All'], ['vis', 'Visible'], ['hid', 'Hidden'], ['lock', 'Locked'], ['pin', 'Pinned'], ['nomat', 'No material'], ['unnamed', 'Default name']];
+      let h = '<div class="po-bar"><input type="text" id="poQ" placeholder="🔍 Search ' + all.length + ' parts…  (name, tag, material)" value="' + esc(pv.q) + '"></div>'
+        + '<div class="po-bar"><select id="poSort" title="Sort">' + SORTS.map((s) => '<option value="' + s[0] + '"' + (pv.sort === s[0] ? ' selected' : '') + '>⇅ ' + s[1] + '</option>').join('') + '</select><button class="po-btn" id="poDir" title="Reverse the order">' + (pv.desc ? '↓' : '↑') + '</button></div>'
+        + '<div class="po-bar"><select id="poGrp" title="Group by">' + GROUPS.map((s) => '<option value="' + s[0] + '"' + (pv.group === s[0] ? ' selected' : '') + '>▤ Group: ' + s[1] + '</option>').join('') + '</select><button class="po-btn hot" id="poFold">＋ Folder</button><button class="po-btn" id="poTools">Tools ▾</button><button class="po-btn" id="poCfg" title="Naming pop-up settings">⚙ Naming</button></div>'
+        + '<div class="po-bar" style="gap:4px">' + chips.map((c) => '<button class="po-chip' + (pv.flt === c[0] ? ' on' : '') + '" data-flt="' + c[0] + '">' + c[1] + ' ' + counts[c[0]] + '</button>').join('') + '</div>';
+      const groups = new Map(); list.forEach((p) => { const k = pv.group === 'none' ? '' : groupKey(p, pv.group); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); });
+      if (pv.group === 'fold') (M.folders || []).forEach((f) => { if (!groups.has(f)) groups.set(f, []); });
+      const gk = [...groups.keys()].sort((a, b) => (pv.group === 'fold' && (a.charAt(0) === '(')) - (pv.group === 'fold' && (b.charAt(0) === '(')) || NAT(a, b));
+      const expandSel = selSig && selSig !== lastSelSig; lastSelSig = selSig;
+      h += '<div class="po-lst" id="poList">';
+      gk.forEach((k) => {
+        const L = groups.get(k), col = !!(pv.collapsed || {})[k] && !(expandSel && L.some((p) => sk.has(p.key))), tv = L.reduce((a, p) => a + p.vol, 0), tm = L.reduce((a, p) => a + (dens(p.mat) ? p.vol * dens(p.mat) / 1e6 : 0), 0);
+        if (pv.group !== 'none') h += '<div class="po-gh" data-g="' + esc(k) + '" data-fold="' + (pv.group === 'fold' ? '1' : '') + '"><span>' + (col ? '▸' : '▾') + '</span><span>' + (pv.group === 'fold' ? '📁 ' : '') + esc(k) + '</span><small>' + L.length + ' part' + (L.length === 1 ? '' : 's') + (tv ? ' · ' + fmtV(tv) : '') + (tm ? ' · ≈' + (tm >= 1 ? tm.toFixed(2) : (tm * 1000).toFixed(0) + ' g').replace(/(\d)$/, '$1 kg') : '') + '</small></div>';
+        if (col) return;
+        L.forEach((p) => {
+          const c = p.color ? 'rgb(' + p.color.map((x) => (x * 255) | 0) + ')' : '#c8a96a';
+          h += '<div class="po-row' + (sk.has(p.key) ? ' sel' : '') + (p.visible ? '' : ' hid') + '" data-k="' + esc(p.key) + '" draggable="true"><input type="checkbox" class="pck"' + (PS.sel.has(p.key) ? ' checked' : '') + '><span class="sw" style="background:' + c + '"></span><span class="nm" title="' + esc(p.name + ' · ' + p.comp) + '">' + esc(p.name) + '</span>'
+            + (p.tags.length ? '<span class="tg">' + esc(p.tags.join(', ')) + '</span>' : '') + (p.mat ? '<span class="tg">' + esc(p.mat) + '</span>' : '') + '<span class="tg" style="opacity:.7">' + p.typ + '</span><span class="vl">' + fmtV(p.vol) + '</span>'
+            + '<span class="ic pin' + (p.pin ? ' on' : '') + '" title="Pin to the top">' + (p.pin ? '★' : '☆') + '</span><span class="ic lk' + (p.lock ? ' on' : '') + '" title="Lock: bulk actions skip it">' + (p.lock ? '🔒' : '🔓') + '</span><span class="ic eye" title="Show / hide">' + (p.visible ? '👁' : '⊘') + '</span></div>';
+        });
+      });
+      if (!list.length) h += '<p class="muted" style="padding:10px">' + (all.length ? 'No part matches the search or filter.' : 'No parts yet. Start with a sketch, a primitive, a SubD cage or a surface.') + '</p>';
+      h += '</div>';
+      const ns = PS.sel.size; h += '<div class="po-sum">' + (ns ? ns + ' ticked' : 'Tick parts to act on several at once') + ' · ' + list.length + ' shown · total ' + (fmtV(list.reduce((a, p) => a + p.vol, 0)) || '—') + '</div>';
+      if (ns) h += '<div class="po-sel"><button class="po-btn" data-a="group">Group…</button><button class="po-btn" data-a="hide">Hide</button><button class="po-btn" data-a="show">Show</button><button class="po-btn" data-a="lock">Lock</button><button class="po-btn" data-a="colour">Colour</button><button class="po-btn" data-a="tag">Tag</button><button class="po-btn" data-a="mat">Material</button><button class="po-btn" data-a="isolate">Isolate</button><button class="po-btn" data-a="rename">Rename…</button><button class="po-btn" data-a="sep">Separate</button><button class="po-btn" data-a="none">Clear</button></div>';
+      pane.innerHTML = h; wire(all, list);
+      const sr = $('.po-row.sel', pane); if (expandSel && sr) sr.scrollIntoView({ block: 'nearest' });
+    } finally { rendering = false; }
+  }
+  const ticked = (all) => all.filter((p) => PS.sel.has(p.key));
+  const act = (name, fn) => { try { P.pushUndo(); fn(); P.regenerate(true); } catch (e) { toast(name + ': ' + (e.message || e), true); } };
+  function wire(all, list) {
+    const M = MM(), pv = M.pv, byKey = new Map(all.map((p) => [p.key, p]));
+    const $q = $('#poQ', pane); $q.oninput = () => { pv.q = $q.value; const pos = $q.selectionStart; render(); const q2 = $('#poQ', pane); q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } };
+    $('#poSort', pane).onchange = (e) => { pv.sort = e.target.value; render(); }; $('#poGrp', pane).onchange = (e) => { pv.group = e.target.value; render(); }; $('#poDir', pane).onclick = () => { pv.desc = !pv.desc; render(); };
+    $$('.po-chip', pane).forEach((b) => { b.onclick = () => { pv.flt = b.dataset.flt; render(); }; });
+    $('#poFold', pane).onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); menu(r.left, r.bottom + 4, '<div class="h">New folder</div><input type="text" id="pfN" placeholder="Folder name"><div class="rw"><button class="po-btn hot" id="pfOk">Create</button></div>', (m) => { const go = () => { const n = $('#pfN', m).value.trim(); if (!n) return; if (M.folders.indexOf(n) < 0) M.folders.push(n); const t = ticked(all); t.forEach((p) => { M.fold[p.key] = n; }); if (t.length) pv.group = 'fold'; closePop(); P.regenerate(true); render(); }; $('#pfOk', m).onclick = go; $('#pfN', m).onkeydown = (ev) => { if (ev.key === 'Enter') go(); }; setTimeout(() => $('#pfN', m).focus(), 20); }); };
+    $('#poCfg', pane).onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(), pf = prefs(); menu(r.left, r.bottom + 4, '<div class="h">Naming pop-up</div><label class="it"><input type="checkbox" id="cA"' + (pf.ask ? ' checked' : '') + '> Ask for a name when a new part is made</label><label class="it"><input type="checkbox" id="cE"' + (pf.extra ? ' checked' : '') + '> Also ask for folder and material</label><label class="it"><input type="checkbox" id="cR"' + (pf.remember ? ' checked' : '') + '> Remember my last folder</label>', (m) => { $$('input', m).forEach((c) => { c.onchange = () => setPrefs({ ask: $('#cA', m).checked, extra: $('#cE', m).checked, remember: $('#cR', m).checked }); }); }); };
+    $('#poTools', pane).onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); menu(r.left, r.bottom + 4, '<div class="it" data-t="find">🎯 Find in 3D (zoom to the selected part)</div><div class="it" data-t="clean">🧹 Clean-up check</div><div class="it" data-t="auto">🪄 Auto-organise into folders</div><div class="it" data-t="all">☑ Tick all shown</div><div class="it" data-t="restore">👁 Show everything again</div><div class="it" data-t="expand">▾ Expand / collapse all groups</div>', (m) => { m.onclick = (ev) => { const t = ev.target.closest('[data-t]'); if (!t) return; closePop(); tool(t.dataset.t, all, list); }; }); };
+    const lst = $('#poList', pane);
+    lst.onclick = (e) => {
+      const gh = e.target.closest('.po-gh'); if (gh) { const k = gh.dataset.g; pv.collapsed = pv.collapsed || {}; pv.collapsed[k] = !pv.collapsed[k]; render(); return; }
+      const row = e.target.closest('.po-row'); if (!row) return; const p = byKey.get(row.dataset.k); if (!p) return;
+      if (e.target.closest('.pck')) { if (e.target.checked) PS.sel.add(p.key); else PS.sel.delete(p.key); render(); return; }
+      if (e.target.closest('.pin')) { if (M.pin[p.key]) delete M.pin[p.key]; else M.pin[p.key] = 1; render(); return; }
+      if (e.target.closest('.lk')) { if (M.lock[p.key]) delete M.lock[p.key]; else M.lock[p.key] = 1; render(); return; }
+      if (e.target.closest('.eye')) { setVis(p, !p.visible); P.refreshPanels(); P.redraw(); return; }
+      clickPart(p, e);
+    };
+    lst.ondblclick = (e) => { const row = e.target.closest('.po-row'); if (!row) return; const p = byKey.get(row.dataset.k); if (!p) return; if (e.target.closest('.nm')) { renameInline(row, p); return; } zoomTo(p); flash(p); };
+    lst.onmouseover = (e) => { const row = e.target.closest('.po-row'); const p = row && byKey.get(row.dataset.k); if (p && p.kind === 'body' && !(st.hover && st.hover.body === p.obj)) { st.hover = { body: p.obj, kind: 'body' }; P.redraw(); } };
+    lst.onmouseleave = () => { if (st.hover && st.hover.kind === 'body') { st.hover = null; P.redraw(); } };
+    lst.ondragstart = (e) => { const row = e.target.closest('.po-row'); if (row) { e.dataTransfer.setData('text/plain', row.dataset.k); e.dataTransfer.effectAllowed = 'move'; } };
+    lst.ondragover = (e) => { const gh = e.target.closest('.po-gh[data-fold="1"]'), row = e.target.closest('.po-row'); if (gh || (row && pv.sort === 'manual')) { e.preventDefault(); $$('.po-gh.drop', pane).forEach((x) => x.classList.remove('drop')); if (gh) gh.classList.add('drop'); } };
+    lst.ondrop = (e) => { e.preventDefault(); const k = e.dataTransfer.getData('text/plain'), gh = e.target.closest('.po-gh[data-fold="1"]'), row = e.target.closest('.po-row'); if (!k) return;
+      const ks = PS.sel.has(k) ? [...PS.sel] : [k];
+      if (gh) { const f = gh.dataset.g; ks.forEach((x) => { if (f.charAt(0) === '(') delete M.fold[x]; else M.fold[x] = f; }); P.regenerate(true); render(); }
+      else if (row && pv.sort === 'manual') { const to = row.dataset.k; let ord = list.map((p) => p.key).filter((x) => ks.indexOf(x) < 0); const at = ord.indexOf(to); ord.splice(at < 0 ? ord.length : at, 0, ...ks); M.pv.order = ord; render(); } };
+    $$('.po-sel button', pane).forEach((b) => { b.onclick = (e) => bulk(b.dataset.a, ticked(all), all, e); });
+  }
+  function renameInline(row, p) {
+    if (p.lock) return toast('“' + p.name + '” is locked (click its 🔒 to unlock)', true);
+    const nm = $('.nm', row), inp = document.createElement('input'); inp.type = 'text'; inp.value = p.name; inp.style.cssText = 'flex:1;min-width:0;background:#0a1222;color:#fff;border:1px solid #4a8dff;border-radius:5px;padding:1px 5px;font:inherit'; nm.replaceWith(inp); inp.focus(); inp.select();
+    const fin = (ok) => { const v = inp.value.trim(); if (ok && v && v !== p.name) { act('Rename', () => { MM().names[p.key] = v; if (p.kind === 'item') { p.obj.name = v; const f = featById(keyRoot(p.key)); if (f) f.name = v; } }); } render(); };
+    inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') fin(true); else if (e.key === 'Escape') fin(false); }; inp.onblur = () => fin(true); inp.onclick = (e) => e.stopPropagation();
+  }
+  function bulk(a, T, all, ev) {
+    const M = MM(), pv = M.pv, free = T.filter((p) => !p.lock), r = ev.currentTarget.getBoundingClientRect(), pos = [r.left, r.bottom + 4];
+    if (a === 'none') { PS.sel.clear(); render(); return; }
+    if (!T.length) return;
+    if (a === 'hide' || a === 'show') { free.forEach((p) => setVis(p, a === 'show')); P.refreshPanels(); P.redraw(); return; }
+    if (a === 'lock') { const to = !T.every((p) => p.lock); T.forEach((p) => { if (to) M.lock[p.key] = 1; else delete M.lock[p.key]; }); render(); return; }
+    if (a === 'isolate') { const keep = new Set(T.map((p) => p.key)); all.forEach((p) => setVis(p, keep.has(p.key))); P.refreshPanels(); P.redraw(); toast('Isolated ' + T.length + ' part(s). Tools ▸ Show everything again restores all.'); return; }
+    if (a === 'sep') { const b = T.filter((p) => p.kind === 'body'); if (b.length !== 1) return toast('Tick exactly one solid to separate', true); P.setTab && 0; try { st.sel = { type: 'body', bodyId: b[0].key, bodyIds: [b[0].key] }; CAD.ik.adv.cmdLumps(); } catch (e) { toast(e.message || String(e), true); } return; }
+    if (a === 'group') { const fl = [...new Set([...(M.folders || []), ...Object.values(M.fold)])].filter(Boolean).sort(NAT); menu(pos[0], pos[1], '<div class="h">Move ' + free.length + ' part(s) to</div>' + fl.map((f) => '<div class="it" data-f="' + esc(f) + '">📁 ' + esc(f) + '</div>').join('') + '<div class="it" data-f="">(no folder)</div><div class="h">Or a new folder</div><input type="text" id="gN" placeholder="Folder name"><div class="rw"><button class="po-btn hot" id="gOk">Move</button></div>', (m) => { const go = (f) => { free.forEach((p) => { if (f) M.fold[p.key] = f; else delete M.fold[p.key]; }); if (f && M.folders.indexOf(f) < 0) M.folders.push(f); pv.group = 'fold'; closePop(); P.regenerate(true); render(); }; m.onclick = (e) => { const i = e.target.closest('[data-f]'); if (i) go(i.dataset.f); }; $('#gOk', m).onclick = () => { const n = $('#gN', m).value.trim(); if (n) go(n); }; }); return; }
+    if (a === 'colour') { const PAL = P.PALETTE; menu(pos[0], pos[1], '<div class="h">Colour</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + PAL.map((c, i) => '<span data-i="' + i + '" style="width:22px;height:22px;border-radius:5px;cursor:pointer;background:rgb(' + c.map((x) => (x * 255) | 0) + ')"></span>').join('') + '</div>', (m) => { m.onclick = (e) => { const s = e.target.closest('[data-i]'); if (!s) return; act('Colour', () => { free.forEach((p) => { if (p.kind === 'body') P.meta().colors[p.key] = +s.dataset.i; }); }); closePop(); render(); }; }); return; }
+    if (a === 'tag' || a === 'mat') { const isT = a === 'tag'; menu(pos[0], pos[1], '<div class="h">' + (isT ? 'Add a tag to ' : 'Material for ') + free.length + ' part(s)</div><input type="text" id="tN" placeholder="' + (isT ? 'tag (empty + OK = clear tags)' : 'material, e.g. steel (empty = clear)') + '">' + (isT ? '' : '<div class="po-sum">Known densities give a mass estimate in group totals.</div>') + '<div class="rw"><button class="po-btn hot" id="tOk">OK</button></div>', (m) => { const go = () => { const v = $('#tN', m).value.trim(); free.forEach((p) => { if (isT) { if (!v) delete M.tags[p.key]; else { const L = M.tags[p.key] || []; if (L.indexOf(v) < 0) L.push(v); M.tags[p.key] = L; } } else if (v) M.mat[p.key] = v; else delete M.mat[p.key]; }); closePop(); P.regenerate(true); render(); }; $('#tOk', m).onclick = go; $('#tN', m).onkeydown = (e) => { if (e.key === 'Enter') go(); }; setTimeout(() => $('#tN', m).focus(), 20); }); return; }
+    if (a === 'rename') { menu(pos[0], pos[1], '<div class="h">Rename ' + free.length + ' part(s) in the current order</div><input type="text" id="rP" placeholder="Prefix, e.g. Bolt-"><div style="display:flex;gap:6px"><input type="number" id="rS" value="1" min="0" title="Start number"><input type="number" id="rD" value="2" min="1" max="6" title="Digits"></div><div class="po-sum">Start number · digits  →  Bolt-01, Bolt-02 …</div><div class="rw"><button class="po-btn hot" id="rOk">Rename</button></div>', (m) => { $('#rOk', m).onclick = () => { const pre = $('#rP', m).value, s0 = parseInt($('#rS', m).value, 10) || 0, dg = Math.max(1, parseInt($('#rD', m).value, 10) || 1); if (!pre.trim()) return; const order = sorter(pv.sort, pv.desc, free.slice()); act('Rename', () => { order.forEach((p, i) => { const n = pre + String(s0 + i).padStart(dg, '0'); MM().names[p.key] = n; if (p.kind === 'item') { p.obj.name = n; const f = featById(keyRoot(p.key)); if (f) f.name = n; } }); }); closePop(); render(); }; setTimeout(() => $('#rP', m).focus(), 20); }); }
+  }
+  function tool(t, all, list) {
+    const M = MM(), pv = M.pv;
+    if (t === 'find') { const k = [...selKeys()][0], p = all.find((x) => x.key === k); if (!p) return toast('Select a part first', true); zoomTo(p); flash(p); }
+    else if (t === 'all') { list.forEach((p) => PS.sel.add(p.key)); render(); }
+    else if (t === 'restore') { all.forEach((p) => setVis(p, true)); P.refreshPanels(); P.redraw(); }
+    else if (t === 'expand') { const any = Object.values(pv.collapsed || {}).some(Boolean); pv.collapsed = {}; if (!any) list.forEach((p) => { pv.collapsed[groupKey(p, pv.group)] = true; }); render(); }
+    else if (t === 'clean') {
+      const dup = new Map(); all.forEach((p) => dup.set(p.name, (dup.get(p.name) || 0) + 1));
+      const A = all.filter(isDefaultName), B = all.filter((p) => !p.mat), C = all.filter((p) => dup.get(p.name) > 1);
+      const row = (p) => '<div class="it" data-k="' + esc(p.key) + '">' + esc(p.name) + '</div>';
+      menu(innerWidth / 2 - 150, 120, '<div class="h">Clean-up check</div><div class="h">Default names (' + A.length + ')</div>' + A.slice(0, 12).map(row).join('') + '<div class="h">Duplicate names (' + C.length + ')</div>' + C.slice(0, 12).map(row).join('') + '<div class="h">No material (' + B.length + ')</div>' + B.slice(0, 12).map(row).join('') + '<div class="po-sum">Click a name to select it. Lists show the first 12.</div>', (m) => { m.onclick = (e) => { const i = e.target.closest('[data-k]'); if (!i) return; const p = all.find((x) => x.key === i.dataset.k); if (p) { clickPart(p, {}); zoomTo(p); flash(p); } }; });
+    } else if (t === 'auto') {
+      P.pushUndo(); let n = 0; const first = (s) => String(s).trim().split(/[\s\-_×x0-9]+/)[0].toLowerCase(), cnt = new Map(); all.forEach((p) => { const k = first(p.name); if (k) cnt.set(k, (cnt.get(k) || 0) + 1); });
+      all.forEach((p) => { if (p.fold) return; const k = first(p.name); let f = p.kind === 'item' ? ({ surface: 'NURBS surfaces', subd: 'SubD forms', curve: 'Curves', cloud: 'Point clouds', frame: 'Analysis' }[p.ikind] || 'Other') : (cnt.get(k) >= 3 ? k.charAt(0).toUpperCase() + k.slice(1) + ' parts' : p.bim ? 'BIM' : 'Solids'); M.fold[p.key] = f; if (M.folders.indexOf(f) < 0) M.folders.push(f); n++; });
+      pv.group = 'fold'; P.regenerate(true); render(); toast('Auto-organised ' + n + ' part(s) into folders. Undo (Ctrl+Z) reverts it.');
+    }
+  }
+
+  // ============================================================ Features: tick boxes + bulk actions
+  const FS = new Set(); let lastTick = null;
+  const featPane = $('#tab-features'), fl = $('#featList'); let bar = null;
+  function featBodies(f) { return st.bodies.filter((b) => b.src === f.id || b.key === f.id || b.key.indexOf(f.id + '.') === 0); }
+  function dependents(ids) {
+    const feats = st.doc.features, set = new Set(ids), out = []; let grew = true;
+    while (grew) { grew = false; feats.forEach((g) => { if (set.has(g.id)) return; const js = pjson(g); for (const id of set) { if (js.indexOf('"' + id) >= 0) { set.add(g.id); out.push(g); grew = true; break; } } }); }
+    return out;
+  }
+  function related(f) { const out = [f]; const p = f.params || {}; const sids = []; if (p.sketch) sids.push(p.sketch); if (Array.isArray(p.sections)) sids.push(...p.sections); sids.forEach((id) => { const s = featById(id); if (s && s.type === 'sketch' && out.indexOf(s) < 0) out.push(s); }); return out; }
+  function ensureBar() {
+    if (bar && bar.isConnected) return; bar = document.createElement('div'); bar.id = 'fbulk'; fl.parentNode.insertBefore(bar, fl);
+    bar.onclick = (e) => { const b = e.target.closest('[data-fa]'); if (b) fAction(b.dataset.fa, b); };
+    bar.onchange = (e) => { if (e.target.id === 'fAll') { const rows = $$('.fitem[data-fid]', fl); if (e.target.checked) rows.forEach((r) => FS.add(r.dataset.fid)); else FS.clear(); decorate(); } };
+  }
+  const selFeats = () => st.doc.features.filter((f) => FS.has(f.id));
+  function paintBar() {
+    ensureBar(); const n = selFeats().length, rows = $$('.fitem[data-fid]', fl).length;
+    bar.classList.toggle('has', n > 0);
+    bar.innerHTML = '<div class="r1"><input type="checkbox" id="fAll" class="fcb"' + (n && n === rows ? ' checked' : '') + '><label for="fAll" style="cursor:pointer">Select all</label><button class="po-btn" data-fa="type">Select by type ▾</button><span class="muted" style="margin-left:auto">' + (n ? n + ' selected' : 'Tick features to act on several') + '</span></div>'
+      + '<div class="r2"><button class="po-btn hot" data-fa="sup">Suppress</button><button class="po-btn" data-fa="unsup">Unsuppress</button><button class="po-btn" data-fa="hide">Hide / show</button><button class="po-btn" data-fa="group">Group into folder…</button><button class="po-btn" data-fa="colour">Colour</button><button class="po-btn" data-fa="tag">Tag</button><button class="po-btn" data-fa="prefix">Rename with prefix…</button><button class="po-btn" data-fa="roll">Roll back to here</button><button class="po-btn" data-fa="copy">Copy</button><button class="po-btn" data-fa="del" style="color:#ff9a9a">Delete…</button><button class="po-btn" data-fa="clear">Clear</button></div>';
+    const a = $('#fAll', bar); if (a) a.indeterminate = n > 0 && n < rows;
+  }
+  function decorate() {
+    if (!fl) return; $$('.fitem[data-fid]', fl).forEach((r) => {
+      let c = $('.fcb', r); if (!c) { c = document.createElement('input'); c.type = 'checkbox'; c.className = 'fcb'; c.title = 'Tick to act on several features (Shift = range)'; c.onclick = (e) => { e.stopPropagation(); const rows = $$('.fitem[data-fid]', fl), i = rows.indexOf(r), set = (on, id) => { if (on) FS.add(id); else FS.delete(id); };
+        if (e.shiftKey && lastTick != null && rows[lastTick]) { const [a, b] = [Math.min(i, lastTick), Math.max(i, lastTick)]; for (let k = a; k <= b; k++) set(c.checked, rows[k].dataset.fid); }
+        else { const f = featById(r.dataset.fid); (f && c.checked ? related(f) : f ? [f] : []).forEach((g) => set(c.checked, g.id)); }
+        lastTick = i; decorate(); }; r.insertBefore(c, r.firstChild); }
+      const on = FS.has(r.dataset.fid); c.checked = on; r.classList.toggle('fcbsel', on);
+    }); [...FS].forEach((id) => { if (!featById(id)) FS.delete(id); }); paintBar();
+  }
+  function fMenu(b, html, on) { const r = b.getBoundingClientRect(); return menu(r.left, r.bottom + 4, html, on); }
+  function fAction(a, b) {
+    const S = selFeats(), feats = st.doc.features, M = MM();
+    if (a === 'type') { const types = [...new Set(feats.map((f) => f.type))]; fMenu(b, '<div class="h">Tick every feature of type</div>' + types.map((t) => '<div class="it" data-t="' + esc(t) + '">' + esc(((CAD.featNames || {})[t]) || t) + ' (' + feats.filter((f) => f.type === t).length + ')</div>').join(''), (m) => { m.onclick = (e) => { const i = e.target.closest('[data-t]'); if (!i) return; feats.forEach((f) => { if (f.type === i.dataset.t) FS.add(f.id); }); closePop(); decorate(); }; }); return; }
+    if (a === 'clear') { FS.clear(); decorate(); return; }
+    if (!S.length) return;
+    const idxMin = Math.min(...S.map((f) => feats.indexOf(f))), idxMax = Math.max(...S.map((f) => feats.indexOf(f)));
+    if (a === 'sup' || a === 'unsup') { act('Suppress', () => { S.forEach((f) => { f.suppressed = a === 'sup'; }); F.invalidate(st.doc, idxMin); }); P.status && P.status((a === 'sup' ? 'Suppressed ' : 'Unsuppressed ') + S.length + ' feature(s)'); return; }
+    if (a === 'hide') { act('Hide', () => { const m = P.meta(); m.vis = m.vis || {}; const bs = [].concat(...S.map(featBodies)), hide = bs.some((x) => x.visible !== false); bs.forEach((x) => { if (hide) m.vis[x.key] = false; else delete m.vis[x.key]; x.visible = !hide; }); }); P.refreshPanels(); return; }
+    if (a === 'roll') { P.rollTo(idxMax + 1); return; }
+    const bodiesOf = () => [].concat(...S.map(featBodies));
+    if (a === 'group') { const fl2 = [...new Set([...(M.folders || []), ...Object.values(M.fold)])].filter(Boolean).sort(NAT); fMenu(b, '<div class="h">Put the parts made by these features into</div>' + fl2.map((f) => '<div class="it" data-f="' + esc(f) + '">📁 ' + esc(f) + '</div>').join('') + '<div class="h">Or a new folder</div><input type="text" id="gN" placeholder="Folder name"><div class="rw"><button class="po-btn hot" id="gOk">Move</button></div>', (m) => { const go = (f) => { bodiesOf().forEach((x) => { M.fold[x.key] = f; }); if (M.folders.indexOf(f) < 0) M.folders.push(f); closePop(); P.regenerate(true); toast('Moved ' + bodiesOf().length + ' part(s) to “' + f + '” (see the Parts tab)'); }; m.onclick = (e) => { const i = e.target.closest('[data-f]'); if (i) go(i.dataset.f); }; $('#gOk', m).onclick = () => { const n = $('#gN', m).value.trim(); if (n) go(n); }; }); return; }
+    if (a === 'colour') { fMenu(b, '<div class="h">Colour</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + P.PALETTE.map((c, i) => '<span data-i="' + i + '" style="width:22px;height:22px;border-radius:5px;cursor:pointer;background:rgb(' + c.map((x) => (x * 255) | 0) + ')"></span>').join('') + '</div>', (m) => { m.onclick = (e) => { const s = e.target.closest('[data-i]'); if (!s) return; act('Colour', () => { bodiesOf().forEach((x) => { P.meta().colors[x.key] = +s.dataset.i; }); }); closePop(); }; }); return; }
+    if (a === 'tag') { fMenu(b, '<div class="h">Tag the parts made by these features</div><input type="text" id="tN" placeholder="tag"><div class="rw"><button class="po-btn hot" id="tOk">OK</button></div>', (m) => { const go = () => { const v = $('#tN', m).value.trim(); if (!v) return; bodiesOf().forEach((x) => { const L = M.tags[x.key] || []; if (L.indexOf(v) < 0) L.push(v); M.tags[x.key] = L; }); closePop(); P.regenerate(true); }; $('#tOk', m).onclick = go; $('#tN', m).onkeydown = (e) => { if (e.key === 'Enter') go(); }; setTimeout(() => $('#tN', m).focus(), 20); }); return; }
+    if (a === 'prefix') { fMenu(b, '<div class="h">Add a prefix to ' + S.length + ' feature name(s) and their parts</div><input type="text" id="xP" placeholder="e.g. Drive – "><div class="rw"><button class="po-btn hot" id="xOk">Rename</button></div>', (m) => { const go = () => { const pre = $('#xP', m).value; if (!pre) return; act('Rename', () => { S.forEach((f) => { f.name = pre + f.name; featBodies(f).forEach((x) => { M.names[x.key] = pre + (M.names[x.key] || x.name); }); }); F.invalidate(st.doc, idxMin); }); closePop(); }; $('#xOk', m).onclick = go; $('#xP', m).onkeydown = (e) => { if (e.key === 'Enter') go(); }; setTimeout(() => $('#xP', m).focus(), 20); }); return; }
+    if (a === 'copy') { const map = new Map(); let n = 0; S.slice().sort((x, y) => feats.indexOf(x) - feats.indexOf(y)).forEach((f) => { let js = JSON.stringify(f.params); map.forEach((nid, oid) => { js = js.split('"' + oid + '"').join('"' + nid + '"'); }); const made = P.commitFeature({ type: f.type, name: f.name + ' copy', params: JSON.parse(js) }, true); if (made && made.id) { map.set(f.id, made.id); n++; } }); toast('Copied ' + n + ' feature(s) to the end of the list'); FS.clear(); decorate(); return; }
+    if (a === 'del') {
+      const ids = S.map((f) => f.id), deps = dependents(ids);
+      const names = deps.slice(0, 8).map((f) => esc(f.name)).join(', ') + (deps.length > 8 ? ' …' : '');
+      fMenu(b, '<div class="h">Delete ' + S.length + ' feature(s)?</div>' + (deps.length ? '<div class="po-sum" style="color:#ffd8a8">' + deps.length + ' other feature(s) refer to them: ' + names + '. They will show errors unless you delete them too.</div>' : '<div class="po-sum">Nothing else refers to them.</div>') + '<div class="rw" style="flex-wrap:wrap"><button class="po-btn" id="dC">Cancel</button>' + (deps.length ? '<button class="po-btn" id="dS">Suppress instead</button><button class="po-btn" id="dA" style="color:#ff9a9a">Delete + dependents</button>' : '') + '<button class="po-btn" id="dO" style="color:#ff9a9a">Delete ticked' + (deps.length ? ' only' : '') + '</button></div>', (m) => {
+        const del = (list) => { act('Delete', () => { const d = st.doc; const idx = list.map((f) => d.features.indexOf(f)).filter((i) => i >= 0).sort((x, y) => y - x); idx.forEach((i) => { d.features.splice(i, 1); if (d.rollback != null && d.rollback > i) d.rollback--; }); F.invalidate(d, Math.max(0, idx[idx.length - 1] || 0)); st.selFeature = null; }); FS.clear(); closePop(); decorate(); };
+        $('#dC', m).onclick = closePop; $('#dO', m).onclick = () => del(S); const a2 = $('#dA', m); if (a2) a2.onclick = () => del(S.concat(deps)); const s2 = $('#dS', m); if (s2) s2.onclick = () => { act('Suppress', () => { S.forEach((f) => { f.suppressed = true; }); F.invalidate(st.doc, idxMin); }); closePop(); };
+      });
+    }
+  }
+  if (fl) {
+    let sched = 0; const mo = new MutationObserver(() => { if (sched) return; sched = requestAnimationFrame(() => { sched = 0; decorate(); }); }); mo.observe(fl, { childList: true });
+    fl.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); $$('.fitem[data-fid]', fl).forEach((r) => FS.add(r.dataset.fid)); decorate(); } else if (e.key === 'Escape' && FS.size) { FS.clear(); decorate(); } });
+    decorate();
+  }
+  // ============================================================ wiring: refresh the Parts tab whenever the model lists refresh
+  const bl = $('#bodyList'); let sch = 0;
+  if (bl) new MutationObserver(() => { if (sch) return; sch = requestAnimationFrame(() => { sch = 0; render(); }); }).observe(bl, { childList: true });
+  tabBtn.addEventListener('click', () => setTimeout(render, 0));
+  window.addEventListener('keydown', (e) => { if (e.key === 'F2' && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) { const k = [...selKeys()][0]; if (!k) return; const row = $('.po-row[data-k="' + (G.CSS && CSS.escape ? CSS.escape(k) : k) + '"]', pane); const p = parts().find((x) => x.key === k); if (p) { e.preventDefault(); if (pane.classList.contains('hidden')) tabBtn.click(); setTimeout(() => { const r2 = $('.po-row[data-k="' + (CSS.escape ? CSS.escape(k) : k) + '"]', pane); if (r2) renameInline(r2, p); }, 60); } void row; } });
+  G.AAKAR_PARTS = { parts, render, prefs, setPrefs, askName, state: PS, feats: FS, decorate, dependents, mm: MM };
+  render();
+})();
+
+</script>
+
+<script id="aakHelixPick">
+(function () {
+  const form = () => document.getElementById('dlgForm'), PX = () => window.PRISM;
+  const fire = (e) => { e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); };
+  const setv = (n, v) => { const e = form() && form().querySelector('[name=' + n + ']'); if (!e) return; if (e.tagName === 'SELECT' && ![...e.options].some((o) => o.value === String(v))) return; e.value = String(v); fire(e); };
+  function pick(msg, onHit) {
+    const P = PX(), cv = document.querySelector('#cv'), m = document.getElementById('modal'); if (!P || !cv || !m) return;
+    m.style.visibility = 'hidden'; m.style.pointerEvents = 'none'; const hb = document.createElement('div'); hb.id = 'hxPickBar';
+    hb.style.cssText = 'position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:99999;background:#171d25;border:1px solid #4de0ff;color:#cdf6ff;padding:8px 14px;border-radius:10px;font:13px system-ui,sans-serif;box-shadow:0 8px 24px #0008';
+    hb.textContent = msg + '  ·  Esc cancels'; document.body.appendChild(hb);
+    const end = () => { document.removeEventListener('pointerdown', dn, true); document.removeEventListener('keydown', kd, true); hb.remove(); m.style.visibility = ''; m.style.pointerEvents = ''; try { P.redraw(); } catch (e) { /* ok */ } };
+    const kd = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); end(); } };
+    const dn = (e) => { if (e.button !== 0 || e.target !== cv) return; e.preventDefault(); e.stopImmediatePropagation(); const rc = cv.getBoundingClientRect(); let ok = false; try { ok = onHit(e.clientX - rc.left, e.clientY - rc.top) !== false; } catch (er) { hb.textContent = (er.message || er) + ' · Esc cancels'; return; } if (ok) end(); };
+    document.addEventListener('pointerdown', dn, true); document.addEventListener('keydown', kd, true);
+    window.__hxPick = { end };
+  }
+  function ensure() {
+    const f = form(); if (!f) return; let box = document.getElementById('hxPick');
+    const isH = !!f.querySelector('[name=px]') && !!f.querySelector('[name=pitch]') && !!f.querySelector('[name=turns]') && !!(f.querySelector('[name=R]') || f.querySelector('[name=body]'));
+    if (!isH) { if (box) box.remove(); return; } if (box) return;
+    const hasBody = !!f.querySelector('[name=body]'), hasR = !!f.querySelector('[name=R]');
+    box = document.createElement('div'); box.id = 'hxPick';
+    box.style.cssText = 'grid-column:1/-1;border:1px solid #1f6f80;background:#0b1d24;border-radius:10px;padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:12px system-ui,sans-serif;color:#cdf6ff';
+    box.innerHTML = '<span><b>Pick in 3D</b></span>'
+      + '<button type="button" class="btn sm" data-hx="face" title="Click a shaft, hole wall or round end: the axis, centre' + (hasR ? ', radius' : '') + (hasBody ? ' and the solid' : '') + ' are taken from it">⌖ Round face</button>'
+      + '<button type="button" class="btn sm" data-hx="pt" title="Click a match point (cyan = circle centre, pink = mid-height centre, white = body centre, green = face centre, yellow = corner): the axis passes through it">⌖ Move axis to a point</button>'
+      + (hasBody ? '<button type="button" class="btn sm" data-hx="body" title="Click the solid the thread should be joined to or cut from">⌖ Solid</button>' : '')
+      + '<span style="font-size:11px;opacity:.8;flex-basis:100%">While this dialog is open the model shows match points. You can also drag the white <b>Move</b> dot in the model onto one.</span>';
+    f.appendChild(box);
+    box.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-hx]'); if (!b) return; ev.preventDefault(); const k = b.dataset.hx, MT = window.AAKAR_MATCH, HX = window.AAKAR_HELIX; if (!MT || !HX) return;
+      if (k === 'face') pick('Click the round face (shaft, hole wall or round end) the helix belongs to', (x, y) => {
+        const h = MT.face(x, y); if (!h || !h.body) throw new Error('Click a face of a solid'); const sd = HX.seed(h.body, h.fi); if (!sd) throw new Error('That face is not round. Click a shaft, hole wall or round end');
+        setv('axis', sd.axis); setv('px', sd.px); setv('py', sd.py); setv('pz', sd.pz); if (hasR) setv('R', sd.R); if (hasBody) setv('body', h.body.key); return true; });
+      else if (k === 'pt') pick('Click a match point: cyan = circle centre, pink = mid-height centre, white = body centre, green = face centre, yellow = corner', (x, y) => {
+        const m = MT.nearest(x, y); let p = m && m.p; if (!p) { const h = MT.face(x, y); p = h && h.p; } if (!p) throw new Error('No match point there. Click closer to a dot');
+        setv('px', Math.round(p[0] * 1000) / 1000); setv('py', Math.round(p[1] * 1000) / 1000); setv('pz', Math.round(p[2] * 1000) / 1000); return true; });
+      else if (k === 'body') pick('Click the solid the thread should be joined to or cut from', (x, y) => { const h = MT.face(x, y); if (!h || !h.body) throw new Error('Click a solid'); setv('body', h.body.key); return true; });
+    });
+  }
+  setInterval(ensure, 150);
 })();
 </script>
 
