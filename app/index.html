@@ -60194,12 +60194,12 @@ body.aaktouch .aakhit{position:relative}body.aaktouch .aakhit::after{content:"";
     nw.forEach((n, i) => { const nm = nw.length > 1 ? base + ' ' + (i + 1) : base; M.names[n.key] = nm; if (r && r.folder) { M.fold[n.key] = r.folder; if (M.folders.indexOf(r.folder) < 0) M.folders.push(r.folder); } if (r && r.mat) M.mat[n.key] = r.mat; });
     f.name = base; refresh(f);
   }
-  function afterAdd(f, before) {
+  function afterAdd(f, before, qt) {
     try {
       if (!st.doc.features.includes(f) || f.suppressed) return;
       if (f.type === 'sketch') { const pl = f.params && f.params.plane; const pd = G.__pnPending; G.__pnPending = null;
         if (pd && Date.now() - pd.t < 20 * 60 * 1000) { if (pd.skip) return; const M0 = MM(); M0.pn[f.id] = pd.name; M0.pnx[f.id] = { folder: pd.folder, mat: pd.mat }; f.name = pd.name + ' sketch'; refresh(f); return; }
-        if (pl && pl.kind === 'face') return; if (!prefs().ask) return;
+        if (pl && pl.kind === 'face') return; if (qt || !prefs().ask) return;
         const n = st.doc.features.filter((x) => x.type === 'sketch').length; askName({ title: 'Name this part', base: 'Part', auto: f.name || 'Sketch ' + n, sub: 'You are starting a new sketch. The part keeps this name when the sketch becomes a solid, a surface or a SubD.' }).then((r) => { if (!r || !st.doc.features.includes(f)) return; const M = MM(); M.pn[f.id] = r.name; M.pnx[f.id] = { folder: r.folder, mat: r.mat }; f.name = r.name + ' sketch'; refresh(f); }); return; }
       if (EXCL.test(f.type)) return;
       const nb = st.bodies.filter((b) => !before.b.has(b.key)), ni = st.items.filter((i) => !before.i.has(i.key));
@@ -60207,7 +60207,7 @@ body.aaktouch .aakhit{position:relative}body.aaktouch .aakhit::after{content:"";
       if (!nw.length || nw.length > 12) return;
       const lin = lineage(f);
       if (lin && !lin.used) { apply(f, nw, lin.name, lin.x); if (lin.sid) { const M = MM(); M.pnUsed[lin.sid] = (M.pnUsed[lin.sid] || 0) + nw.length; } return; }
-      if (!prefs().ask) return;
+      if (qt || !prefs().ask) return;
       const baseSug = lin ? lin.name : '';
       askName({ title: nw.length > 1 ? 'Name these ' + nw.length + ' parts' : 'Name this part', base: baseSug || 'Part', preset: baseSug ? baseSug + ' 2' : undefined, auto: f.name, sub: nw.length > 1 ? 'They are numbered from this name (Name 1, Name 2 …).' : undefined }).then((r) => { if (r && st.doc.features.includes(f)) apply(f, nw, r.name, r); });
     } catch (e) { console.warn('part naming', e); }
@@ -60226,8 +60226,8 @@ body.aaktouch .aakhit{position:relative}body.aaktouch .aakhit::after{content:"";
     } else go();
   };
   const add0 = F.add; F.add = function (doc, f) {
-    const track = ready && !quiet && !auto() && doc === st.doc && f && prefs() && true; const before = track ? snapKeys() : null;
-    const r = add0.apply(this, arguments); if (track) setTimeout(() => afterAdd(f && f.id ? f : r, before), 40); return r;
+    const qt = quiet, track = ready && !auto() && doc === st.doc && f && prefs() && true; const before = track ? snapKeys() : null;
+    const r = add0.apply(this, arguments); if (track) setTimeout(() => afterAdd(f && f.id ? f : r, before, qt), 40); return r;
   };
 
   // ============================================================ Parts tab
@@ -60307,7 +60307,7 @@ body.aaktouch .aakhit{position:relative}body.aaktouch .aakhit::after{content:"";
     const $q = $('#poQ', pane); $q.oninput = () => { pv.q = $q.value; const pos = $q.selectionStart; render(); const q2 = $('#poQ', pane); q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } };
     $('#poSort', pane).onchange = (e) => { pv.sort = e.target.value; render(); }; $('#poGrp', pane).onchange = (e) => { pv.group = e.target.value; render(); }; $('#poDir', pane).onclick = () => { pv.desc = !pv.desc; render(); };
     $$('.po-chip', pane).forEach((b) => { b.onclick = () => { pv.flt = b.dataset.flt; render(); }; });
-    $('#poFold', pane).onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); menu(r.left, r.bottom + 4, '<div class="h">New folder</div><input type="text" id="pfN" placeholder="Folder name"><div class="rw"><button class="po-btn hot" id="pfOk">Create</button></div>', (m) => { const go = () => { const n = $('#pfN', m).value.trim(); if (!n) return; if (M.folders.indexOf(n) < 0) M.folders.push(n); const t = ticked(all); t.forEach((p) => { M.fold[p.key] = n; }); if (t.length) pv.group = 'fold'; closePop(); P.regenerate(true); render(); }; $('#pfOk', m).onclick = go; $('#pfN', m).onkeydown = (ev) => { if (ev.key === 'Enter') go(); }; setTimeout(() => $('#pfN', m).focus(), 20); }); };
+    $('#poFold', pane).onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); menu(r.left, r.bottom + 4, '<div class="h">New folder</div><input type="text" id="pfN" placeholder="Folder name"><div class="rw"><button class="po-btn hot" id="pfOk">Create</button></div>', (m) => { const go = () => { const n = $('#pfN', m).value.trim(); if (!n) return; if (M.folders.indexOf(n) < 0) M.folders.push(n); let t = ticked(all); if (!t.length) { const sk = selKeys(); t = all.filter((p) => sk.has(p.key)); } t.forEach((p) => { M.fold[p.key] = n; }); pv.group = 'fold'; closePop(); P.regenerate(true); render(); toast(t.length ? 'Moved ' + t.length + ' part(s) into “' + n + '”' : 'Folder “' + n + '” created (empty) — tick parts and use Group into folder'); }; $('#pfOk', m).onclick = go; $('#pfN', m).onkeydown = (ev) => { if (ev.key === 'Enter') go(); }; setTimeout(() => $('#pfN', m).focus(), 20); }); };
     $('#poCfg', pane).onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(), pf = prefs(); menu(r.left, r.bottom + 4, '<div class="h">Naming pop-up</div><label class="it"><input type="checkbox" id="cA"' + (pf.ask ? ' checked' : '') + '> Ask for a name when a new part is made</label><label class="it"><input type="checkbox" id="cE"' + (pf.extra ? ' checked' : '') + '> Also ask for folder and material</label><label class="it"><input type="checkbox" id="cR"' + (pf.remember ? ' checked' : '') + '> Remember my last folder</label>', (m) => { $$('input', m).forEach((c) => { c.onchange = () => setPrefs({ ask: $('#cA', m).checked, extra: $('#cE', m).checked, remember: $('#cR', m).checked }); }); }); };
     $('#poTools', pane).onclick = (e) => { const r = e.currentTarget.getBoundingClientRect(); menu(r.left, r.bottom + 4, '<div class="it" data-t="find">🎯 Find in 3D (zoom to the selected part)</div><div class="it" data-t="clean">🧹 Clean-up check</div><div class="it" data-t="auto">🪄 Auto-organise into folders</div><div class="it" data-t="all">☑ Tick all shown</div><div class="it" data-t="restore">👁 Show everything again</div><div class="it" data-t="expand">▾ Expand / collapse all groups</div>', (m) => { m.onclick = (ev) => { const t = ev.target.closest('[data-t]'); if (!t) return; closePop(); tool(t.dataset.t, all, list); }; }); };
     const lst = $('#poList', pane);
