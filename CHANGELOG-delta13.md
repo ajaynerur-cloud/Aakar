@@ -20,3 +20,7 @@
 - Hover highlight only for bodies; ticking a feature also ticks its source sketch.
 - Auto-organise groups by kind/name prefix, not true assemblies. Mass only for materials in the density table.
 - Not tested on Windows.
+
+## Fix (same delta)
+- Name, folder and material from the pop-up now carry over when the solid is made with the Pull tool (it commits quietly and was skipped before).
+- "+ Folder" with nothing ticked now moves the part selected in 3D into the new folder.
