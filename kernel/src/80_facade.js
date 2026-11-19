@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------- public kernel interface (the contract Aakar's exact-kernel panel expects, plus analysis extras)
-AK.version = '1.4.0';
+AK.version = '1.5.0';
 const mkNode = (kind, d) => new Node(kind, d);
 const prim = (p) => mkNode('prim', { prim: p });
 const num = (x, name) => { if (!(typeof x === 'number' && isFinite(x))) throw new Error(name + ' must be a finite number'); return x; };

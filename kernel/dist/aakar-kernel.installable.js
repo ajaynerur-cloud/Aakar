@@ -1474,7 +1474,7 @@ function stepRead(text, opts) {
 AK.stepWrite = stepWrite; AK.stepRead = stepRead; AK.stepParse = stepParse;
 
 // ---------------------------------------------------------------- public kernel interface (the contract Aakar's exact-kernel panel expects, plus analysis extras)
-AK.version = '1.4.0';
+AK.version = '1.5.0';
 const mkNode = (kind, d) => new Node(kind, d);
 const prim = (p) => mkNode('prim', { prim: p });
 const num = (x, name) => { if (!(typeof x === 'number' && isFinite(x))) throw new Error(name + ' must be a finite number'); return x; };
@@ -1710,7 +1710,7 @@ G.AakarKernel = AK;
     throw last;
   };
   K.features = (K.features || []).concat(['round-edges', 'round-rim-torus', 'mirror', 'polyhedron', 'trimmed-torus-massprops', 'boolean-retry']);
-  K.version = AK.version = '1.4.0';
+  K.version = AK.version = '1.5.0';
 })(T.AakarKernel);
 // ---------------------------------------------------------------- AakarKernel 1.4: freeform (NURBS) solids
 // Rational B-spline curves and surfaces, and solids that are bounded by them: extrude, revolve, loft and sweep of CURVED profiles (lines, true arcs and circles,
@@ -2816,7 +2816,7 @@ G.AakarKernel = AK;
     } catch (e) { if (globalThis.__cpdbg) console.log(e.stack); return null; }
   }
   const boolExact = (op, a, b) => boolPrisms(op, a, b);
-  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, faceAt, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, boolPrisms, boolExact, isPrism, shellExact, offsetPrism, shellPrism, roundPrism, offsetLoopCurves, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.4.0' };
+  AK.nurbs = K.nurbs = { line, polyline, arc, circle, interp, fromControl, curve, cEval, sEval, cSample, cReverse, cMap, extrude, revolve, loft, sweep, sweepPieces, cutPrism, cutHalfSpace, cutPlanarTool, cutExact, prismSolid, planeCut, toolCut, moveFace, deleteFace, faceAt, clipPlanFace, trimSurfaceByPlane, trimSurfaceByPlanes, cutSkewCylinder, cutQuadricTool, boolPrisms, boolExact, isPrism, shellExact, offsetPrism, shellPrism, roundPrism, offsetLoopCurves, chainLoops, facesFromLoops, cSplit, cSub, massProps, check, mesh, indexedMesh, stepWrite, xf: xfSolid, fromSpec, isNurbs: isN, version: '1.5.0' };
   K.features = (K.features || []).concat(['nurbs-curves', 'nurbs-solids', 'nurbs-massprops', 'nurbs-step']);
 })(T.AakarKernel);
 

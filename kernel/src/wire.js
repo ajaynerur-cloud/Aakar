@@ -51,8 +51,14 @@
       try {
         if (G.AakarKernelInstalled && G.AakarKernelInstalled.kernel) return fin(true);
         const d = G.document; if (!d) return fin(false, 'no document');
-        const el = d.createElement('script'); el.src = 'kernel/aakar-kernel.installable.js'; el.async = true;
-        el.onload = () => fin(!!(G.AakarKernelInstalled && G.AakarKernelInstalled.kernel), 'the file loaded but holds no kernel'); el.onerror = () => { el.remove(); fin(false, 'folder kernel/ not found next to this file'); }; d.head.appendChild(el);
+        const paths = ['kernel/aakar-kernel.installable.js', 'kernel/dist/aakar-kernel.installable.js', '../kernel/aakar-kernel.installable.js', '../kernel/dist/aakar-kernel.installable.js'];   // beside index.html, or the repository layout Aakar-main/app + Aakar-main/kernel/dist
+        const tryAt = (i) => {
+          if (i >= paths.length) return fin(false, 'no kernel file found: put aakar-kernel.installable.js in a folder kernel/ next to index.html (tried ' + paths.join(', ') + ')');
+          const el = d.createElement('script'); el.src = paths[i]; el.async = true;
+          el.onload = () => (G.AakarKernelInstalled && G.AakarKernelInstalled.kernel ? fin(true) : (el.remove(), tryAt(i + 1)));
+          el.onerror = () => { el.remove(); tryAt(i + 1); }; d.head.appendChild(el);
+        };
+        tryAt(0);
       } catch (e) { fin(false, e.message || String(e)); }
     });
   };
